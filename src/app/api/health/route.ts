@@ -1,0 +1,17 @@
+import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+
+export async function GET() {
+	const supabase = await createClient()
+
+	const {
+		data: { user },
+	} = await supabase.auth.getUser()
+
+	return NextResponse.json({
+		ok: true,
+		time: new Date().toISOString(),
+		authenticated: Boolean(user),
+		userId: user?.id ?? null,
+	})
+}
