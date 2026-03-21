@@ -14,7 +14,7 @@ export interface Plan {
 	isRecommended?: boolean
 	isFounder?: boolean
 	features: string[]
-	stripePriceIdEnvKey: string
+	mpPlanIdEnvKey: string
 	description?: string
 }
 
@@ -25,15 +25,15 @@ export const PLANS: Record<PlanKey, Plan> = {
 		priceBRL: 397,
 		badge: 'Essencial',
 		badgeColor: 'blue',
-		stripePriceIdEnvKey: 'STRIPE_PRICE_ID_ESSENCIAL',
+		mpPlanIdEnvKey: 'MP_PLAN_ID_ESSENCIAL',
 		description: 'Para clínicas que querem começar com automação inteligente',
 		features: [
-			'Chatbot inteligente com IA',
-			'WhatsApp integrado via Z-API',
+			'Chatbot inteligente no WhatsApp',
 			'Agendamento automatizado',
 			'Respostas rápidas personalizadas',
 			'Dashboard de conversas',
 			'Histórico completo de mensagens',
+			'Lembretes automáticos',
 			'1 atendente simultâneo',
 		],
 	},
@@ -44,18 +44,16 @@ export const PLANS: Record<PlanKey, Plan> = {
 		badge: 'Mais escolhido',
 		badgeColor: 'purple',
 		isRecommended: true,
-		stripePriceIdEnvKey: 'STRIPE_PRICE_ID_PROFISSIONAL',
+		mpPlanIdEnvKey: 'MP_PLAN_ID_PROFISSIONAL',
 		description: 'Para clínicas que desejam escalar o atendimento',
 		features: [
 			'Tudo do Essencial',
-			'Chatbot inteligente com IA',
-			'Fluxos personalizados avançados',
 			'Agendamento inteligente com Google Calendar',
+			'Fluxos personalizados avançados',
 			'Relatórios e métricas detalhadas',
 			'Múltiplos atendentes simultâneos',
-			'Integração completa com calendário',
+			'Notificações automáticas de confirmação',
 			'Suporte prioritário',
-			'Notificações de confirmação automáticas',
 		],
 	},
 	clinic_pro: {
@@ -64,19 +62,17 @@ export const PLANS: Record<PlanKey, Plan> = {
 		priceBRL: 997,
 		badge: 'Premium',
 		badgeColor: 'amber',
-		stripePriceIdEnvKey: 'STRIPE_PRICE_ID_CLINIC_PRO',
+		mpPlanIdEnvKey: 'MP_PLAN_ID_CLINIC_PRO',
 		description: 'Para clínicas de alto volume e multi-especialidades',
 		features: [
 			'Tudo do Profissional',
-			'Chatbot inteligente com IA',
 			'Gestão de múltiplas especialidades',
 			'Automação completa de no-show',
 			'Relatórios avançados e analytics',
 			'API personalizada para integrações',
 			'Atendentes ilimitados',
 			'Suporte dedicado e onboarding',
-			'Personalização completa de fluxos',
-			'Whitelabel (sem marca Doctor Chat Bot)',
+			'Whitelabel (sem marca DoctorChatBot)',
 		],
 	},
 	fundador: {
@@ -86,10 +82,9 @@ export const PLANS: Record<PlanKey, Plan> = {
 		badge: 'Plano Fundador',
 		badgeColor: 'emerald',
 		isFounder: true,
-		stripePriceIdEnvKey: 'STRIPE_PRICE_ID_FUNDADOR',
+		mpPlanIdEnvKey: 'MP_PLAN_ID_FUNDADOR',
 		description: 'Acesso antecipado com preço especial de lançamento',
 		features: [
-			'Chatbot inteligente com IA',
 			'Tudo do Essencial incluído',
 			'Preço garantido para sempre',
 			'Early access a novas funcionalidades',
@@ -129,11 +124,11 @@ export function getFounderPlan(): Plan {
 }
 
 /**
- * Get Stripe Price ID from environment for a given plan
+ * Get Mercado Pago Plan ID from environment for a given plan
  */
-export function getStripePriceId(planKey: PlanKey): string | undefined {
+export function getMpPlanId(planKey: PlanKey): string | undefined {
 	const plan = getPlan(planKey)
-	return process.env[plan.stripePriceIdEnvKey]
+	return process.env[plan.mpPlanIdEnvKey]
 }
 
 /**

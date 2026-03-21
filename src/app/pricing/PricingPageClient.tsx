@@ -99,7 +99,7 @@ export default function PricingPageClient({ isLoggedIn }: PricingPageClientProps
 						<div className="flex flex-col items-center">
 							<Shield className="w-8 h-8 text-neutral-700 mb-3" />
 							<h3 className="font-semibold text-neutral-900 mb-1">Pagamento seguro</h3>
-							<p className="text-sm text-neutral-600">Powered by Stripe</p>
+							<p className="text-sm text-neutral-600">Powered by Mercado Pago</p>
 						</div>
 						<div className="flex flex-col items-center">
 							<UserCheck className="w-8 h-8 text-neutral-700 mb-3" />
@@ -139,7 +139,7 @@ function PlanCard({ plan, isLoggedIn }: PlanCardProps) {
 
 		setIsCreatingCheckout(true)
 		try {
-			const response = await fetch('/api/stripe/create-checkout-session', {
+			const response = await fetch('/api/mercadopago/create-preference', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -151,11 +151,11 @@ function PlanCard({ plan, isLoggedIn }: PlanCardProps) {
 				const data = await response.json()
 				window.location.href = data.url
 			} else {
-				alert('Erro ao criar sessão de pagamento')
+				alert('Erro ao criar sessão de pagamento. Tente novamente.')
 			}
 		} catch (error) {
-			console.error('Error creating checkout session:', error)
-			alert('Erro ao criar sessão de pagamento')
+			console.error('Error creating MP preference:', error)
+			alert('Erro ao criar sessão de pagamento. Tente novamente.')
 		} finally {
 			setIsCreatingCheckout(false)
 		}
@@ -228,7 +228,7 @@ function FounderPlanCard({ plan, isLoggedIn }: { plan: Plan, isLoggedIn: boolean
 
 		setIsCreatingCheckout(true)
 		try {
-			const response = await fetch('/api/stripe/create-checkout-session', {
+			const response = await fetch('/api/mercadopago/create-preference', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -240,11 +240,11 @@ function FounderPlanCard({ plan, isLoggedIn }: { plan: Plan, isLoggedIn: boolean
 				const data = await response.json()
 				window.location.href = data.url
 			} else {
-				alert('Erro ao criar sessão de pagamento')
+				alert('Erro ao criar sessão de pagamento. Tente novamente.')
 			}
 		} catch (error) {
-			console.error('Error creating checkout session:', error)
-			alert('Erro ao criar sessão de pagamento')
+			console.error('Error creating MP preference:', error)
+			alert('Erro ao criar sessão de pagamento. Tente novamente.')
 		} finally {
 			setIsCreatingCheckout(false)
 		}

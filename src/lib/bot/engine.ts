@@ -15,13 +15,17 @@ export type BotState =
   | 'reagendar_dia'
   | 'reagendar_hora'
   | 'cancelar_confirmar'
-  | 'cancelar_encaixe';
+  | 'cancelar_encaixe'
+  | 'atendente'
+  | 'ver_agendamentos'
+  | 'confirmar_presenca';
 
 export type BotContext = {
   name?: string;
   day?: string;
   time?: string;
   intent?: string;
+  patientPhone?: string;
 };
 
 type BotResponse = {
@@ -31,6 +35,7 @@ type BotResponse = {
   conversationStatus?: string;
   appointmentCreated?: boolean;
   appointmentId?: string;
+  transferToHuman?: boolean;
 };
 
 /**
@@ -41,7 +46,8 @@ export async function handleBotTurn(
   userMessage: string,
   currentState: BotState = 'menu',
   currentContext: BotContext = {},
-  botSettings?: BotSettings | null
+  botSettings?: BotSettings | null,
+  patientPhone?: string
 ): Promise<BotResponse> {
   const state = currentState || 'menu';
 
@@ -69,6 +75,20 @@ export async function handleBotTurn(
 
     case 'cancelar_encaixe':
       return handleCancelarEncaixeState(userMessage, currentContext);
+
+    case 'atendente':
+      // Qualquer mensagem volta ao menu quando atendente assume
+      return {
+        message: botSettings?.message_menu || templates.menu,
+        nextState: 'menu',
+        nextContext: {},
+      };
+
+    case 'ver_agendamentos':
+      return await handleVerAgendamentosResponseState(userMessage, currentContext);
+
+    case 'confirmar_presenca':
+      return handleConfirmarPresencaState(userMessage, currentContext);
 
     default:
       return {
@@ -105,6 +125,29 @@ function handleMenuState(userMessage: string, context: BotContext, botSettings?:
         message: templates.cancelConfirm,
         nextState: 'cancelar_confirmar',
         nextContext: { intent: 'cancel' },
+      };
+
+    case 'attendant':
+      return {
+        message: templates.attendantTransfer,
+        nextState: 'atendente',
+        nextContext: { intent: 'attendant' },
+        conversationStatus: 'waiting_human',
+        transferToHuman: true,
+      };
+
+    case 'view_appointments':
+      return {
+        message: '🔍 Buscando seus agendamentos...',
+        nextState: 'ver_agendamentos',
+        nextContext: { intent: 'view_appointments', patientPhone: context.patientPhone },
+      };
+
+    case 'confirm_attendance':
+      return {
+        message: templates.confirmAttendanceAsk,
+        nextState: 'confirmar_presenca',
+        nextContext: { intent: 'confirm_attendance' },
       };
 
     default:
@@ -155,22 +198,16 @@ async function handleAgendarHoraState(
   const name = context.name || 'Paciente';
   const day = context.day || 'a definir';
 
-  // Tentar criar o appointment real
   try {
     const response = await fetch(`${process.env.APP_URL || 'http://localhost:3000'}/api/bot/create-appointment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        conversationId,
-        dayText: day,
-        timeText: time,
-      }),
+      body: JSON.stringify({ conversationId, dayText: day, timeText: time }),
     });
 
     const data = await response.json();
 
     if (response.ok && data.success) {
-      // Appointment criado com sucesso!
       return {
         message: data.message,
         nextState: 'menu',
@@ -180,17 +217,14 @@ async function handleAgendarHoraState(
         appointmentId: data.appointmentId,
       };
     } else {
-      // Erro ao criar (conflito, horário inválido, etc.)
       return {
         message: data.message || 'Não consegui confirmar o agendamento. Pode tentar outro horário?',
-        nextState: 'agendar_hora', // Manter no estado para tentar novamente
+        nextState: 'agendar_hora',
         nextContext: context,
       };
     }
   } catch (error) {
     console.error('Error creating appointment from bot:', error);
-    
-    // Fallback: apenas confirmar sem criar no sistema
     return {
       message: botSettings?.message_confirm_schedule || templates.scheduleConfirm(name, day, time),
       nextState: 'menu',
@@ -250,7 +284,6 @@ function handleCancelarConfirmarState(userMessage: string, context: BotContext):
     };
   }
 
-  // Ask again if unclear
   return {
     message: templates.cancelConfirm,
     nextState: 'cancelar_confirmar',
@@ -282,10 +315,71 @@ function handleCancelarEncaixeState(userMessage: string, context: BotContext): B
     };
   }
 
-  // Ask again if unclear
   return {
     message: templates.cancelAskWaitlist,
     nextState: 'cancelar_encaixe',
+    nextContext: context,
+  };
+}
+
+/**
+ * View appointments - handle patient response after listing
+ */
+async function handleVerAgendamentosResponseState(
+  userMessage: string,
+  context: BotContext
+): Promise<BotResponse> {
+  const intent = detectIntent(userMessage);
+
+  if (intent === 'reschedule' || userMessage.trim() === '1') {
+    return {
+      message: templates.rescheduleAskDay,
+      nextState: 'reagendar_dia',
+      nextContext: { intent: 'reschedule' },
+    };
+  }
+
+  if (intent === 'cancel' || userMessage.trim() === '2') {
+    return {
+      message: templates.cancelConfirm,
+      nextState: 'cancelar_confirmar',
+      nextContext: { intent: 'cancel' },
+    };
+  }
+
+  return {
+    message: templates.menu,
+    nextState: 'menu',
+    nextContext: {},
+  };
+}
+
+/**
+ * Confirm attendance flow
+ */
+function handleConfirmarPresencaState(userMessage: string, context: BotContext): BotResponse {
+  const response = detectYesNo(userMessage);
+
+  if (response === 'yes') {
+    return {
+      message: templates.confirmAttendanceSuccess,
+      nextState: 'menu',
+      nextContext: {},
+      conversationStatus: 'scheduled',
+    };
+  }
+
+  if (response === 'no') {
+    return {
+      message: templates.confirmAttendanceCancel,
+      nextState: 'menu',
+      nextContext: {},
+    };
+  }
+
+  return {
+    message: templates.confirmAttendanceAsk,
+    nextState: 'confirmar_presenca',
     nextContext: context,
   };
 }
@@ -299,7 +393,6 @@ export async function sendBotResponse(
   response: BotResponse,
   clinicId: string
 ): Promise<boolean> {
-  // Get Supabase admin client
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -312,14 +405,13 @@ export async function sendBotResponse(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Use service key for internal calls
           Authorization: `Bearer ${supabaseServiceKey}`,
         },
         body: JSON.stringify({
           conversationId,
           phone,
           text: response.message,
-          internalCall: true, // Flag to bypass auth check
+          internalCall: true,
         }),
       }
     );
@@ -350,9 +442,13 @@ export async function sendBotResponse(
       bot_context: response.nextContext,
     };
 
-    // Update status if provided
     if (response.conversationStatus) {
       updateData.status = response.conversationStatus;
+    }
+
+    // Desabilitar bot se transferiu para atendente humano
+    if (response.transferToHuman) {
+      updateData.bot_enabled = false;
     }
 
     const { error: conversationError } = await supabase
@@ -365,7 +461,6 @@ export async function sendBotResponse(
       return false;
     }
 
-    // 4. Log success
     await supabase.from('logs').insert({
       clinic_id: clinicId,
       event: 'bot.response.sent',
@@ -374,14 +469,14 @@ export async function sendBotResponse(
         conversationId,
         state: response.nextState,
         statusChange: response.conversationStatus,
+        transferToHuman: response.transferToHuman || false,
       },
     });
 
     return true;
   } catch (error) {
     console.error('[Bot] Error in sendBotResponse:', error);
-    
-    // Log error
+
     await supabase.from('logs').insert({
       clinic_id: clinicId,
       event: 'bot.response.failed',

@@ -8,7 +8,7 @@ interface CurrentPlanCardProps {
 	isActive: boolean
 	status: string
 	currentPeriodEnd: string | null
-	hasStripeCustomer: boolean
+	hasStripeCustomer: boolean // mantido por compatibilidade - indica se tem assinatura MP ativa
 	planKey: PlanKey | null
 }
 
@@ -24,19 +24,29 @@ export default function CurrentPlanCard({
 	const handleManageSubscription = async () => {
 		setIsCreatingPortal(true)
 		try {
-			const response = await fetch('/api/stripe/create-portal-session', {
+			const confirmed = window.confirm(
+				'Tem certeza que deseja cancelar sua assinatura? O acesso permanece ativo até o fim do período atual.'
+			)
+			if (!confirmed) {
+				setIsCreatingPortal(false)
+				return
+			}
+
+			const response = await fetch('/api/mercadopago/manage', {
 				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'cancel' }),
 			})
 
 			if (response.ok) {
-				const data = await response.json()
-				window.location.href = data.url
+				alert('Assinatura cancelada com sucesso. Seu acesso permanece ativo até o fim do período.')
+				window.location.reload()
 			} else {
-				alert('Erro ao abrir portal de pagamento')
+				alert('Erro ao cancelar assinatura. Entre em contato com o suporte.')
 			}
 		} catch (error) {
-			console.error('Error creating portal session:', error)
-			alert('Erro ao abrir portal de pagamento')
+			console.error('Error managing MP subscription:', error)
+			alert('Erro ao gerenciar assinatura. Entre em contato com o suporte.')
 		} finally {
 			setIsCreatingPortal(false)
 		}
@@ -112,9 +122,9 @@ export default function CurrentPlanCard({
 					<button
 						onClick={handleManageSubscription}
 						disabled={isCreatingPortal}
-						className="w-full mt-2 bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-medium py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						className="w-full mt-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-sm font-medium py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 					>
-						{isCreatingPortal ? 'Abrindo...' : 'Gerenciar assinatura'}
+						{isCreatingPortal ? 'Processando...' : 'Cancelar assinatura'}
 					</button>
 				)}
 			</div>

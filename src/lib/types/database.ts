@@ -6,6 +6,7 @@ export type ConversationStatus =
 	| 'new'
 	| 'in_progress'
 	| 'waiting_patient'
+	| 'waiting_human'
 	| 'scheduled'
 	| 'reschedule'
 	| 'canceled'
@@ -23,6 +24,9 @@ export type BotState =
 	| 'reagendar_hora'
 	| 'cancelar_confirmar'
 	| 'cancelar_encaixe'
+	| 'atendente'
+	| 'ver_agendamentos'
+	| 'confirmar_presenca'
 
 export interface BotContext {
 	name?: string

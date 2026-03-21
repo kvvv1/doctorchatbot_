@@ -20,7 +20,7 @@ export default function PlanCard({
 	const handleSubscribe = async () => {
 		setIsCreatingCheckout(true)
 		try {
-			const response = await fetch('/api/stripe/create-checkout-session', {
+			const response = await fetch('/api/mercadopago/create-preference', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
