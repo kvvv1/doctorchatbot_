@@ -20,7 +20,7 @@ interface AppointmentDetailsModalProps {
     provider_reference_id?: string
   }
   onClose: () => void
-  onStatusChange: (appointmentId: string, newStatus: string) => Promise<void>
+  onStatusChange: (appointmentId: string, newStatus: 'scheduled' | 'confirmed' | 'canceled' | 'completed' | 'no_show') => Promise<void>
   onDelete: (appointmentId: string) => Promise<void>
 }
 
@@ -42,7 +42,7 @@ export default function AppointmentDetailsModal({
 
   const config = statusConfig[appointment.status]
 
-  const handleStatusChange = async (newStatus: string) => {
+  const handleStatusChange = async (newStatus: 'scheduled' | 'confirmed' | 'canceled' | 'completed' | 'no_show') => {
     setIsProcessing(true)
     try {
       await onStatusChange(appointment.id, newStatus)

@@ -133,12 +133,7 @@ export default function AgendaPageClient({ initialAppointments }: AgendaPageClie
     loadMetrics()
   }, [])
 
-  interface CalendarEventPayload {
-    id: string
-    [key: string]: unknown
-  }
-
-  const handleSelectEvent = (event: CalendarEventPayload) => {
+  const handleSelectEvent = (event: { id: string; title: string; start: Date; end: Date; resource: Record<string, unknown> }) => {
     const apt = appointments.find((a) => a.id === event.id)
     if (apt) {
       setSelectedAppointment(apt)

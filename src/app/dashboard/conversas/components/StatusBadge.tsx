@@ -34,6 +34,10 @@ const statusConfig: Record<ConversationStatus, { label: string; colors: string }
 		label: 'Lista espera',
 		colors: 'bg-neutral-100 text-neutral-700 border-neutral-200',
 	},
+	waiting_human: {
+		label: 'Com atendente',
+		colors: 'bg-rose-100 text-rose-700 border-rose-200',
+	},
 	done: {
 		label: 'Concluída',
 		colors: 'bg-emerald-100 text-emerald-700 border-emerald-200',

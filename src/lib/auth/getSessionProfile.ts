@@ -44,7 +44,7 @@ export async function getSessionProfile(): Promise<
 
 	return {
 		user,
-		profile: { ...profile, user_id: profile.id } as ProfileRow,
+		profile: profile as ProfileRow,
 		clinic: clinic as ClinicRow,
 	}
 }

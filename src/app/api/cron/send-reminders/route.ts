@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { sendMessage } from '@/lib/zapi/client'
+import { zapiSendText } from '@/lib/zapi/client'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -68,8 +68,27 @@ export async function GET(request: NextRequest) {
           }
         )
 
-        // Enviar via ZAPI
-        const zapiResponse = await sendMessage(reminder.recipient_phone, message)
+        // Buscar credenciais da clínica para envio via Z-API
+        const { data: clinic } = await supabase
+          .from('clinics')
+          .select('zapi_instance_id, zapi_token, zapi_client_token')
+          .eq('id', reminder.clinic_id)
+          .single()
+
+        if (!clinic?.zapi_instance_id || !clinic?.zapi_token) {
+          throw new Error('Z-API not configured for this clinic')
+        }
+
+        // Enviar via Z-API
+        const zapiResponse = await zapiSendText(
+          {
+            instanceId: clinic.zapi_instance_id,
+            token: clinic.zapi_token,
+            clientToken: clinic.zapi_client_token || undefined,
+          },
+          reminder.recipient_phone,
+          message
+        )
 
         // Marcar como enviado
         await supabase

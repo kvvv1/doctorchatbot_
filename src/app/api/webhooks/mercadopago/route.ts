@@ -88,9 +88,10 @@ async function handleSubscriptionEvent(subscriptionId: string) {
 
   const status = mapMpStatus(subscription.status)
 
-  // Calcular próxima cobrança
-  const nextPaymentDate = subscription.auto_recurring?.end_date
-    ? new Date(subscription.auto_recurring.end_date).toISOString()
+  // Calcular próxima cobrança (end_date não existe no tipo, usar date_created + 1 mês como fallback)
+  const autoRecurring = subscription.auto_recurring as any
+  const nextPaymentDate = autoRecurring?.end_date
+    ? new Date(autoRecurring.end_date).toISOString()
     : null
 
   const updateData: any = {

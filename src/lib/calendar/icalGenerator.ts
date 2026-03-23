@@ -3,7 +3,7 @@
  * Generates .ics files for calendar feeds and appointments export
  */
 
-import ical, { ICalCalendar, ICalEventStatus } from 'ical-generator'
+import ical, { ICalEventStatus, ICalEventBusyStatus } from 'ical-generator'
 import { createClient } from '@/lib/supabase/server'
 
 export interface AppointmentForExport {
@@ -58,7 +58,7 @@ export async function generateICalFeed(clinicId: string): Promise<string> {
           : `Paciente: ${apt.patient_name}\nTelefone: ${apt.patient_phone}`,
         location: clinic?.name || 'Clínica',
         status: status,
-        busystatus: 'BUSY',
+        busystatus: ICalEventBusyStatus.BUSY,
         url: `${process.env.APP_URL || 'http://localhost:3000'}/dashboard/agenda`,
       })
     }
@@ -89,7 +89,7 @@ export function generateAppointmentICS(appointment: AppointmentForExport): strin
       : `Paciente: ${appointment.patient_name}\nTelefone: ${appointment.patient_phone}`,
     location: 'Clínica',
     status: status,
-    busystatus: 'BUSY',
+    busystatus: ICalEventBusyStatus.BUSY,
     url: `${process.env.APP_URL || 'http://localhost:3000'}/dashboard/agenda`,
   })
 
@@ -157,15 +157,15 @@ export async function generateAppointmentsCSV(
 function getICalStatus(status: string): ICalEventStatus {
   switch (status) {
     case 'confirmed':
-      return 'CONFIRMED'
+      return ICalEventStatus.CONFIRMED
     case 'completed':
-      return 'CONFIRMED'
+      return ICalEventStatus.CONFIRMED
     case 'canceled':
-      return 'CANCELLED'
+      return ICalEventStatus.CANCELLED
     case 'no_show':
-      return 'CANCELLED'
+      return ICalEventStatus.CANCELLED
     default:
-      return 'TENTATIVE'
+      return ICalEventStatus.TENTATIVE
   }
 }
 
