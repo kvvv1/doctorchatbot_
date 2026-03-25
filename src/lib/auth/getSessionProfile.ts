@@ -2,7 +2,7 @@ import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 
 export type ProfileRow = {
-	user_id: string
+	id: string
 	clinic_id: string
 	role: string
 	created_at: string
@@ -28,8 +28,8 @@ export async function getSessionProfile(): Promise<
 
 	const { data: profile, error: profileError } = await supabase
 		.from('profiles')
-		.select('user_id, clinic_id, role, created_at')
-		.eq('user_id', user.id)
+		.select('id, clinic_id, role, created_at')
+		.eq('id', user.id)
 		.single()
 
 	if (profileError || !profile) return null
