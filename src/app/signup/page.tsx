@@ -11,12 +11,5 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function SignupPage() {
-	const supabase = await createClient()
-	const {
-		data: { user },
-	} = await supabase.auth.getUser()
-
-	if (user) redirect('/dashboard')
-
 	return <AuthPanel mode="signup" />
 }
