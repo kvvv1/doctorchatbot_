@@ -25,7 +25,7 @@ export default function LoginForm({
 
 		try {
 			const supabase = createClient()
-			const { error: signInError } = await supabase.auth.signInWithPassword({
+			const { data, error: signInError } = await supabase.auth.signInWithPassword({
 				email,
 				password,
 			})
@@ -35,7 +35,13 @@ export default function LoginForm({
 				return
 			}
 
-			window.location.href = '/dashboard'
+			if (!data.session) {
+				setError('Sessão não iniciada. Tente novamente em instantes.')
+				return
+			}
+
+			router.replace('/dashboard')
+			router.refresh()
 		} finally {
 			setLoading(false)
 		}
