@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export type ProfileRow = {
 	id: string
@@ -26,7 +27,9 @@ export async function getSessionProfile(): Promise<
 
 	if (!user) return null
 
-	const { data: profile, error: profileError } = await supabase
+	const admin = createAdminClient()
+
+	const { data: profile, error: profileError } = await admin
 		.from('profiles')
 		.select('id, clinic_id, role, created_at')
 		.eq('id', user.id)
@@ -34,7 +37,7 @@ export async function getSessionProfile(): Promise<
 
 	if (profileError || !profile) return null
 
-	const { data: clinic, error: clinicError } = await supabase
+	const { data: clinic, error: clinicError } = await admin
 		.from('clinics')
 		.select('id, name, created_at')
 		.eq('id', profile.clinic_id)
