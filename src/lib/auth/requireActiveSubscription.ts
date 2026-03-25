@@ -13,11 +13,11 @@ export async function requireActiveSubscription() {
 	const session = await getSessionProfile()
 	if (!session) redirect('/login')
 
-	const subscriptionCheck = await checkSubscription(session.clinic.id)
-
-	if (!subscriptionCheck.isActive) {
-		redirect('/dashboard/billing')
-	}
+	// TODO: reativar quando billing estiver configurado
+	// const subscriptionCheck = await checkSubscription(session.clinic.id)
+	// if (!subscriptionCheck.isActive) {
+	// 	redirect('/dashboard/billing')
+	// }
 
 	return session
 }
