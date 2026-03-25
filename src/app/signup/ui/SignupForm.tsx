@@ -49,8 +49,7 @@ export default function SignupForm({
 				return
 			}
 
-			router.replace('/dashboard')
-			router.refresh()
+			window.location.href = '/dashboard'
 		} finally {
 			setLoading(false)
 		}
