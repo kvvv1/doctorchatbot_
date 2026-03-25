@@ -22,10 +22,11 @@ export async function getSessionProfile(): Promise<
 	const supabase = await createClient()
 
 	const {
-		data: { user },
-	} = await supabase.auth.getUser()
+		data: { session },
+	} = await supabase.auth.getSession()
 
-	if (!user) return null
+	if (!session?.user) return null
+	const user = session.user
 
 	const admin = createAdminClient()
 
