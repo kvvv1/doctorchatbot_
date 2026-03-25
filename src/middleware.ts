@@ -25,14 +25,8 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
-
-  const { pathname } = request.nextUrl
-
-  // Se não está logado e tenta acessar o dashboard, redireciona para login
-  if (!user && pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
+  // Apenas refresha a sessão — sem redirects
+  await supabase.auth.getUser()
 
   return supabaseResponse
 }
