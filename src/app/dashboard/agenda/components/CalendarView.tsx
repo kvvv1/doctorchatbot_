@@ -43,47 +43,36 @@ interface CalendarViewProps {
   onNavigate: (date: Date) => void
 }
 
-const STATUS_COLORS: Record<AppointmentStatus, { bg: string; border: string; text: string; dot: string }> = {
-  scheduled: { bg: '#faf5ff', border: '#9333ea', text: '#6b21a8', dot: '#9333ea' },
-  confirmed:  { bg: '#f0fdf4', border: '#16a34a', text: '#14532d', dot: '#16a34a' },
-  canceled:   { bg: '#fff1f2', border: '#e11d48', text: '#9f1239', dot: '#e11d48' },
-  completed:  { bg: '#eff6ff', border: '#2563eb', text: '#1e3a8a', dot: '#2563eb' },
-  no_show:    { bg: '#fff7ed', border: '#ea580c', text: '#7c2d12', dot: '#ea580c' },
+// Cores sólidas para máxima legibilidade nas views de semana/dia
+const STATUS_COLORS: Record<AppointmentStatus, { solid: string; dark: string; light: string; lightText: string; dot: string }> = {
+  scheduled: { solid: '#9333ea', dark: '#7e22ce', light: '#faf5ff', lightText: '#6b21a8', dot: '#9333ea' },
+  confirmed:  { solid: '#16a34a', dark: '#15803d', light: '#f0fdf4', lightText: '#14532d', dot: '#16a34a' },
+  canceled:   { solid: '#dc2626', dark: '#b91c1c', light: '#fff1f2', lightText: '#9f1239', dot: '#dc2626' },
+  completed:  { solid: '#2563eb', dark: '#1d4ed8', light: '#eff6ff', lightText: '#1e3a8a', dot: '#2563eb' },
+  no_show:    { solid: '#ea580c', dark: '#c2410c', light: '#fff7ed', lightText: '#7c2d12', dot: '#ea580c' },
 }
 
-/** Evento customizado – exibe hora + nome do paciente com legibilidade máxima */
+/**
+ * Evento para views de tempo (semana/dia) – rbc já mostra a hora via rbc-event-label,
+ * então aqui exibimos apenas o nome do paciente em destaque.
+ */
 function CustomEvent({ event }: { event: CalendarEvent }) {
-  const colors = STATUS_COLORS[event.resource.status]
-  const timeStr = format(event.start, 'HH:mm')
   const name = event.resource.patient_name
 
   return (
-    <div style={{ lineHeight: 1.3, overflow: 'hidden' }}>
-      <span
-        style={{
-          fontSize: '0.7rem',
-          fontWeight: 700,
-          opacity: 0.8,
-          display: 'block',
-          color: colors.text,
-        }}
-      >
-        {timeStr}
-      </span>
-      <span
-        style={{
-          fontSize: '0.8rem',
-          fontWeight: 700,
-          display: 'block',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          color: colors.text,
-        }}
-      >
-        {name}
-      </span>
-    </div>
+    <span
+      style={{
+        display: 'block',
+        fontWeight: 700,
+        fontSize: '0.82rem',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        letterSpacing: '-0.01em',
+      }}
+    >
+      {name}
+    </span>
   )
 }
 
@@ -116,12 +105,11 @@ function AgendaEvent({ event }: { event: CalendarEvent }) {
       <span
         style={{
           fontSize: '0.72rem',
-          fontWeight: 600,
-          padding: '1px 7px',
+          fontWeight: 700,
+          padding: '2px 8px',
           borderRadius: 999,
-          backgroundColor: colors.bg,
-          color: colors.text,
-          border: `1px solid ${colors.border}`,
+          backgroundColor: colors.solid,
+          color: '#fff',
         }}
       >
         {STATUS_LABEL[event.resource.status]}
@@ -149,11 +137,12 @@ export default function CalendarView({
 
     return {
       style: {
-        backgroundColor: colors.bg,
-        borderLeft: `4px solid ${colors.border}`,
+        backgroundColor: colors.solid,
+        borderLeft: `4px solid ${colors.dark}`,
         borderRadius: '6px',
-        padding: '4px 8px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.07)',
+        padding: '3px 7px',
+        color: '#ffffff',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
       },
     }
   }

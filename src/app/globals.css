@@ -106,36 +106,57 @@ body {
   font-size: 0.8rem !important;
   font-weight: 600 !important;
   border: none !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18) !important;
   overflow: hidden;
   line-height: 1.35;
+  color: #fff !important;
 }
 
 .rbc-event:hover {
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15) !important;
+  filter: brightness(1.1);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25) !important;
   cursor: pointer;
   transform: translateY(-1px);
   transition: all 0.15s ease;
 }
 
+/* Hora automática exibida pelo rbc no time-grid */
 .rbc-event-label {
-  font-size: 0.72rem;
-  font-weight: 600;
-  opacity: 0.85;
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  opacity: 0.88;
   display: block;
   margin-bottom: 1px;
+  color: #fff !important;
 }
 
+/* Nome do paciente */
 .rbc-event-content {
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: #fff !important;
 }
 
-/* Eventos sobrepostos – garante borda visível entre colunas */
+/* No time-grid (semana/dia) – garantir que o texto interno seja branco */
+.rbc-day-slot .rbc-event .rbc-event-label,
+.rbc-day-slot .rbc-event .rbc-event-content {
+  color: #fff !important;
+}
+
+/* Eventos sobrepostos – separação visível entre colunas */
 .rbc-day-slot .rbc-events-container {
-  margin-right: 4px;
+  margin-right: 6px;
+  gap: 2px;
+}
+
+/* Altura mínima do evento no time-grid para caber nome + hora */
+.rbc-day-slot .rbc-event {
+  min-height: 28px;
+  border-width: 0 !important;
+  border-left-width: 4px !important;
+  border-left-style: solid !important;
 }
 
 /* ── Toolbar (navegação + título) ── */
