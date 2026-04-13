@@ -83,6 +83,3 @@ export default function BillingPageClient({
 		</div>
 	)
 }
-
-	)
-}
