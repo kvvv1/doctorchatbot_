@@ -79,7 +79,7 @@ export async function handleBotTurn(
       return handleAgendarHora(conversationId, userMessage, ctx, botSettings, clinicId)
 
     case 'agendar_slot_escolha':
-      return handleSlotEscolha(conversationId, userMessage, ctx, clinicId, 'agendar')
+      return handleSlotEscolha(conversationId, userMessage, ctx, clinicId, 'agendar', botSettings)
 
     case 'agendar_dia_lista':
       return handleAgendarDiaLista(userMessage, ctx, botSettings, clinicId)
@@ -97,7 +97,7 @@ export async function handleBotTurn(
       return handleReagendarHora(userMessage, ctx, botSettings, clinicId)
 
     case 'reagendar_slot_escolha':
-      return handleSlotEscolha(conversationId, userMessage, ctx, clinicId, 'reagendar')
+      return handleSlotEscolha(conversationId, userMessage, ctx, clinicId, 'reagendar', botSettings)
 
     case 'reagendar_dia_lista':
       return handleReagendarDiaLista(userMessage, ctx, botSettings, clinicId)
@@ -112,7 +112,7 @@ export async function handleBotTurn(
       return handleCancelarConfirmar(userMessage, ctx)
 
     case 'cancelar_encaixe':
-      return handleCancelarEncaixe(conversationId, userMessage, ctx, clinicId)
+      return handleCancelarEncaixe(conversationId, userMessage, ctx, clinicId, botSettings)
 
     case 'atendente':
       return {
@@ -268,6 +268,7 @@ async function handleAgendarHora(
     patientPhone: ctx.patientPhone || '',
     dayText: requestedDay,
     timeText: requestedTime,
+    confirmTemplate: botSettings?.message_confirm_schedule,
   })
 
   // Success
@@ -282,6 +283,7 @@ async function handleAgendarHora(
 
   // Parsing errors — ask again
   if (result.error === 'invalid_date') {
+
     return { message: result.message, nextState: 'agendar_dia', nextContext: ctx }
   }
   if (result.error === 'invalid_time' || result.error === 'too_soon') {
@@ -312,7 +314,8 @@ async function handleSlotEscolha(
   msg: string,
   ctx: BotContext,
   clinicId: string | undefined,
-  flow: 'agendar' | 'reagendar'
+  flow: 'agendar' | 'reagendar',
+  botSettings?: BotSettings | null
 ): Promise<BotResponse> {
   if (!clinicId) return technicalError(ctx)
 
@@ -336,6 +339,7 @@ async function handleSlotEscolha(
       patientName: ctx.patientName || 'Paciente',
       patientPhone: ctx.patientPhone || '',
       slot,
+      confirmTemplate: botSettings?.message_confirm_schedule,
     })
     return {
       message: result.message,
@@ -347,7 +351,12 @@ async function handleSlotEscolha(
 
   // reagendar
   if (!ctx.appointmentId) return technicalError(ctx)
-  const result = await rescheduleAppointment({ clinicId, appointmentId: ctx.appointmentId, slot })
+  const result = await rescheduleAppointment({
+    clinicId,
+    appointmentId: ctx.appointmentId,
+    slot,
+    confirmTemplate: botSettings?.message_confirm_reschedule,
+  })
   return {
     message: result.message,
     nextState: result.success ? 'menu' : 'reagendar_slot_escolha',
@@ -449,7 +458,12 @@ async function handleReagendarHora(
     label: formatSlotLabel(startsAt),
   }
 
-  const result = await rescheduleAppointment({ clinicId, appointmentId: ctx.appointmentId, slot })
+  const result = await rescheduleAppointment({
+    clinicId,
+    appointmentId: ctx.appointmentId,
+    slot,
+    confirmTemplate: botSettings?.message_confirm_reschedule,
+  })
   return {
     message: result.message,
     nextState: result.success ? 'menu' : 'reagendar_hora',
@@ -482,7 +496,8 @@ async function handleCancelarEncaixe(
   conversationId: string,
   msg: string,
   ctx: BotContext,
-  clinicId?: string
+  clinicId?: string,
+  botSettings?: BotSettings | null
 ): Promise<BotResponse> {
   const answer = detectYesNo(msg)
 
@@ -492,7 +507,7 @@ async function handleCancelarEncaixe(
 
   // Cancel the appointment in DB
   if (ctx.appointmentId && clinicId) {
-    await cancelAppointment(clinicId, ctx.appointmentId)
+    await cancelAppointment(clinicId, ctx.appointmentId, botSettings?.message_confirm_cancel)
   }
 
   if (answer === 'yes') {
@@ -875,6 +890,7 @@ async function handleAgendarHoraLista(
     patientName: ctx.patientName || 'Paciente',
     patientPhone: ctx.patientPhone || '',
     slot,
+    confirmTemplate: botSettings?.message_confirm_schedule,
   })
 
   return {
@@ -956,7 +972,12 @@ async function handleReagendarHoraLista(
   }
 
   const slot = slots[choice]
-  const result = await rescheduleAppointment({ clinicId, appointmentId: ctx.appointmentId, slot })
+  const result = await rescheduleAppointment({
+    clinicId,
+    appointmentId: ctx.appointmentId,
+    slot,
+    confirmTemplate: botSettings?.message_confirm_reschedule,
+  })
 
   return {
     message: result.message,

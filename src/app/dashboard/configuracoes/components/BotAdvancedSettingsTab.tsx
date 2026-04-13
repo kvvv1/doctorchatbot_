@@ -5,6 +5,7 @@ import type { BotSettings, PlanKey } from '@/lib/types/database'
 import { Save, Bot, MessageSquare, Eye, EyeOff } from 'lucide-react'
 import UpgradePrompt from '../../components/UpgradePrompt'
 import BotWhatsAppPreview from './BotWhatsAppPreview'
+import { TEMPLATE_VARIABLES } from '@/lib/bot/interpolate'
 
 interface BotAdvancedSettingsTabProps {
 	clinicId: string
@@ -264,9 +265,25 @@ export default function BotAdvancedSettingsTab({
 						</div>
 
 						<div className="pt-3 border-t border-neutral-200">
-							<p className="text-xs font-semibold text-neutral-600 mb-3 uppercase tracking-wide">
+							<p className="text-xs font-semibold text-neutral-600 mb-1 uppercase tracking-wide">
 								Confirmações automáticas
 							</p>
+							<p className="text-xs text-neutral-400 mb-3">
+								Use as variáveis abaixo para personalizar com os dados reais do agendamento:
+							</p>
+							{/* Variable chips */}
+							<div className="flex flex-wrap gap-1.5 mb-4">
+								{TEMPLATE_VARIABLES.map((v) => (
+									<span
+										key={v.key}
+										title={v.description}
+										className="inline-flex items-center gap-1 rounded border border-sky-200 bg-sky-50 px-2 py-0.5 font-mono text-[11px] text-sky-700 cursor-default select-all"
+									>
+										{v.label}
+										<span className="font-sans text-[10px] text-sky-500 non-mono">= {v.description}</span>
+									</span>
+								))}
+							</div>
 							<div className="space-y-3">
 								<div>
 									<label htmlFor="message-confirm-schedule" className="block text-xs font-medium text-neutral-700 mb-1">

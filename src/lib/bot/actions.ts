@@ -7,6 +7,7 @@
 import { addDays, setHours, setMinutes, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { interpolate } from './interpolate'
 import {
   cancelExternalAppointment,
   createExternalAppointment,
@@ -134,6 +135,7 @@ export async function createAppointment(params: {
   patientPhone: string
   dayText: string
   timeText: string
+  confirmTemplate?: string
 }): Promise<ActionResult & { slot?: Slot }> {
   const supabase = createAdminClient()
 
@@ -215,10 +217,15 @@ export async function createAppointment(params: {
   }
 
   const label = formatSlotLabel(startsAt)
+  const dataStr = format(startsAt, "EEE, dd/MM", { locale: ptBR })
+  const horarioStr = format(startsAt, "HH'h'mm", { locale: ptBR })
+  const successMessage = params.confirmTemplate
+    ? interpolate(params.confirmTemplate, { nome: params.patientName, data: dataStr, horario: horarioStr })
+    : `✅ Agendamento confirmado!\n\n📅 ${label}\n👤 ${params.patientName}\n\nVocê receberá um lembrete antes da consulta. Para cancelar ou remarcar, é só me avisar. 😊`
   return {
     success: true,
     id: data.id,
-    message: `✅ Agendamento confirmado!\n\n📅 ${label}\n👤 ${params.patientName}\n\nVocê receberá um lembrete antes da consulta. Para cancelar ou remarcar, é só me avisar. 😊`,
+    message: successMessage,
     slot: { startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString(), label },
   }
 }
@@ -232,6 +239,7 @@ export async function createAppointmentFromSlot(params: {
   patientName: string
   patientPhone: string
   slot: Slot
+  confirmTemplate?: string
 }): Promise<ActionResult> {
   const supabase = createAdminClient()
 
@@ -280,10 +288,16 @@ export async function createAppointmentFromSlot(params: {
     }
   }
 
+  const slotDate = new Date(params.slot.startsAt)
+  const dataStr = format(slotDate, "EEE, dd/MM", { locale: ptBR })
+  const horarioStr = format(slotDate, "HH'h'mm", { locale: ptBR })
+  const successMessage = params.confirmTemplate
+    ? interpolate(params.confirmTemplate, { nome: params.patientName, data: dataStr, horario: horarioStr })
+    : `✅ Agendamento confirmado!\n\n📅 ${params.slot.label}\n👤 ${params.patientName}\n\nVocê receberá um lembrete antes da consulta. Para cancelar ou remarcar, é só me avisar. 😊`
   return {
     success: true,
     id: data.id,
-    message: `✅ Agendamento confirmado!\n\n📅 ${params.slot.label}\n👤 ${params.patientName}\n\nVocê receberá um lembrete antes da consulta. Para cancelar ou remarcar, é só me avisar. 😊`,
+    message: successMessage,
   }
 }
 
@@ -292,13 +306,14 @@ export async function createAppointmentFromSlot(params: {
  */
 export async function cancelAppointment(
   clinicId: string,
-  appointmentId: string
+  appointmentId: string,
+  confirmTemplate?: string
 ): Promise<ActionResult> {
   const supabase = createAdminClient()
 
   const { data: appointment } = await supabase
     .from('appointments')
-    .select('provider, provider_reference_id')
+    .select('provider, provider_reference_id, starts_at, patient_name')
     .eq('id', appointmentId)
     .eq('clinic_id', clinicId)
     .maybeSingle()
@@ -335,10 +350,19 @@ export async function cancelAppointment(
     }
   }
 
+  let cancelMessage = '✅ Consulta cancelada com sucesso.'
+  if (confirmTemplate && appointment?.starts_at) {
+    const d = new Date(appointment.starts_at)
+    cancelMessage = interpolate(confirmTemplate, {
+      nome: appointment.patient_name ?? '',
+      data: format(d, "EEE, dd/MM", { locale: ptBR }),
+      horario: format(d, "HH'h'mm", { locale: ptBR }),
+    })
+  }
   return {
     success: true,
     id: appointmentId,
-    message: '✅ Consulta cancelada com sucesso.',
+    message: cancelMessage,
   }
 }
 
@@ -349,6 +373,7 @@ export async function rescheduleAppointment(params: {
   clinicId: string
   appointmentId: string
   slot: Slot
+  confirmTemplate?: string
 }): Promise<ActionResult> {
   const supabase = createAdminClient()
 
@@ -406,10 +431,20 @@ export async function rescheduleAppointment(params: {
     }
   }
 
+  const slotDate = new Date(params.slot.startsAt)
+  const dataStr = format(slotDate, "EEE, dd/MM", { locale: ptBR })
+  const horarioStr = format(slotDate, "HH'h'mm", { locale: ptBR })
+  const rescheduleMessage = params.confirmTemplate
+    ? interpolate(params.confirmTemplate, {
+        nome: appointment?.patient_name ?? '',
+        data: dataStr,
+        horario: horarioStr,
+      })
+    : `✅ Consulta remarcada!\n\n📅 ${params.slot.label}\n\nSe precisar alterar novamente, é só me avisar. 😊`
   return {
     success: true,
     id: params.appointmentId,
-    message: `✅ Consulta remarcada!\n\n📅 ${params.slot.label}\n\nSe precisar alterar novamente, é só me avisar. 😊`,
+    message: rescheduleMessage,
   }
 }
 

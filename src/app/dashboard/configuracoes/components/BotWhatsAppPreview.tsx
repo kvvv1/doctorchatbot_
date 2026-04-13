@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { MessageSquare } from 'lucide-react'
+import { interpolate, PREVIEW_VARS } from '@/lib/bot/interpolate'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -263,6 +264,19 @@ export default function BotWhatsAppPreview({
 
   // Build scenes dynamically from current message values
   const scenes = useMemo((): Scene[] => {
+    // Apply preview variable substitution to confirmation messages
+    const confirmSchedule = interpolate(
+      confirmScheduleMessage || '✅ Agendamento confirmado!\n\n📅 {{data}} às {{horario}}\n👤 {{nome}}\n\nVocê receberá um lembrete. Para cancelar ou remarcar, é só me avisar. 😊',
+      PREVIEW_VARS
+    )
+    const confirmReschedule = interpolate(
+      confirmRescheduleMessage || '✅ Consulta remarcada!\n\n📅 {{data}} às {{horario}}\n\nSe precisar alterar novamente, é só me avisar. 😊',
+      PREVIEW_VARS
+    )
+    const confirmCancel = interpolate(
+      confirmCancelMessage || '✅ Consulta cancelada com sucesso.',
+      PREVIEW_VARS
+    )
     // Parse menu message → extract text header + choices
     const menuRaw = menuMessage || 'Como posso te ajudar hoje?\n\n1️⃣ Agendar consulta\n2️⃣ Remarcar consulta\n3️⃣ Cancelar consulta\n4️⃣ Falar com atendente\n5️⃣ Ver meus agendamentos'
     const menu = splitTextAndChoices(menuRaw)
@@ -303,6 +317,8 @@ export default function BotWhatsAppPreview({
             text: 'Horário ocupado. Escolha um horário disponível:',
             choices: ['Ter 14h30', 'Ter 15h00', 'Ter 16h00', 'Qua 09h00', 'Qua 14h00'],
           },
+          { sender: 'patient', text: 'Ter 14h30' },
+          { sender: 'bot', text: confirmSchedule },
         ],
       },
       {
@@ -317,7 +333,7 @@ export default function BotWhatsAppPreview({
             choices: ['Sim, cancelar', 'Não, manter'],
           },
           { sender: 'patient', text: 'Sim, cancelar' },
-          { sender: 'bot', text: confirmCancelMessage || '✅ Consulta cancelada.\n\nSe precisar agendar novamente, é só chamar! 😊' },
+          { sender: 'bot', text: confirmCancel },
         ],
       },
       {
@@ -325,10 +341,9 @@ export default function BotWhatsAppPreview({
         label: 'Confirmações',
         description: 'Mensagem enviada após agendar, remarcar ou cancelar',
         messages: [
-          { sender: 'bot', text: '✅ *Consulta agendada!*' },
-          { sender: 'bot', text: confirmScheduleMessage || '✅ Consulta agendada com sucesso!\n\nFicamos felizes em atendê-lo(a). Até lá! 😊' },
+          { sender: 'bot', text: confirmSchedule },
           { sender: 'bot', text: '─────' },
-          { sender: 'bot', text: confirmRescheduleMessage || '✅ Consulta remarcada com sucesso!\n\nAté lá! 😊' },
+          { sender: 'bot', text: confirmReschedule },
         ],
       },
       {
