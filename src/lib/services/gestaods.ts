@@ -52,12 +52,15 @@ export class GestaoDSService {
 
     constructor(apiToken: string, isDev: boolean = true) {
         this.apiToken = apiToken
-        // The user provided the apidev URL, so we default to the dev path if isDev is true
-        this.baseUrl = isDev ? 'https://apidev.gestaods.com.br/api' : 'https://api.gestaods.com.br/api'
+        // Only one base URL exists; dev vs prod is differentiated by path prefix (dev- prefix)
+        this.baseUrl = 'https://apidev.gestaods.com.br/api'
+        this.isDev = isDev
     }
 
+    private isDev: boolean
+
     private getDevPrefix(): string {
-        return this.baseUrl.includes('apidev') ? 'dev-' : ''
+        return this.isDev ? 'dev-' : ''
     }
 
     /**
