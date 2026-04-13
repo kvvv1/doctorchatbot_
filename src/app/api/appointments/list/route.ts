@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
+    const admin = createAdminClient()
 
     // Verificar autenticação
     const {
@@ -15,8 +17,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    // Buscar perfil do usuário
-    const { data: profile } = await supabase
+    // Buscar perfil via admin (bypassa RLS)
+    const { data: profile } = await admin
       .from('profiles')
       .select('clinic_id')
       .eq('id', user.id)
@@ -35,8 +37,8 @@ export async function GET(request: NextRequest) {
     const professionalId = searchParams.get('professional_id')
     const source = searchParams.get('source')
 
-    // Query base
-    let query = supabase
+    // Query base (admin bypassa RLS)
+    let query = admin
       .from('appointments')
       .select(
         `
@@ -71,6 +73,8 @@ export async function GET(request: NextRequest) {
 
     if (source === 'google') {
       query = query.eq('provider', 'google')
+    } else if (source === 'gestaods') {
+      query = query.eq('provider', 'gestaods')
     } else if (source === 'manual') {
       query = query.eq('provider', 'manual').is('conversation_id', null)
     } else if (source === 'bot') {
