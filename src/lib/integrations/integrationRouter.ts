@@ -35,6 +35,8 @@ export async function createExternalAppointment(params: {
   endsAt: Date
   description?: string | null
   conversationId?: string | null
+  /** CPF do paciente (obrigatório para GestaoDS quando não existe conversa vinculada) */
+  cpf?: string | null
 }): Promise<ExternalCreateResult> {
   const resolution = await resolveClinicIntegration(params.supabase, params.clinicId)
 
@@ -76,18 +78,20 @@ export async function createExternalAppointment(params: {
       }
     }
 
-    const cpf = await resolvePatientCpf({
-      supabase: params.supabase,
-      clinicId: params.clinicId,
-      patientPhone: params.patientPhone,
-      conversationId: params.conversationId,
-    })
+    const cpf = params.cpf
+      ? normalizeRawCpf(params.cpf)
+      : await resolvePatientCpf({
+          supabase: params.supabase,
+          clinicId: params.clinicId,
+          patientPhone: params.patientPhone,
+          conversationId: params.conversationId,
+        })
 
     if (!cpf) {
       return {
         provider: 'gestaods',
         synced: false,
-        error: 'CPF do paciente não encontrado para integração GestãoDS.',
+        error: 'CPF do paciente não encontrado. Informe o CPF ao criar o agendamento.',
       }
     }
 
@@ -382,12 +386,22 @@ async function tryLoadClinicIntegrations(supabase: SupabaseClient, clinicId: str
   }
 }
 
+/**
+ * Formata uma data UTC para o formato esperado pela API GestaoDS.
+ * A API espera o horário no fuso de Brasília (UTC-3).
+ * Vercel roda em UTC, então precisamos subtrair 3 horas antes de usar getUTC*.
+ */
 function formatGestaoDSDate(date: Date): string {
   const pad = (value: number) => String(value).padStart(2, '0')
+  // Desloca para UTC-3 (Brasília)
+  const br = new Date(date.getTime() - 3 * 60 * 60 * 1000)
+  return `${pad(br.getUTCDate())}/${pad(br.getUTCMonth() + 1)}/${br.getUTCFullYear()} ${pad(br.getUTCHours())}:${pad(br.getUTCMinutes())}:${pad(br.getUTCSeconds())}`
+}
 
-  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(
-    date.getHours()
-  )}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+function normalizeRawCpf(cpf: string | null | undefined): string | null {
+  if (!cpf) return null
+  const clean = cpf.replace(/\D/g, '')
+  return clean.length === 11 ? clean : null
 }
 
 async function resolvePatientCpf(params: {
@@ -396,11 +410,7 @@ async function resolvePatientCpf(params: {
   patientPhone: string
   conversationId?: string | null
 }): Promise<string | null> {
-  const normalizeCpf = (cpf: string | null | undefined) => {
-    if (!cpf) return null
-    const clean = cpf.replace(/\D/g, '')
-    return clean.length === 11 ? clean : null
-  }
+  const normalizeCpf = normalizeRawCpf
 
   if (params.conversationId) {
     const { data: conversation } = await params.supabase

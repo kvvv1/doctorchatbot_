@@ -18,6 +18,8 @@ interface CreateAppointmentBody {
 	description?: string
 	professionalId?: string
 	resourceId?: string
+	/** CPF do paciente – obrigatório para integração GestaoDS quando não há conversa vinculada */
+	cpf?: string
 }
 
 export async function POST(request: NextRequest) {
@@ -168,6 +170,7 @@ export async function POST(request: NextRequest) {
 				endsAt,
 				description: body.description,
 				conversationId: body.conversationId,
+				cpf: body.cpf,
 			})
 
 			if (externalResult.synced && externalResult.providerReferenceId) {

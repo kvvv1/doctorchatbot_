@@ -12,15 +12,13 @@ export const templates = {
 
 Como posso te ajudar hoje?
 
-1️⃣ Agendar uma consulta
+1️⃣ Agendar consulta
 2️⃣ Remarcar consulta
 3️⃣ Cancelar consulta
 4️⃣ Falar com atendente
-5️⃣ Ver meus agendamentos
+5️⃣ Ver meus agendamentos`,
 
-Digite o número da opção ou descreva o que precisa. 😊`,
-
-  notUnderstood: `Desculpe, não entendi. Por favor, escolha uma das opções:
+  notUnderstood: `Não entendi sua mensagem. O que você deseja fazer?
 
 1️⃣ Agendar consulta
 2️⃣ Remarcar consulta
@@ -58,9 +56,11 @@ Qual horário você prefere?
   },
 
   scheduleNoSlots: `😕 Não encontrei horários disponíveis nos próximos dias.
-Entre em contato com nossa equipe para verificar disponibilidade.
 
-4️⃣ Falar com atendente`,
+Deseja falar com nossa equipe?
+
+1️⃣ Sim, falar com atendente
+2️⃣ Voltar ao menu`,
 
   // -------------------------------------------------------------------------
   // Reagendamento
@@ -113,7 +113,9 @@ Qual o *novo horário*?
   cancelAskWaitlist: `Consulta cancelada. ✅
 
 Gostaria de entrar na *lista de espera* caso surja um horário mais cedo?
-\n1️⃣ Sim, entrar na lista\n2️⃣ Não, obrigado`,
+
+1️⃣ Sim, entrar na lista
+2️⃣ Não, obrigado`,
 
   cancelWithWaitlist: `✅ Consulta cancelada com sucesso.
 
@@ -127,12 +129,12 @@ Se precisar agendar novamente no futuro, é só chamar! Obrigado. 😊`,
 
 Posso ajudar em algo mais?`,
 
-  cancelNoAppointments: `Não encontrei nenhuma consulta agendada para o seu número. 🔍
+  cancelNoAppointments: `Não encontrei consultas agendadas para o seu número. 🔍
 
-Gostaria de agendar uma consulta?
+O que deseja fazer?
 
-1️⃣ Sim, agendar agora
-2️⃣ Não, obrigado`,
+1️⃣ Agendar uma consulta
+2️⃣ Voltar ao menu`,
 
   // -------------------------------------------------------------------------
   // Ver agendamentos
@@ -142,31 +144,29 @@ Gostaria de agendar uma consulta?
       .map((a, i) => `${i + 1}. 📅 ${a.label} — ${statusLabel(a.status)}`)
       .join('\n')
 
-    return `Seus próximos agendamentos: 📋\n\n${lines}\n\nPrecisa remarcar ou cancelar?\n1️⃣ Remarcar   2️⃣ Cancelar   3️⃣ Menu principal`
+    return `Seus próximos agendamentos: 📋\n\n${lines}\n\nO que deseja fazer?\n\n1️⃣ Remarcar consulta\n2️⃣ Cancelar consulta\n3️⃣ Menu principal`
   },
 
   viewAppointmentsNotFound: `Não encontrei consultas agendadas para o seu número. 🔍
 
-Gostaria de agendar uma nova consulta?
+O que deseja fazer?
 
-1️⃣ Sim, agendar agora
-2️⃣ Não, obrigado`,
+1️⃣ Agendar uma consulta
+2️⃣ Voltar ao menu`,
 
   // -------------------------------------------------------------------------
   // Confirmar presença
   // -------------------------------------------------------------------------
-  confirmAttendanceAsk: `Para confirmar sua presença, você tem consulta(s) agendada(s) nos próximos dias.
+  confirmAttendanceAsk: `Você tem consulta(s) agendada(s) nos próximos dias. *Confirma presença?*
 
-*Confirma que comparecerá?*
-1️⃣ Sim, confirmo\n2️⃣ Não, preciso alterar`,
+1️⃣ Sim, confirmo
+2️⃣ Não, preciso alterar`,
 
   confirmAttendanceSuccess: `✅ *Presença confirmada!*
 
-Obrigado por confirmar. Te esperamos! 🏥
+Obrigado! Te esperamos. 🏥`,
 
-Se precisar remarcar, é só avisar.`,
-
-  confirmAttendanceCancel: `Entendido. Como posso ajudar?
+  confirmAttendanceCancel: `Entendido. O que deseja fazer?
 
 1️⃣ Remarcar consulta
 2️⃣ Cancelar consulta
@@ -179,11 +179,12 @@ Se precisar remarcar, é só avisar.`,
 
 ⏳ Aguarde um momento, alguém da nossa equipe entrará em contato em breve.`,
 
-  attendantOutOfHours: `Poxa, nossos atendentes estão *fora do horário* agora. 😕
+  attendantOutOfHours: `Nossos atendentes estão fora do horário agora. 😕
 
-Você pode:
-1️⃣ Deixar uma mensagem — responderemos em breve
-2️⃣ Usar o bot para agendar agora mesmo`,
+Posso ajudar com alguma dessas opções:
+
+1️⃣ Agendar consulta pelo bot
+2️⃣ Voltar ao menu`,
 
   // -------------------------------------------------------------------------
   // Erros genéricos

@@ -593,31 +593,47 @@ export async function sendBotResponse(
 ): Promise<boolean> {
   const supabase = createAdminClient()
   const interactive = extractInteractiveChoices(response.message)
+  const zapiUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/zapi/send-text`
+  const zapiHeaders = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+  }
+
+  const zapiSend = async (payload: Record<string, unknown>) => {
+    const res = await fetch(zapiUrl, { method: 'POST', headers: zapiHeaders, body: JSON.stringify(payload) })
+    if (!res.ok) {
+      console.error('[Bot] Failed to send message via Z-API:', await res.text())
+      return false
+    }
+    return true
+  }
 
   try {
-    // 1. Send via Z-API
-    const sendResult = await fetch(
-      `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/zapi/send-text`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        },
-        body: JSON.stringify({
-          conversationId,
-          phone,
-          text: interactive?.message || response.message,
-          choices: interactive?.choices,
-          choicesTitle: interactive?.title,
-          internalCall: true,
-        }),
+    // 1. Send via Z-API — when interactive choices exist, send 2 separate WhatsApp messages:
+    //    a) plain-text context/greeting (cleanedMessage)
+    //    b) interactive buttons/list (choices only)
+    if (interactive && interactive.choices.length >= 2) {
+      // Message 1: context text (greeting, question, etc.)
+      if (interactive.message.trim().length > 0) {
+        const ok = await zapiSend({ conversationId, phone, text: interactive.message, internalCall: true })
+        if (!ok) return false
+        // Brief pause so WhatsApp preserves message order
+        await new Promise(r => setTimeout(r, 400))
       }
-    )
-
-    if (!sendResult.ok) {
-      console.error('[Bot] Failed to send message via Z-API:', await sendResult.text())
-      return false
+      // Message 2: interactive buttons or list
+      const ok = await zapiSend({
+        conversationId,
+        phone,
+        text: 'Escolha uma opção:',
+        choices: interactive.choices,
+        choicesTitle: interactive.title,
+        internalCall: true,
+      })
+      if (!ok) return false
+    } else {
+      // No interactive choices — send as a single plain-text message
+      const ok = await zapiSend({ conversationId, phone, text: response.message, internalCall: true })
+      if (!ok) return false
     }
 
     // 2. Save bot message
@@ -778,22 +794,32 @@ type InteractiveChoice = {
 function extractInteractiveChoices(
   message: string,
 ): { message: string; choices: InteractiveChoice[]; title: string } | null {
+  // Normalize emoji number format before parsing.
+  // "1️⃣" = U+0031 + U+FE0F (variation selector) + U+20E3 (combining enclosing keycap).
+  // The variation selector (U+FE0F) may be absent depending on the source, so it's optional.
+  // We convert "1️⃣" → "1. " so the standard separator regex works uniformly.
+  const normalizeEmoji = (s: string) => s.replace(/(\d+)\uFE0F?\u20E3/g, '$1. ')
+
   const lines = message
     .split('\n')
-    .map(line => line.trim())
+    .map(line => normalizeEmoji(line.trim()))
     .filter(Boolean)
 
-  const inlineChoiceRegex = /(\d+)\s*[️⃣.):-]?\s+([^\n\r]+?)(?=\s+\d+\s*[️⃣.):-]\s+|$)/g
+  // Matches lines like: "1. Option", "1) Option", "1: Option", "1- Option"
+  const choiceLineRegex = /^(\d+)[.):-]\s+(.+)$/
+  // Matches inline choices on the same line: "1. Opt1   2. Opt2"
+  const inlineChoiceRegex = /(\d+)[.):-]\s+([^\n\r]+?)(?=\s+\d+[.):-]\s+|$)/g
+
   const collected: InteractiveChoice[] = []
 
   const consumeLabel = (raw: string): string => {
-    let label = raw.trim().replace(/^[\-•\s]+/, '')
+    let label = raw.trim().replace(/^[-•\s]+/, '')
     label = label.replace(/\s{2,}/g, ' ').trim()
     return label
   }
 
   for (const line of lines) {
-    const lineMatch = line.match(/^(\d+)\s*[️⃣.):-]\s+(.+)$/)
+    const lineMatch = line.match(choiceLineRegex)
     if (lineMatch) {
       const id = lineMatch[1]
       const label = consumeLabel(lineMatch[2])
@@ -816,9 +842,9 @@ function extractInteractiveChoices(
 
   if (deduped.length < 2) return null
 
-  const inlineChoiceLinePattern = /\d+\s*[️⃣.):-]\s+.+\d+\s*[️⃣.):-]\s+/
+  const inlineChoiceLinePattern = /\d+[.):-]\s+.+\d+[.):-]\s+/
   const cleanedLines = lines.filter(
-    line => !/^(\d+)\s*[️⃣.):-]\s+/.test(line) && !inlineChoiceLinePattern.test(line),
+    line => !choiceLineRegex.test(line) && !inlineChoiceLinePattern.test(line),
   )
   const cleanedMessage = cleanedLines.join('\n').trim()
 
