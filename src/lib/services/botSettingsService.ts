@@ -167,14 +167,18 @@ export function isWithinWorkingHours(
 
   const { working_hours } = settings
   
-  // Convert current time to clinic timezone
-  const timeInTimezone = new Intl.DateTimeFormat('en-US', {
+  // Convert current time to clinic timezone using formatToParts for reliability
+  const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: working_hours.timezone,
     weekday: 'short',
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-  }).format(now)
+  })
+  const parts = formatter.formatToParts(now)
+  const weekdayPart = parts.find(p => p.type === 'weekday')?.value ?? ''
+  const hourPart = parts.find(p => p.type === 'hour')?.value ?? '00'
+  const minutePart = parts.find(p => p.type === 'minute')?.value ?? '00'
 
   // Parse day of week
   const dayMap: Record<string, string> = {
@@ -187,8 +191,8 @@ export function isWithinWorkingHours(
     'Sun': 'sun',
   }
 
-  const currentDay = timeInTimezone.split(',')[0].trim()
-  const currentTime = timeInTimezone.split(',')[1].trim()
+  const currentDay = weekdayPart
+  const currentTime = `${hourPart}:${minutePart}`
   const dayKey = dayMap[currentDay]
 
   if (!dayKey) {
