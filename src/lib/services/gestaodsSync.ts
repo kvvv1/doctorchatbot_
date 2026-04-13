@@ -57,33 +57,38 @@ export async function syncGestaoDSClinic(params: {
   }
 
   for (const sourceAppointment of listResult.data) {
+    // ID: campo 'token' na resposta real da API GestaoDS
     const externalId = normalizeString(
-      sourceAppointment.id || sourceAppointment.token || sourceAppointment.agendamento
+      sourceAppointment.token || sourceAppointment.id || sourceAppointment.agendamento
     )
 
+    // Datas no formato "dd/mm/yyyy hh:mm" — precisa converter para ISO
     const startsAtRaw =
-      sourceAppointment.data_hora_inicio || sourceAppointment.starts_at || sourceAppointment.data_agendamento
+      sourceAppointment.data_agendamento || sourceAppointment.data_hora_inicio || sourceAppointment.starts_at
     const endsAtRaw =
-      sourceAppointment.data_hora_fim || sourceAppointment.ends_at || sourceAppointment.data_fim_agendamento
+      sourceAppointment.data_fim_agendamento || sourceAppointment.data_hora_fim || sourceAppointment.ends_at
 
     if (!externalId || !startsAtRaw || !endsAtRaw) {
       summary.skipped += 1
       continue
     }
 
-    const startsAt = new Date(startsAtRaw)
-    const endsAt = new Date(endsAtRaw)
+    const startsAt = parseGestaoDSDate(startsAtRaw)
+    const endsAt = parseGestaoDSDate(endsAtRaw)
 
-    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
-      summary.errors.push(`Datas inválidas no agendamento ${externalId}`)
+    if (!startsAt || !endsAt || Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+      summary.errors.push(`Datas inválidas no agendamento ${externalId}: "${startsAtRaw}" / "${endsAtRaw}"`)
       continue
     }
 
-    const sourceStatus = mapStatus(sourceAppointment.status_nome || sourceAppointment.status || 'scheduled')
+    // Status derivado dos booleanos da API GestaoDS
+    const sourceStatus = mapGestaoDSStatus(sourceAppointment)
 
-    let patientName = normalizeString(sourceAppointment.paciente_nome) || 'Paciente GestãoDS'
-    let patientPhone = normalizeString(sourceAppointment.paciente_celular) || ''
-    const patientCpf = normalizeString(sourceAppointment.paciente_cpf || sourceAppointment.cpf)
+    // Paciente está aninhado em sourceAppointment.paciente.{nome,celular}
+    const paciente = sourceAppointment.paciente || {}
+    let patientName = normalizeString(paciente.nome || sourceAppointment.paciente_nome) || 'Paciente GestãoDS'
+    let patientPhone = normalizeString(paciente.celular || sourceAppointment.paciente_celular) || ''
+    const patientCpf = normalizeString(paciente.cpf || sourceAppointment.paciente_cpf || sourceAppointment.cpf)
 
     if (!patientPhone && patientCpf) {
       const patientResult = await gestaoService.getPatient(patientCpf)
@@ -184,6 +189,32 @@ function normalizeString(value: unknown): string | null {
 
   const output = String(value).trim()
   return output.length > 0 ? output : null
+}
+
+/**
+ * Parseia data no formato GestaoDS: "dd/mm/yyyy hh:mm" ou "dd/mm/yyyy hh:mm:ss"
+ */
+function parseGestaoDSDate(raw: string): Date | null {
+  if (!raw) return null
+  // Tenta parse ISO nativo primeiro (caso futuramente API mude)
+  const iso = new Date(raw)
+  if (!Number.isNaN(iso.getTime()) && raw.includes('-')) return iso
+  // Formato brasileiro: "06/04/2026 08:40" ou "06/04/2026 08:40:00"
+  const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:[\s T](\d{2}):(\d{2})(?::(\d{2}))?)?/)
+  if (!match) return null
+  const [, day, month, year, hours = '0', minutes = '0', seconds = '0'] = match
+  return new Date(Number(year), Number(month) - 1, Number(day), Number(hours), Number(minutes), Number(seconds))
+}
+
+/**
+ * Deriva o status do agendamento a partir dos booleanos da API GestaoDS
+ */
+function mapGestaoDSStatus(appt: Record<string, unknown>): string {
+  if (appt.cancelado) return 'canceled'
+  if (appt.faltou) return 'no_show'
+  if (appt.finalizado) return 'completed'
+  if (appt.confirmado) return 'confirmed'
+  return 'scheduled'
 }
 
 function mapStatus(sourceStatus: string): string {

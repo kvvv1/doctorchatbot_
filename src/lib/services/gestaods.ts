@@ -229,7 +229,9 @@ export class GestaoDSService {
             if (!response.ok) return { success: false, error: `HTTP ${response.status}: ${response.statusText}` }
 
             const data = await response.json()
-            return { success: true, data: Array.isArray(data) ? data : [] }
+            // Resposta real: { data: [...], status: 200 }
+            const records = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []
+            return { success: true, data: records }
         } catch (error) {
             console.error('GestaoDS listAppointments error:', error)
             return { success: false, error: String(error) }
