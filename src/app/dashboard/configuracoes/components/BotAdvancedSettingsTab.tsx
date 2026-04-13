@@ -132,33 +132,6 @@ export default function BotAdvancedSettingsTab({
 							/>
 						</button>
 					</div>
-
-					<div className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
-						<div className="flex-1">
-							<p className="text-sm font-medium text-neutral-800">Respeitar horário de funcionamento</p>
-							<p className="text-xs text-neutral-500">
-								O bot envia mensagem de fora do horário quando a clínica está fechada. Configure o horário na aba <span className="font-medium text-sky-700">Clínica</span>.
-							</p>
-						</div>
-						<button
-							type="button"
-							onClick={() =>
-								setSettings({
-									...settings,
-									working_hours_enabled: !settings.working_hours_enabled,
-								})
-							}
-							className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${
-								settings.working_hours_enabled ? 'bg-sky-600' : 'bg-neutral-300'
-							}`}
-						>
-							<span
-								className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-									settings.working_hours_enabled ? 'translate-x-5' : 'translate-x-1'
-								}`}
-							/>
-						</button>
-					</div>
 				</div>
 			</div>
 
@@ -238,15 +211,46 @@ export default function BotAdvancedSettingsTab({
 						</div>
 
 						<div>
-							<label htmlFor="message-out-of-hours" className="block font-medium text-neutral-800 mb-1">
-								Fora do horário
-							</label>
+							<div className="flex items-center justify-between mb-1">
+								<label htmlFor="message-out-of-hours" className="font-medium text-neutral-800">
+									Fora do horário
+								</label>
+								<button
+									type="button"
+									onClick={() =>
+										setSettings({
+											...settings,
+											working_hours_enabled: !settings.working_hours_enabled,
+										})
+									}
+									className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${
+										settings.working_hours_enabled ? 'bg-sky-600' : 'bg-neutral-300'
+									}`}
+									title={settings.working_hours_enabled ? 'Ativado — clique para desativar' : 'Desativado — clique para ativar'}
+								>
+									<span
+										className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+											settings.working_hours_enabled ? 'translate-x-5' : 'translate-x-1'
+										}`}
+									/>
+								</button>
+							</div>
+							<p className="text-xs text-neutral-400 mb-1">
+								{settings.working_hours_enabled
+									? 'Ativado — mensagem enviada fora do horário de funcionamento.'
+									: 'Desativado — bot responde normalmente em qualquer horário.'}
+							</p>
 							<textarea
 								id="message-out-of-hours"
 								value={settings.message_out_of_hours}
 								onChange={(e) => setSettings({ ...settings, message_out_of_hours: e.target.value })}
 								rows={3}
-							className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+								disabled={!settings.working_hours_enabled}
+							className={`w-full px-3 py-2 border rounded-lg text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 transition-colors ${
+									settings.working_hours_enabled
+										? 'border-neutral-300 text-neutral-900 bg-white'
+										: 'border-neutral-200 text-neutral-400 bg-neutral-50 cursor-not-allowed'
+								}`}
 							/>
 						</div>
 
