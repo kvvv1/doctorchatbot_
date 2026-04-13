@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { View } from 'react-big-calendar'
-import { Bot, Plus, RefreshCw, Sync, CheckCircle, Clock, XCircle, UserX, CalendarDays, TrendingUp, AlertCircle, X } from 'lucide-react'
+import { Bot, Plus, RefreshCw, CheckCircle, Clock, XCircle, UserX, CalendarDays, TrendingUp, AlertCircle, X } from 'lucide-react'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, format, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import CalendarView from './components/CalendarView'
