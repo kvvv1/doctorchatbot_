@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import type { BotSettings, PlanKey } from '@/lib/types/database'
-import { Save, Bot, MessageSquare } from 'lucide-react'
+import { Save, Bot, MessageSquare, Eye, EyeOff } from 'lucide-react'
 import UpgradePrompt from '../../components/UpgradePrompt'
+import BotWhatsAppPreview from './BotWhatsAppPreview'
 
 interface BotAdvancedSettingsTabProps {
 	clinicId: string
@@ -35,6 +36,7 @@ export default function BotAdvancedSettingsTab({
 }: BotAdvancedSettingsTabProps) {
 	const [settings, setSettings] = useState<BotSettings | null>(initialSettings)
 	const [isSaving, setIsSaving] = useState(false)
+	const [showPreview, setShowPreview] = useState(true)
 	const [toast, setToast] = useState<{
 		message: string
 		type: 'success' | 'error'
@@ -161,164 +163,165 @@ export default function BotAdvancedSettingsTab({
 
 			{/* Mensagens do Bot */}
 			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-				<h3 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
-					<MessageSquare className="h-4 w-4 text-sky-600" />
-					Mensagens do Bot
-				</h3>
-				<div className="mb-4 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+				{/* Header */}
+				<div className="flex items-center justify-between mb-4">
+					<h3 className="text-sm font-semibold text-neutral-900 flex items-center gap-2">
+						<MessageSquare className="h-4 w-4 text-sky-600" />
+						Mensagens do Bot
+					</h3>
+					<button
+						type="button"
+						onClick={() => setShowPreview((v) => !v)}
+						className="flex items-center gap-1.5 text-xs font-medium text-sky-700 hover:text-sky-800 transition-colors"
+					>
+						{showPreview ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+						{showPreview ? 'Ocultar preview' : 'Ver preview WhatsApp'}
+					</button>
+				</div>
+
+				{/* Tom de comunicação */}
+				<div className="mb-5 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
 					<p className="text-xs font-medium text-neutral-700 mb-2">Aplicar tom pronto:</p>
 					<div className="flex flex-wrap gap-2">
-						<button
-							type="button"
-							onClick={() =>
-								setSettings({
-									...settings,
-									message_welcome: MESSAGE_PRESETS.formal.message_welcome,
-									message_fallback: MESSAGE_PRESETS.formal.message_fallback,
-								})
-							}
-							className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
-						>
-							Formal
-						</button>
-						<button
-							type="button"
-							onClick={() =>
-								setSettings({
-									...settings,
-									message_welcome: MESSAGE_PRESETS.humanizado.message_welcome,
-									message_fallback: MESSAGE_PRESETS.humanizado.message_fallback,
-								})
-							}
-							className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
-						>
-							Humanizado
-						</button>
-						<button
-							type="button"
-							onClick={() =>
-								setSettings({
-									...settings,
-									message_welcome: MESSAGE_PRESETS.direto.message_welcome,
-									message_fallback: MESSAGE_PRESETS.direto.message_fallback,
-								})
-							}
-							className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
-						>
-							Direto
-						</button>
+						{(['formal', 'humanizado', 'direto'] as const).map((preset) => (
+							<button
+								key={preset}
+								type="button"
+								onClick={() =>
+									setSettings({
+										...settings,
+										message_welcome: MESSAGE_PRESETS[preset].message_welcome,
+										message_fallback: MESSAGE_PRESETS[preset].message_fallback,
+									})
+								}
+								className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 capitalize"
+							>
+								{preset.charAt(0).toUpperCase() + preset.slice(1)}
+							</button>
+						))}
 					</div>
 				</div>
-				<div className="space-y-4 text-sm">
-					<div>
-						<label htmlFor="message-welcome" className="block font-medium text-neutral-800 mb-1">
-							Mensagem de boas-vindas
-						</label>
-						<textarea
-							id="message-welcome"
-							value={settings.message_welcome}
-							onChange={(e) =>
-								setSettings({ ...settings, message_welcome: e.target.value })
-							}
-							rows={2}
-							className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
-						/>
-					</div>
 
-					<div>
-						<label htmlFor="message-menu" className="block font-medium text-neutral-800 mb-1">
-							Mensagem de menu
-						</label>
-						<textarea
-							id="message-menu"
-							value={settings.message_menu}
-							onChange={(e) =>
-								setSettings({ ...settings, message_menu: e.target.value })
-							}
-							rows={3}
-							className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
-						/>
-					</div>
+				{/* Layout: forms + preview */}
+				<div className={`gap-6 ${showPreview ? 'lg:grid lg:grid-cols-2' : ''}`}>
+					{/* ── Forms column ── */}
+					<div className="space-y-4 text-sm min-w-0">
+						<div>
+							<label htmlFor="message-welcome" className="block font-medium text-neutral-800 mb-1">
+								Mensagem de boas-vindas
+							</label>
+							<p className="text-xs text-neutral-400 mb-1">Enviada como texto simples antes do menu.</p>
+							<textarea
+								id="message-welcome"
+								value={settings.message_welcome}
+								onChange={(e) => setSettings({ ...settings, message_welcome: e.target.value })}
+								rows={2}
+								className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+							/>
+						</div>
 
-					<div>
-						<label htmlFor="message-out-of-hours" className="block font-medium text-neutral-800 mb-1">
-							Mensagem fora do horário
-						</label>
-						<textarea
-							id="message-out-of-hours"
-							value={settings.message_out_of_hours}
-							onChange={(e) =>
-								setSettings({ ...settings, message_out_of_hours: e.target.value })
-							}
-							rows={3}
-							className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
-						/>
-					</div>
+						<div>
+							<label htmlFor="message-menu" className="block font-medium text-neutral-800 mb-1">
+								Menu principal
+							</label>
+							<p className="text-xs text-neutral-400 mb-1">
+								As linhas numeradas (1. Agendar, 2. Remarcar…) viram botões/lista interativa automaticamente.
+							</p>
+							<textarea
+								id="message-menu"
+								value={settings.message_menu}
+								onChange={(e) => setSettings({ ...settings, message_menu: e.target.value })}
+								rows={7}
+								className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm font-mono focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+							/>
+						</div>
 
-					<div>
-						<label htmlFor="message-fallback" className="block font-medium text-neutral-800 mb-1">
-							Mensagem quando não entende
-						</label>
-						<textarea
-							id="message-fallback"
-							value={settings.message_fallback}
-							onChange={(e) =>
-								setSettings({ ...settings, message_fallback: e.target.value })
-							}
-							rows={2}
-							className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
-						/>
-					</div>
+						<div>
+							<label htmlFor="message-out-of-hours" className="block font-medium text-neutral-800 mb-1">
+								Fora do horário
+							</label>
+							<textarea
+								id="message-out-of-hours"
+								value={settings.message_out_of_hours}
+								onChange={(e) => setSettings({ ...settings, message_out_of_hours: e.target.value })}
+								rows={3}
+								className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+							/>
+						</div>
 
-					<div className="pt-2 border-t border-neutral-200 space-y-3">
-						<p className="text-xs font-medium text-neutral-700">Mensagens de confirmação</p>
-						<div className="space-y-2">
-							<div>
-								<label htmlFor="message-confirm-schedule" className="block text-xs font-medium text-neutral-700 mb-1">
-									Confirmar agendamento
-								</label>
-								<textarea
-									id="message-confirm-schedule"
-									value={settings.message_confirm_schedule}
-									onChange={(e) =>
-										setSettings({ ...settings, message_confirm_schedule: e.target.value })
-									}
-									rows={2}
-									className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs"
-								/>
-							</div>
+						<div>
+							<label htmlFor="message-fallback" className="block font-medium text-neutral-800 mb-1">
+								Não entendeu
+							</label>
+							<p className="text-xs text-neutral-400 mb-1">Enviada quando o bot não compreende a mensagem.</p>
+							<textarea
+								id="message-fallback"
+								value={settings.message_fallback}
+								onChange={(e) => setSettings({ ...settings, message_fallback: e.target.value })}
+								rows={2}
+								className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+							/>
+						</div>
 
-							<div>
-								<label htmlFor="message-confirm-reschedule" className="block text-xs font-medium text-neutral-700 mb-1">
-									Confirmar remarcação
-								</label>
-								<textarea
-									id="message-confirm-reschedule"
-									value={settings.message_confirm_reschedule}
-									onChange={(e) =>
-										setSettings({ ...settings, message_confirm_reschedule: e.target.value })
-									}
-									rows={2}
-									className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs"
-								/>
-							</div>
-
-							<div>
-								<label htmlFor="message-confirm-cancel" className="block text-xs font-medium text-neutral-700 mb-1">
-									Confirmar cancelamento
-								</label>
-								<textarea
-									id="message-confirm-cancel"
-									value={settings.message_confirm_cancel}
-									onChange={(e) =>
-										setSettings({ ...settings, message_confirm_cancel: e.target.value })
-									}
-									rows={2}
-									className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs"
-								/>
+						<div className="pt-3 border-t border-neutral-200">
+							<p className="text-xs font-semibold text-neutral-600 mb-3 uppercase tracking-wide">
+								Confirmações automáticas
+							</p>
+							<div className="space-y-3">
+								<div>
+									<label htmlFor="message-confirm-schedule" className="block text-xs font-medium text-neutral-700 mb-1">
+										Consulta agendada
+									</label>
+									<textarea
+										id="message-confirm-schedule"
+										value={settings.message_confirm_schedule}
+										onChange={(e) => setSettings({ ...settings, message_confirm_schedule: e.target.value })}
+										rows={2}
+										className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+									/>
+								</div>
+								<div>
+									<label htmlFor="message-confirm-reschedule" className="block text-xs font-medium text-neutral-700 mb-1">
+										Consulta remarcada
+									</label>
+									<textarea
+										id="message-confirm-reschedule"
+										value={settings.message_confirm_reschedule}
+										onChange={(e) => setSettings({ ...settings, message_confirm_reschedule: e.target.value })}
+										rows={2}
+										className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+									/>
+								</div>
+								<div>
+									<label htmlFor="message-confirm-cancel" className="block text-xs font-medium text-neutral-700 mb-1">
+										Consulta cancelada
+									</label>
+									<textarea
+										id="message-confirm-cancel"
+										value={settings.message_confirm_cancel}
+										onChange={(e) => setSettings({ ...settings, message_confirm_cancel: e.target.value })}
+										rows={2}
+										className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+									/>
+								</div>
 							</div>
 						</div>
 					</div>
+
+					{/* ── Preview column ── */}
+					{showPreview && (
+						<div className="mt-6 lg:mt-0 lg:sticky lg:top-4 lg:self-start">
+							<BotWhatsAppPreview
+								welcomeMessage={settings.message_welcome}
+								menuMessage={settings.message_menu}
+								outOfHoursMessage={settings.message_out_of_hours}
+								fallbackMessage={settings.message_fallback}
+								confirmScheduleMessage={settings.message_confirm_schedule}
+								confirmRescheduleMessage={settings.message_confirm_reschedule}
+								confirmCancelMessage={settings.message_confirm_cancel}
+							/>
+						</div>
+					)}
 				</div>
 			</div>
 
