@@ -2,7 +2,7 @@
  * Bot response templates in Brazilian Portuguese
  */
 
-import type { AppointmentSummary, Slot } from './context'
+import type { AppointmentSummary, DayOption, Slot } from './context'
 
 export const templates = {
   // -------------------------------------------------------------------------
@@ -61,6 +61,31 @@ Deseja falar com nossa equipe?
 
 1️⃣ Sim, falar com atendente
 2️⃣ Voltar ao menu`,
+
+  // List-based scheduling flow (interactive lists)
+  scheduleDayList: (days: DayOption[], hasMore: boolean) => {
+    const lines = days.map((d, i) => `${i + 1}️⃣ ${d.label}`).join('\n')
+    const moreOption = hasMore ? `\n${days.length + 1}️⃣ 📅 Ver mais datas` : ''
+    return `📅 Escolha o dia da consulta:\n\n${lines}${moreOption}`
+  },
+
+  scheduleSlotList: (dayLabel: string, slots: Slot[], showBack: boolean) => {
+    const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')
+    const backOption = showBack ? `\n${slots.length + 1}️⃣ ↩️ Outra data` : ''
+    return `🕐 Horários disponíveis para *${dayLabel}*:\n\n${lines}${backOption}`
+  },
+
+  rescheduleDayList: (days: DayOption[], hasMore: boolean) => {
+    const lines = days.map((d, i) => `${i + 1}️⃣ ${d.label}`).join('\n')
+    const moreOption = hasMore ? `\n${days.length + 1}️⃣ 📅 Ver mais datas` : ''
+    return `📅 Escolha o novo dia da consulta:\n\n${lines}${moreOption}`
+  },
+
+  rescheduleSlotList: (dayLabel: string, slots: Slot[], showBack: boolean) => {
+    const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')
+    const backOption = showBack ? `\n${slots.length + 1}️⃣ ↩️ Outra data` : ''
+    return `🕐 Horários disponíveis para *${dayLabel}*:\n\n${lines}${backOption}`
+  },
 
   // -------------------------------------------------------------------------
   // Reagendamento

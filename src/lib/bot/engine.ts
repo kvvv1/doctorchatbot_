@@ -19,7 +19,7 @@ import {
   rescheduleAppointment,
   addToWaitlist,
 } from './actions'
-import { checkSlotAvailable, getAvailableSlots } from './availability'
+import { checkSlotAvailable, getAvailableDays, getAvailableSlots, getSlotsForDay } from './availability'
 import { setHours, setMinutes, addMinutes } from 'date-fns'
 import type { BotState, BotContext, Slot } from './context'
 import type { BotSettings } from '@/lib/types/database'
@@ -81,6 +81,12 @@ export async function handleBotTurn(
     case 'agendar_slot_escolha':
       return handleSlotEscolha(conversationId, userMessage, ctx, clinicId, 'agendar')
 
+    case 'agendar_dia_lista':
+      return handleAgendarDiaLista(userMessage, ctx, botSettings, clinicId)
+
+    case 'agendar_hora_lista':
+      return handleAgendarHoraLista(conversationId, userMessage, ctx, botSettings, clinicId)
+
     case 'reagendar_qual':
       return handleQualAppointment(userMessage, ctx, 'reagendar', botSettings, clinicId)
 
@@ -92,6 +98,12 @@ export async function handleBotTurn(
 
     case 'reagendar_slot_escolha':
       return handleSlotEscolha(conversationId, userMessage, ctx, clinicId, 'reagendar')
+
+    case 'reagendar_dia_lista':
+      return handleReagendarDiaLista(userMessage, ctx, botSettings, clinicId)
+
+    case 'reagendar_hora_lista':
+      return handleReagendarHoraLista(conversationId, userMessage, ctx, botSettings, clinicId)
 
     case 'cancelar_qual':
       return handleQualAppointment(userMessage, ctx, 'cancelar', botSettings, clinicId)
@@ -150,11 +162,12 @@ async function handleMenu(
         return { message: templates.scheduleAskName, nextState: 'agendar_nome', nextContext: { ...ctx, intent: 'schedule' } }
       }
 
-      return offerSlotSelection({
+      return showDayList({
         clinicId,
         botSettings,
         ctx: { ...ctx, intent: 'schedule' },
         flow: 'agendar',
+        offset: 0,
       })
 
     case 'reschedule':
@@ -218,11 +231,12 @@ async function handleAgendarNome(
   clinicId?: string,
 ): Promise<BotResponse> {
   const name = msg.trim()
-  return offerSlotSelection({
+  return showDayList({
     clinicId,
     botSettings,
     ctx: { ...ctx, patientName: name },
     flow: 'agendar',
+    offset: 0,
   })
 }
 
@@ -372,11 +386,12 @@ async function handleQualAppointment(
     }
   }
 
-  return offerSlotSelection({
+  return showDayList({
     clinicId,
     botSettings,
     ctx: { ...ctx, appointmentId: chosen.id },
     flow: 'reagendar',
+    offset: 0,
   })
 }
 
@@ -733,6 +748,223 @@ export async function sendBotResponse(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// List-based scheduling handlers
+// ---------------------------------------------------------------------------
+
+const DAY_LIST_PAGE_SIZE = 8
+
+async function showDayList(params: {
+  clinicId?: string
+  botSettings?: BotSettings | null
+  ctx: BotContext
+  flow: 'agendar' | 'reagendar'
+  offset: number
+}): Promise<BotResponse> {
+  if (!params.clinicId || !params.botSettings) return technicalError(params.ctx)
+
+  // Fetch one extra day to detect if there are more pages
+  const days = await getAvailableDays(
+    params.clinicId,
+    params.botSettings,
+    new Date(),
+    DAY_LIST_PAGE_SIZE + 1,
+    params.offset,
+  )
+
+  if (days.length === 0) {
+    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: {} }
+  }
+
+  const hasMore = days.length > DAY_LIST_PAGE_SIZE
+  const page = days.slice(0, DAY_LIST_PAGE_SIZE)
+
+  const message =
+    params.flow === 'agendar'
+      ? templates.scheduleDayList(page, hasMore)
+      : templates.rescheduleDayList(page, hasMore)
+
+  return {
+    message,
+    nextState: params.flow === 'agendar' ? 'agendar_dia_lista' : 'reagendar_dia_lista',
+    nextContext: {
+      ...params.ctx,
+      availableDays: page,
+      dayListOffset: params.offset,
+    },
+  }
+}
+
+async function handleAgendarDiaLista(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  if (!clinicId || !botSettings) return technicalError(ctx)
+
+  const days = ctx.availableDays ?? []
+  const normalizedMsg = normalizeChoiceText(msg)
+
+  // "Ver mais datas" option
+  if (normalizedMsg.includes('mais datas') || normalizedMsg.includes('ver mais')) {
+    return showDayList({ clinicId, botSettings, ctx, flow: 'agendar', offset: (ctx.dayListOffset ?? 0) + DAY_LIST_PAGE_SIZE })
+  }
+
+  const choice = resolveChoiceIndex(msg, days.map(d => d.label))
+
+  if (choice < 0 || choice >= days.length) {
+    return {
+      message: templates.invalidChoice(days.length),
+      nextState: 'agendar_dia_lista',
+      nextContext: ctx,
+    }
+  }
+
+  const selectedDay = days[choice]
+  const slots = await getSlotsForDay(clinicId, selectedDay.date, botSettings)
+
+  if (slots.length === 0) {
+    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: {} }
+  }
+
+  return {
+    message: templates.scheduleSlotList(selectedDay.label, slots, true),
+    nextState: 'agendar_hora_lista',
+    nextContext: {
+      ...ctx,
+      selectedDay: selectedDay.date,
+      selectedDayLabel: selectedDay.label,
+      availableSlots: slots,
+    },
+  }
+}
+
+async function handleAgendarHoraLista(
+  conversationId: string,
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  if (!clinicId || !botSettings) return technicalError(ctx)
+
+  const slots = ctx.availableSlots ?? []
+  const normalizedMsg = normalizeChoiceText(msg)
+
+  // "Outra data" option
+  if (normalizedMsg.includes('outra data') || normalizedMsg.includes('voltar')) {
+    return showDayList({ clinicId, botSettings, ctx, flow: 'agendar', offset: ctx.dayListOffset ?? 0 })
+  }
+
+  const choice = resolveChoiceIndex(msg, slots.map(s => s.label))
+
+  if (choice < 0 || choice >= slots.length) {
+    return {
+      message: templates.invalidChoice(slots.length),
+      nextState: 'agendar_hora_lista',
+      nextContext: ctx,
+    }
+  }
+
+  const slot = slots[choice]
+  const result = await createAppointmentFromSlot({
+    clinicId,
+    conversationId,
+    patientName: ctx.patientName || 'Paciente',
+    patientPhone: ctx.patientPhone || '',
+    slot,
+  })
+
+  return {
+    message: result.message,
+    nextState: result.success ? 'menu' : 'agendar_hora_lista',
+    nextContext: result.success ? {} : ctx,
+    conversationStatus: result.success ? 'scheduled' : undefined,
+  }
+}
+
+async function handleReagendarDiaLista(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  if (!clinicId || !botSettings) return technicalError(ctx)
+
+  const days = ctx.availableDays ?? []
+  const normalizedMsg = normalizeChoiceText(msg)
+
+  if (normalizedMsg.includes('mais datas') || normalizedMsg.includes('ver mais')) {
+    return showDayList({ clinicId, botSettings, ctx, flow: 'reagendar', offset: (ctx.dayListOffset ?? 0) + DAY_LIST_PAGE_SIZE })
+  }
+
+  const choice = resolveChoiceIndex(msg, days.map(d => d.label))
+
+  if (choice < 0 || choice >= days.length) {
+    return {
+      message: templates.invalidChoice(days.length),
+      nextState: 'reagendar_dia_lista',
+      nextContext: ctx,
+    }
+  }
+
+  const selectedDay = days[choice]
+  const slots = await getSlotsForDay(clinicId, selectedDay.date, botSettings)
+
+  if (slots.length === 0) {
+    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: {} }
+  }
+
+  return {
+    message: templates.rescheduleSlotList(selectedDay.label, slots, true),
+    nextState: 'reagendar_hora_lista',
+    nextContext: {
+      ...ctx,
+      selectedDay: selectedDay.date,
+      selectedDayLabel: selectedDay.label,
+      availableSlots: slots,
+    },
+  }
+}
+
+async function handleReagendarHoraLista(
+  conversationId: string,
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  if (!clinicId || !botSettings || !ctx.appointmentId) return technicalError(ctx)
+
+  const slots = ctx.availableSlots ?? []
+  const normalizedMsg = normalizeChoiceText(msg)
+
+  if (normalizedMsg.includes('outra data') || normalizedMsg.includes('voltar')) {
+    return showDayList({ clinicId, botSettings, ctx, flow: 'reagendar', offset: ctx.dayListOffset ?? 0 })
+  }
+
+  const choice = resolveChoiceIndex(msg, slots.map(s => s.label))
+
+  if (choice < 0 || choice >= slots.length) {
+    return {
+      message: templates.invalidChoice(slots.length),
+      nextState: 'reagendar_hora_lista',
+      nextContext: ctx,
+    }
+  }
+
+  const slot = slots[choice]
+  const result = await rescheduleAppointment({ clinicId, appointmentId: ctx.appointmentId, slot })
+
+  return {
+    message: result.message,
+    nextState: result.success ? 'menu' : 'reagendar_hora_lista',
+    nextContext: result.success ? {} : ctx,
+    conversationStatus: result.success ? 'scheduled' : undefined,
+  }
+}
 
 function technicalError(ctx: BotContext): BotResponse {
   return {

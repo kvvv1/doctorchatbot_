@@ -4,10 +4,10 @@
  * Uses bot_settings.working_hours (JSON) as the working hours source.
  */
 
-import { addDays, addMinutes, format, getDay, setHours, setMinutes, startOfDay } from 'date-fns'
+import { addDays, addMinutes, format, getDay, parseISO, setHours, setMinutes, startOfDay } from 'date-fns'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatSlotLabel } from './actions'
-import type { Slot } from './context'
+import type { Slot, DayOption } from './context'
 import type { BotSettings } from '@/lib/types/database'
 import { GestaoDSService } from '@/lib/services/gestaods'
 
@@ -253,6 +253,210 @@ async function loadGestaoDSAvailableTimes(service: GestaoDSService, date: Date):
   }
 
   return []
+}
+
+// ---------------------------------------------------------------------------
+// List-based scheduling helpers
+// ---------------------------------------------------------------------------
+
+const PT_WEEKDAYS = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
+
+/**
+ * "YYYY-MM-DD" → "Segunda-feira, 28/04"
+ */
+export function formatDayLabel(dateStr: string): string {
+  const date = parseISO(dateStr)
+  const weekday = PT_WEEKDAYS[getDay(date)]
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  return `${weekday}, ${day}/${month}`
+}
+
+/**
+ * Date → "10h00"
+ */
+export function formatTimeLabel(date: Date): string {
+  const h = String(date.getHours()).padStart(2, '0')
+  const m = String(date.getMinutes()).padStart(2, '0')
+  return `${h}h${m}`
+}
+
+/**
+ * Return up to `limit` days (starting from `fromDate`) that have at least one
+ * available slot. Skips up to 60 calendar days to find enough days.
+ * Supports `offset` for "Ver mais datas" pagination.
+ */
+export async function getAvailableDays(
+  clinicId: string,
+  botSettings: BotSettings,
+  fromDate: Date = new Date(),
+  limit = 8,
+  offset = 0,
+): Promise<DayOption[]> {
+  const days: DayOption[] = []
+  let daysChecked = 0
+  const maxDaysAhead = 60
+  let cursor = startOfDay(fromDate)
+  let found = 0
+
+  // Check GestaoDS first
+  const hasExternal = await hasGestaoDSIntegration(clinicId)
+
+  while (days.length < limit && daysChecked < maxDaysAhead) {
+    if (isDayWorking(botSettings, cursor)) {
+      let hasSlot: boolean
+
+      if (hasExternal) {
+        const times = await loadGestaoDSAvailableTimesForClinic(clinicId, cursor)
+        hasSlot = times.length > 0
+      } else {
+        // Check if there's at least 1 free slot in the internal schedule
+        const slots = await getSlotsForDayInternal(clinicId, cursor, botSettings, 1)
+        hasSlot = slots.length > 0
+      }
+
+      if (hasSlot) {
+        if (found >= offset) {
+          const dateStr = format(cursor, 'yyyy-MM-dd')
+          days.push({ date: dateStr, label: formatDayLabel(dateStr) })
+        }
+        found++
+      }
+    }
+
+    cursor = addDays(cursor, 1)
+    daysChecked++
+  }
+
+  return days
+}
+
+/**
+ * Return available time slots for a specific day (YYYY-MM-DD).
+ * Labels use short format "10h00" (not full date+time).
+ */
+export async function getSlotsForDay(
+  clinicId: string,
+  day: string,
+  botSettings: BotSettings,
+  limit = 9,
+): Promise<Slot[]> {
+  const date = startOfDay(parseISO(day))
+
+  const hasExternal = await hasGestaoDSIntegration(clinicId)
+  if (hasExternal) {
+    return getSlotsForDayExternal(clinicId, date, botSettings, limit)
+  }
+
+  return getSlotsForDayInternal(clinicId, date, botSettings, limit)
+}
+
+async function getSlotsForDayInternal(
+  clinicId: string,
+  date: Date,
+  botSettings: BotSettings,
+  limit: number,
+): Promise<Slot[]> {
+  const settings = await getSettings(clinicId)
+  const { durationMinutes, bufferMinutes } = settings
+  const stepMinutes = durationMinutes + bufferMinutes
+
+  const slots: Slot[] = []
+
+  if (!isDayWorking(botSettings, date)) return slots
+
+  let dayStart: Date
+  let dayEnd: Date
+
+  if (botSettings.working_hours_enabled) {
+    const key = JS_DAY_TO_KEY[getDay(date)]
+    const dayConfig = botSettings.working_hours.days.find((d) => d.day === key)
+    if (!dayConfig?.enabled) return slots
+
+    const { hours: sh, minutes: sm } = parseHHMM(dayConfig.start)
+    const { hours: eh, minutes: em } = parseHHMM(dayConfig.end)
+    dayStart = setMinutes(setHours(date, sh), sm)
+    dayEnd = setMinutes(setHours(date, eh), em)
+  } else {
+    dayStart = setMinutes(setHours(date, 8), 0)
+    dayEnd = setMinutes(setHours(date, 18), 0)
+  }
+
+  let slotStart = dayStart
+  while (slotStart < dayEnd && slots.length < limit) {
+    const slotEnd = addMinutes(slotStart, durationMinutes)
+    if (slotEnd > dayEnd) break
+
+    const available = await checkSlotAvailable(clinicId, slotStart, slotEnd, botSettings)
+    if (available) {
+      slots.push({
+        startsAt: slotStart.toISOString(),
+        endsAt: slotEnd.toISOString(),
+        label: formatTimeLabel(slotStart),
+      })
+    }
+
+    slotStart = addMinutes(slotStart, stepMinutes)
+  }
+
+  return slots
+}
+
+async function getSlotsForDayExternal(
+  clinicId: string,
+  date: Date,
+  botSettings: BotSettings,
+  limit: number,
+): Promise<Slot[]> {
+  const settings = await getSettings(clinicId)
+  const times = await loadGestaoDSAvailableTimesForClinic(clinicId, date)
+  const slots: Slot[] = []
+
+  for (const time of times) {
+    if (slots.length >= limit) break
+    const parsed = parseHHMM(time)
+    const startsAt = setMinutes(setHours(date, parsed.hours), parsed.minutes)
+    const endsAt = addMinutes(startsAt, settings.durationMinutes)
+    slots.push({
+      startsAt: startsAt.toISOString(),
+      endsAt: endsAt.toISOString(),
+      label: formatTimeLabel(startsAt),
+    })
+  }
+
+  return slots
+}
+
+async function hasGestaoDSIntegration(clinicId: string): Promise<boolean> {
+  const supabase = createAdminClient()
+  const { data } = await supabase
+    .from('clinic_integrations')
+    .select('id')
+    .eq('clinic_id', clinicId)
+    .eq('provider', 'gestaods')
+    .eq('is_connected', true)
+    .maybeSingle()
+  return !!data
+}
+
+async function loadGestaoDSAvailableTimesForClinic(clinicId: string, date: Date): Promise<string[]> {
+  const supabase = createAdminClient()
+  const { data: integration } = await supabase
+    .from('clinic_integrations')
+    .select('gestaods_api_token, gestaods_is_dev')
+    .eq('clinic_id', clinicId)
+    .eq('provider', 'gestaods')
+    .eq('is_connected', true)
+    .maybeSingle()
+
+  if (!integration?.gestaods_api_token) return []
+
+  const service = new GestaoDSService(
+    integration.gestaods_api_token,
+    integration.gestaods_is_dev ?? true,
+  )
+
+  return loadGestaoDSAvailableTimes(service, date)
 }
 
 function normalizeGestaoDSTimes(payload: unknown): string[] {

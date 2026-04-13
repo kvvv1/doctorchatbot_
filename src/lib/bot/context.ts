@@ -6,13 +6,17 @@
 export type BotState =
   | 'menu'
   | 'agendar_nome'
-  | 'agendar_dia'
-  | 'agendar_hora'
+  | 'agendar_dia'             // legacy free-text day input (kept as fallback)
+  | 'agendar_hora'            // legacy free-text time input (kept as fallback)
   | 'agendar_slot_escolha'   // patient picks from offered slots after conflict
+  | 'agendar_dia_lista'       // patient picks a day from an interactive list
+  | 'agendar_hora_lista'      // patient picks a time slot from an interactive list
   | 'reagendar_qual'          // patient has multiple appointments — pick which one
   | 'reagendar_dia'
   | 'reagendar_hora'
   | 'reagendar_slot_escolha'  // patient picks from offered slots after reschedule conflict
+  | 'reagendar_dia_lista'     // patient picks a day from an interactive list (reschedule)
+  | 'reagendar_hora_lista'    // patient picks a time slot from an interactive list (reschedule)
   | 'cancelar_qual'           // patient has multiple appointments — pick which one
   | 'cancelar_confirmar'
   | 'cancelar_encaixe'
@@ -26,7 +30,15 @@ export type BotState =
 export type Slot = {
   startsAt: string  // ISO 8601
   endsAt: string    // ISO 8601
-  label: string     // e.g. "Segunda, 14/04 às 10h00"
+  label: string     // e.g. "10h00" (when shown inside a day list) or "Seg, 14/04 às 10h00"
+}
+
+/**
+ * A day option shown in the interactive day-selection list.
+ */
+export type DayOption = {
+  date: string   // "YYYY-MM-DD"
+  label: string  // "Segunda-feira, 28/04"
 }
 
 /**
@@ -48,12 +60,18 @@ export type BotContext = {
   patientPhone?: string
   patientName?: string
 
-  // Scheduling flow — raw text from patient before parsing
+  // Scheduling flow — raw text from patient before parsing (legacy)
   requestedDay?: string
   requestedTime?: string
 
   // Available slots offered to the patient (conflict resolution)
   availableSlots?: Slot[]
+
+  // List-based scheduling flow
+  availableDays?: DayOption[]     // days shown in the interactive day list
+  selectedDay?: string            // "YYYY-MM-DD" of the day the patient picked
+  selectedDayLabel?: string       // human label of the selected day, e.g. "Segunda-feira, 28/04"
+  dayListOffset?: number          // pagination offset for "Ver mais datas"
 
   // Target appointment for cancel / reschedule flows
   appointmentId?: string
