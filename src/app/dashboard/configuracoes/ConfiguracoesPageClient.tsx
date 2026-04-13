@@ -357,19 +357,40 @@ function ClinicaTab({
 						<label htmlFor="defaultDuration" className="block text-sm font-medium text-neutral-700">
 							Duração padrão da consulta
 						</label>
-						<select
-							id="defaultDuration"
-							value={defaultDurationMinutes}
-							onChange={(e) => setDefaultDurationMinutes(Number(e.target.value))}
-							className="mt-1 block w-full max-w-xs rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-						>
-							<option value={15}>15 minutos</option>
-							<option value={30}>30 minutos</option>
-							<option value={45}>45 minutos</option>
-							<option value={60}>60 minutos</option>
-							<option value={90}>90 minutos</option>
-						</select>
-						<p className="mt-1 text-xs text-neutral-500">
+						<div className="mt-1 flex flex-wrap items-center gap-2">
+							{[10, 15, 20, 30, 45, 60, 90].map((min) => (
+								<button
+									key={min}
+									type="button"
+									onClick={() => setDefaultDurationMinutes(min)}
+									className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+										defaultDurationMinutes === min
+											? 'border-sky-500 bg-sky-600 text-white'
+											: 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+									}`}
+								>
+									{min} min
+								</button>
+							))}
+							<div className="flex items-center gap-1.5 ml-1">
+								<span className="text-sm text-neutral-500">Personalizado:</span>
+								<input
+									id="defaultDuration"
+									type="number"
+									min={5}
+									max={480}
+									step={5}
+									value={defaultDurationMinutes}
+									onChange={(e) => {
+										const v = Number(e.target.value)
+										if (v >= 5 && v <= 480) setDefaultDurationMinutes(v)
+									}}
+									className="w-20 rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+								/>
+								<span className="text-sm text-neutral-500">min</span>
+							</div>
+						</div>
+						<p className="mt-1.5 text-xs text-neutral-500">
 							Usado pelo bot e pela agenda para novos agendamentos.
 						</p>
 					</div>

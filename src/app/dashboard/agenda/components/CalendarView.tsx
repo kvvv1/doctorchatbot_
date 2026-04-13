@@ -192,8 +192,7 @@ export default function CalendarView({
         min={new Date(2024, 0, 1, 7, 0, 0)}
         max={new Date(2024, 0, 1, 20, 0, 0)}
         formats={{
-          timeGutterFormat: (date, culture, localizer) =>
-            format(date, 'mm') === '00' ? format(date, 'HH:mm') : '',
+          timeGutterFormat: 'HH:mm',
 
           eventTimeRangeFormat: ({ start, end }) =>
             `${format(start, 'HH:mm')} – ${format(end, 'HH:mm')}`,
