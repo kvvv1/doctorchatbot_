@@ -469,7 +469,7 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 							<select
 								value={gestaoDsIsDev ? 'dev' : 'prod'}
 								onChange={(e) => setGestaoDsIsDev(e.target.value === 'dev')}
-								className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+						className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900"
 							>
 								<option value="dev">Desenvolvimento (apidev)</option>
 								<option value="prod">Produção</option>
@@ -484,7 +484,7 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 								value={gestaoDsToken}
 								onChange={(e) => setGestaoDsToken(e.target.value)}
 								placeholder={gestaoDsHasToken ? '••••••••••••••••' : 'Cole seu token GestãoDS'}
-								className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+						className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400"
 							/>
 						</div>
 					</div>

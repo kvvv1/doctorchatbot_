@@ -545,14 +545,14 @@ export default function WhatsAppConnectionTab({ clinicId }: WhatsAppConnectionTa
                   value={testPhone}
                   onChange={(e) => setTestPhone(e.target.value)}
                   placeholder="Número com DDD (ex: 11999998888)"
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400"
                 />
                 <textarea
                   value={testMessage}
                   onChange={(e) => setTestMessage(e.target.value)}
                   rows={2}
                   placeholder="Mensagem opcional de teste"
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400"
                 />
                 <button
                   onClick={sendTestMessage}

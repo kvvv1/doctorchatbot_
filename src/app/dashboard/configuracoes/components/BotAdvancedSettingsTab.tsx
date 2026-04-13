@@ -216,7 +216,7 @@ export default function BotAdvancedSettingsTab({
 								value={settings.message_welcome}
 								onChange={(e) => setSettings({ ...settings, message_welcome: e.target.value })}
 								rows={2}
-								className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+							className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
 							/>
 						</div>
 
@@ -232,7 +232,7 @@ export default function BotAdvancedSettingsTab({
 								value={settings.message_menu}
 								onChange={(e) => setSettings({ ...settings, message_menu: e.target.value })}
 								rows={7}
-								className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm font-mono focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+							className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 font-mono focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
 							/>
 						</div>
 
@@ -245,7 +245,7 @@ export default function BotAdvancedSettingsTab({
 								value={settings.message_out_of_hours}
 								onChange={(e) => setSettings({ ...settings, message_out_of_hours: e.target.value })}
 								rows={3}
-								className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+							className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
 							/>
 						</div>
 
@@ -259,7 +259,7 @@ export default function BotAdvancedSettingsTab({
 								value={settings.message_fallback}
 								onChange={(e) => setSettings({ ...settings, message_fallback: e.target.value })}
 								rows={2}
-								className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+							className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
 							/>
 						</div>
 
@@ -277,7 +277,7 @@ export default function BotAdvancedSettingsTab({
 										value={settings.message_confirm_schedule}
 										onChange={(e) => setSettings({ ...settings, message_confirm_schedule: e.target.value })}
 										rows={2}
-										className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+								className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
 									/>
 								</div>
 								<div>
@@ -289,7 +289,7 @@ export default function BotAdvancedSettingsTab({
 										value={settings.message_confirm_reschedule}
 										onChange={(e) => setSettings({ ...settings, message_confirm_reschedule: e.target.value })}
 										rows={2}
-										className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+								className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
 									/>
 								</div>
 								<div>
@@ -301,7 +301,7 @@ export default function BotAdvancedSettingsTab({
 										value={settings.message_confirm_cancel}
 										onChange={(e) => setSettings({ ...settings, message_confirm_cancel: e.target.value })}
 										rows={2}
-										className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+										className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
 									/>
 								</div>
 							</div>
