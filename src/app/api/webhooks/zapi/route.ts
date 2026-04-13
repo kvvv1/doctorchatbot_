@@ -44,7 +44,6 @@ export async function POST(request: NextRequest) {
         .from('whatsapp_instances')
         .select('id, clinic_id, client_token, status')
         .eq('instance_id', parsedStatus.instanceId)
-        .eq('provider', 'zapi')
         .single()
 
       if (instanceError || !instance) {
@@ -118,7 +117,6 @@ export async function POST(request: NextRequest) {
       .from('whatsapp_instances')
       .select('id, clinic_id, client_token')
       .eq('instance_id', parsed.instanceId)
-      .eq('provider', 'zapi')
       .single()
 
     if (instanceError || !instance) {
