@@ -212,8 +212,11 @@ export class GestaoDSService {
      */
     async listAppointments(startDate: string, endDate: string): Promise<GestaoDSResponse<any[]>> {
         try {
-            // Formato: yyyy-mm-dd
-            const endpoint = `${this.baseUrl}/${this.getDevPrefix()}dados-agendamento/listagem/${this.apiToken}?data_inicial=${startDate}&data_final=${endDate}`
+            // Ambiente dev não tem endpoint /listagem — usa /dev-dados-agendamento/{token}/
+            // Produção: GET /api/dados-agendamento/listagem/{token}?data_inicial=...&data_final=...
+            const endpoint = this.isDev
+                ? `${this.baseUrl}/dev-dados-agendamento/${this.apiToken}/`
+                : `${this.baseUrl}/dados-agendamento/listagem/${this.apiToken}?data_inicial=${startDate}&data_final=${endDate}`
 
             const response = await fetch(endpoint, {
                 method: 'GET',
