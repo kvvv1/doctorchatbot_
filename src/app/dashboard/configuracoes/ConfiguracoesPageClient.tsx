@@ -350,7 +350,7 @@ function ClinicaTab({
 							value={clinicName}
 							onChange={(e) => setClinicName(e.target.value)}
 							placeholder="Ex: Clínica Dr. Silva"
-							className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+							className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
 						/>
 					</div>
 					<div>
@@ -436,15 +436,15 @@ function ClinicaTab({
 										value={day.start}
 										onChange={(e) => updateDay(day.day, 'start', e.target.value)}
 										disabled={!day.enabled}
-										className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm disabled:bg-neutral-100 disabled:text-neutral-400 focus:border-sky-500 focus:outline-none"
-									/>
-									<span className="text-sm text-neutral-400">até</span>
-									<input
-										type="time"
-										value={day.end}
-										onChange={(e) => updateDay(day.day, 'end', e.target.value)}
-										disabled={!day.enabled}
-										className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm disabled:bg-neutral-100 disabled:text-neutral-400 focus:border-sky-500 focus:outline-none"
+									className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm text-neutral-900 disabled:bg-neutral-100 disabled:text-neutral-400 focus:border-sky-500 focus:outline-none"
+								/>
+								<span className="text-sm text-neutral-500">até</span>
+								<input
+									type="time"
+									value={day.end}
+									onChange={(e) => updateDay(day.day, 'end', e.target.value)}
+									disabled={!day.enabled}
+									className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm text-neutral-900 disabled:bg-neutral-100 disabled:text-neutral-400 focus:border-sky-500 focus:outline-none"
 									/>
 								</div>
 							</div>
