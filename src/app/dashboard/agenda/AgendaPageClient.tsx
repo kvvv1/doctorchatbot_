@@ -68,6 +68,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createModalDate, setCreateModalDate] = useState(new Date())
   const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const [todayListCollapsed, setTodayListCollapsed] = useState(false)
 
   const [todayMetrics, setTodayMetrics] = useState<{
     total: number
@@ -330,48 +331,6 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
         </div>
       )}
 
-      {/* Today's appointments list */}
-      {todayAppointments.length > 0 && (
-        <div className="rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-100">
-            <h2 className="text-sm font-semibold text-neutral-800 flex items-center gap-2">
-              <Clock className="h-4 w-4 text-sky-600" />
-              Hoje — {format(new Date(), "dd 'de' MMMM", { locale: ptBR })}
-              <span className="ml-1 rounded-full bg-sky-100 text-sky-700 text-xs px-2 py-0.5 font-medium">{todayAppointments.length}</span>
-            </h2>
-          </div>
-          <div className="divide-y divide-neutral-100">
-            {todayAppointments.map((apt) => {
-              const cfg = STATUS_CONFIG[apt.status]
-              return (
-                <button
-                  key={apt.id}
-                  onClick={() => setSelectedAppointment(apt)}
-                  className="w-full flex items-center gap-4 px-5 py-3 hover:bg-neutral-50 transition-colors text-left group"
-                >
-                  <div className="text-center w-12 flex-shrink-0">
-                    <div className="text-sm font-bold text-neutral-900">{format(new Date(apt.starts_at), 'HH:mm')}</div>
-                    <div className="text-xs text-neutral-400">{format(new Date(apt.ends_at), 'HH:mm')}</div>
-                  </div>
-                  <div className={`w-1 h-8 rounded-full flex-shrink-0 ${cfg.dot}`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-neutral-900 truncate group-hover:text-sky-700 transition-colors">
-                      {isBotAppointment(apt) ? '🤖 ' : ''}{apt.patient_name}
-                    </div>
-                    {apt.description && (
-                      <div className="text-xs text-neutral-400 truncate">{apt.description}</div>
-                    )}
-                  </div>
-                  <span className={`hidden sm:inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium flex-shrink-0 ${cfg.bg} ${cfg.text}`}>
-                    {cfg.label}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
       {/* View Switcher + Source Filter + Export */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <ViewSwitcher currentView={view} onViewChange={setView} />
@@ -424,6 +383,55 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
           onNavigate={setDate}
         />
       </div>
+
+      {/* Today's appointments list — below calendar, collapsible */}
+      {todayAppointments.length > 0 && (
+        <div className="rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setTodayListCollapsed((v) => !v)}
+            className="w-full flex items-center justify-between px-5 py-3 border-b border-neutral-100 hover:bg-neutral-50 transition-colors"
+          >
+            <span className="text-sm font-semibold text-neutral-800 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-sky-600" />
+              Hoje — {format(new Date(), "dd 'de' MMMM", { locale: ptBR })}
+              <span className="ml-1 rounded-full bg-sky-100 text-sky-700 text-xs px-2 py-0.5 font-medium">{todayAppointments.length}</span>
+            </span>
+            <span className={`text-xs text-neutral-400 transition-transform inline-block ${todayListCollapsed ? '' : 'rotate-180'}`}>▲</span>
+          </button>
+          {!todayListCollapsed && (
+            <div className="divide-y divide-neutral-100">
+              {todayAppointments.map((apt) => {
+                const cfg = STATUS_CONFIG[apt.status]
+                return (
+                  <button
+                    key={apt.id}
+                    onClick={() => setSelectedAppointment(apt)}
+                    className="w-full flex items-center gap-4 px-5 py-3 hover:bg-neutral-50 transition-colors text-left group"
+                  >
+                    <div className="text-center w-12 flex-shrink-0">
+                      <div className="text-sm font-bold text-neutral-900">{format(new Date(apt.starts_at), 'HH:mm')}</div>
+                      <div className="text-xs text-neutral-400">{format(new Date(apt.ends_at), 'HH:mm')}</div>
+                    </div>
+                    <div className={`w-1 h-8 rounded-full flex-shrink-0 ${cfg.dot}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-neutral-900 truncate group-hover:text-sky-700 transition-colors">
+                        {isBotAppointment(apt) ? '🤖 ' : ''}{apt.patient_name}
+                      </div>
+                      {apt.description && (
+                        <div className="text-xs text-neutral-400 truncate">{apt.description}</div>
+                      )}
+                    </div>
+                    <span className={`hidden sm:inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium flex-shrink-0 ${cfg.bg} ${cfg.text}`}>
+                      {cfg.label}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {appointments.length === 0 && !loading && (
         <div className="text-center py-12">
