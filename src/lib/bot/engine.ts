@@ -67,6 +67,26 @@ export async function handleBotTurn(
   const state = currentState || 'menu'
   const ctx: BotContext = { ...currentContext, patientPhone: patientPhone ?? currentContext.patientPhone }
 
+  // Universal escape hatch: any message matching reset keywords returns to menu.
+  // Only applies when already in a non-menu state (so we don't interfere with the
+  // normal menu flow). Preserves patientName so the patient doesn't need to re-enter it.
+  if (state !== 'menu' && state !== 'atendente') {
+    const escapedMsg = userMessage
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim()
+    const RESET_KEYWORDS = ['menu', 'inicio', 'inicio', 'ajuda', 'help', 'voltar', 'sair', 'cancelar tudo']
+    if (RESET_KEYWORDS.includes(escapedMsg)) {
+      return {
+        preambleMessage: undefined,
+        message: botSettings?.message_menu || templates.menu,
+        nextState: 'menu',
+        nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
+      }
+    }
+  }
+
   switch (state) {
     case 'menu':
       return handleMenu(userMessage, ctx, botSettings, clinicId)
@@ -117,10 +137,14 @@ export async function handleBotTurn(
       return handleCancelarEncaixe(conversationId, userMessage, ctx, clinicId, botSettings)
 
     case 'atendente':
+      // Bot already handed off to human — acknowledge the message silently.
+      // The webhook skips bot processing when status === 'waiting_human',
+      // but if it reaches here (e.g. status was changed externally), stay put.
       return {
-        message: botSettings?.message_menu || templates.menu,
-        nextState: 'menu',
-        nextContext: {},
+        message: 'Sua mensagem foi encaminhada ao atendente. Aguarde o contato da nossa equipe. 😊',
+        nextState: 'atendente',
+        nextContext: ctx,
+        // transferToHuman NOT set here — already transferred, no repeat
       }
 
     case 'ver_agendamentos':
@@ -174,6 +198,15 @@ async function handleMenu(
       })
 
     case 'reschedule':
+      if (ctx.appointments && ctx.appointments.length === 0) {
+        return { message: templates.cancelNoAppointments, nextState: 'menu', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
+      }
+      if (ctx.appointments && ctx.appointments.length > 0) {
+        if (ctx.appointments.length > 1) {
+          return { message: templates.whichAppointmentReschedule(ctx.appointments), nextState: 'reagendar_qual', nextContext: { ...ctx, intent: 'reschedule' } }
+        }
+        return showDayList({ clinicId, botSettings, ctx: { ...ctx, intent: 'reschedule', appointmentId: ctx.appointments[0].id }, flow: 'reagendar', offset: 0 })
+      }
       return {
         message: '🔍 Buscando suas consultas para remarcar...',
         nextState: 'ver_agendamentos',
@@ -181,6 +214,15 @@ async function handleMenu(
       }
 
     case 'cancel':
+      if (ctx.appointments && ctx.appointments.length === 0) {
+        return { message: templates.cancelNoAppointments, nextState: 'menu', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
+      }
+      if (ctx.appointments && ctx.appointments.length > 1) {
+        return { message: templates.whichAppointmentCancel(ctx.appointments), nextState: 'cancelar_qual', nextContext: { ...ctx, intent: 'cancel' } }
+      }
+      if (ctx.appointments && ctx.appointments.length === 1) {
+        return { message: templates.cancelConfirmSingle(ctx.appointments[0].label), nextState: 'cancelar_confirmar', nextContext: { ...ctx, intent: 'cancel', appointmentId: ctx.appointments[0].id } }
+      }
       return { message: templates.cancelConfirmGeneric, nextState: 'cancelar_confirmar', nextContext: { ...ctx, intent: 'cancel' } }
 
     case 'attendant':
@@ -195,10 +237,26 @@ async function handleMenu(
       }
 
     case 'view_appointments':
+      // If appointments were pre-loaded by the webhook, show list immediately (no extra round-trip)
+      if (ctx.appointments && ctx.appointments.length > 0) {
+        return {
+          message: templates.viewAppointments(ctx.appointments),
+          nextState: 'ver_agendamentos',
+          nextContext: { ...ctx, intent: 'view_appointments' },
+        }
+      }
+      if (ctx.appointments && ctx.appointments.length === 0) {
+        return {
+          message: templates.viewAppointmentsNotFound,
+          nextState: 'menu',
+          nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
+        }
+      }
+      // Fallback: no pre-load (shouldn't happen with new route logic)
       return {
-        message: '🔍 Buscando seus agendamentos...',
-        nextState: 'ver_agendamentos',
-        nextContext: { ...ctx, intent: 'view_appointments' },
+        message: templates.viewAppointmentsNotFound,
+        nextState: 'menu',
+        nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
       }
 
     case 'confirm_attendance':
@@ -306,7 +364,7 @@ async function handleAgendarHora(
         }
       }
     }
-    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: {} }
+    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
   }
 
   return technicalError(ctx)
@@ -326,11 +384,11 @@ async function handleSlotEscolha(
   const choice = resolveChoiceIndex(msg, slots.map(slot => slot.label))
 
   if (choice < 0 || choice >= slots.length) {
-    return {
+    return withRetry({
       message: templates.invalidChoice(slots.length),
       nextState: flow === 'agendar' ? 'agendar_slot_escolha' : 'reagendar_slot_escolha',
       nextContext: ctx,
-    }
+    }, ctx)
   }
 
   const slot = slots[choice]
@@ -381,11 +439,11 @@ async function handleQualAppointment(
   const choice = resolveChoiceIndex(msg, appointments.map(appointment => appointment.label))
 
   if (choice < 0 || choice >= appointments.length) {
-    return {
+    return withRetry({
       message: templates.invalidChoice(appointments.length),
       nextState: flow === 'cancelar' ? 'cancelar_qual' : 'reagendar_qual',
       nextContext: ctx,
-    }
+    }, ctx)
   }
 
   const chosen = appointments[choice]
@@ -451,7 +509,7 @@ async function handleReagendarHora(
           nextContext: { ...ctx, requestedTime, availableSlots: slots },
         }
       }
-      return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: {} }
+      return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
     }
   }
 
@@ -492,7 +550,7 @@ function handleCancelarConfirmar(msg: string, ctx: BotContext): BotResponse {
     return { message: templates.cancelAborted, nextState: 'menu', nextContext: {} }
   }
 
-  return { message: templates.cancelConfirmGeneric, nextState: 'cancelar_confirmar', nextContext: ctx }
+  return withRetry({ message: templates.cancelConfirmGeneric, nextState: 'cancelar_confirmar', nextContext: ctx }, ctx)
 }
 
 async function handleCancelarEncaixe(
@@ -790,7 +848,7 @@ async function showDayList(params: {
   )
 
   if (days.length === 0) {
-    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: {} }
+    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: { patientPhone: params.ctx.patientPhone, patientName: params.ctx.patientName } }
   }
 
   const hasMore = days.length > DAY_LIST_PAGE_SIZE
@@ -831,18 +889,18 @@ async function handleAgendarDiaLista(
   const choice = resolveChoiceIndex(msg, days.map(d => d.label))
 
   if (choice < 0 || choice >= days.length) {
-    return {
+    return withRetry({
       message: templates.invalidChoice(days.length),
       nextState: 'agendar_dia_lista',
       nextContext: ctx,
-    }
+    }, ctx)
   }
 
   const selectedDay = days[choice]
   const slots = await getSlotsForDay(clinicId, selectedDay.date, botSettings)
 
   if (slots.length === 0) {
-    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: {} }
+    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
   }
 
   return {
@@ -877,11 +935,11 @@ async function handleAgendarHoraLista(
   const choice = resolveChoiceIndex(msg, slots.map(s => s.label))
 
   if (choice < 0 || choice >= slots.length) {
-    return {
+    return withRetry({
       message: templates.invalidChoice(slots.length),
       nextState: 'agendar_hora_lista',
       nextContext: ctx,
-    }
+    }, ctx)
   }
 
   const slot = slots[choice]
@@ -920,18 +978,18 @@ async function handleReagendarDiaLista(
   const choice = resolveChoiceIndex(msg, days.map(d => d.label))
 
   if (choice < 0 || choice >= days.length) {
-    return {
+    return withRetry({
       message: templates.invalidChoice(days.length),
       nextState: 'reagendar_dia_lista',
       nextContext: ctx,
-    }
+    }, ctx)
   }
 
   const selectedDay = days[choice]
   const slots = await getSlotsForDay(clinicId, selectedDay.date, botSettings)
 
   if (slots.length === 0) {
-    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: {} }
+    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
   }
 
   return {
@@ -965,11 +1023,11 @@ async function handleReagendarHoraLista(
   const choice = resolveChoiceIndex(msg, slots.map(s => s.label))
 
   if (choice < 0 || choice >= slots.length) {
-    return {
+    return withRetry({
       message: templates.invalidChoice(slots.length),
       nextState: 'reagendar_hora_lista',
       nextContext: ctx,
-    }
+    }, ctx)
   }
 
   const slot = slots[choice]
@@ -996,6 +1054,29 @@ function technicalError(ctx: BotContext): BotResponse {
   }
 }
 
+/**
+ * Wraps a "stay in same state" response with retry counting.
+ * After MAX_RETRIES consecutive invalid inputs, the bot offers to connect
+ * the patient with a human attendant instead of looping forever.
+ */
+const MAX_RETRIES = 3
+
+function withRetry(
+  response: BotResponse,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+): BotResponse {
+  const retries = (ctx.retryCount ?? 0) + 1
+  if (retries >= MAX_RETRIES) {
+    return {
+      message: `Estou tendo dificuldade em entender. O que deseja fazer?\n\n1️⃣ Falar com atendente\n2️⃣ Voltar ao menu`,
+      nextState: 'menu',
+      nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
+    }
+  }
+  return { ...response, nextContext: { ...response.nextContext, retryCount: retries } }
+}
+
 async function offerSlotSelection(params: {
   clinicId?: string
   botSettings?: BotSettings | null
@@ -1008,7 +1089,7 @@ async function offerSlotSelection(params: {
 
   const slots = await getAvailableSlots(params.clinicId, new Date(), params.botSettings, 5)
   if (slots.length === 0) {
-    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: {} }
+    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: { patientPhone: params.ctx.patientPhone, patientName: params.ctx.patientName } }
   }
 
   return {

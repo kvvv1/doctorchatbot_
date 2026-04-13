@@ -195,7 +195,8 @@ export async function POST(request: NextRequest) {
         result.conversationId,
         parsed.phone,
         parsed.normalizedText || parsed.messageText,
-        clinicId
+        clinicId,
+        result.createdConversation ?? false
       ).catch((error) => {
         console.error('[Z-API Webhook] Bot response failed:', error)
       })
@@ -222,7 +223,8 @@ async function triggerBotResponse(
   conversationId: string,
   phone: string,
   messageText: string,
-  clinicId: string
+  clinicId: string,
+  isFirstContact = false
 ): Promise<void> {
   const supabase = createAdminClient()
 
@@ -238,7 +240,7 @@ async function triggerBotResponse(
     // 2. Get conversation details
     const { data: conversation, error: convError } = await supabase
       .from('conversations')
-      .select('bot_enabled, bot_state, bot_context, status')
+      .select('bot_enabled, bot_state, bot_context, status, created_at, updated_at')
       .eq('id', conversationId)
       .single()
 
@@ -250,6 +252,12 @@ async function triggerBotResponse(
     // 3. Check if bot is enabled
     if (!conversation.bot_enabled) {
       console.log('[Bot] Bot disabled for conversation:', conversationId)
+      return
+    }
+
+    // 3b. Skip bot entirely when waiting for a human attendant
+    if (conversation.status === 'waiting_human') {
+      console.log('[Bot] Conversation waiting for human attendant — bot silenced:', conversationId)
       return
     }
 
@@ -275,72 +283,44 @@ async function triggerBotResponse(
     // Always keep patientPhone in context so all handlers have access to it
     currentContext = { ...currentContext, patientPhone: phone }
 
-    // Pre-fetch appointments when entering ver_agendamentos so the handler
-    // receives real data on the very first turn of that state.
-    if (currentState === 'ver_agendamentos' && !currentContext.appointments) {
-      const appointments = await getPatientAppointments(clinicId, phone)
-      if (appointments.length === 0) {
-        // Send "not found" immediately and reset to menu
-        await sendBotResponse(
-          conversationId,
-          phone,
-          {
-            message: (await import('@/lib/bot/templates')).templates.viewAppointmentsNotFound,
-            nextState: 'menu',
-            nextContext: {},
-          },
-          clinicId
-        )
-        return
-      }
-      currentContext = { ...currentContext, appointments }
-      // Show the list right away before processing this message as a choice
-      await sendBotResponse(
-        conversationId,
-        phone,
-        {
-          message: (await import('@/lib/bot/templates')).templates.viewAppointments(appointments),
-          nextState: 'ver_agendamentos',
-          nextContext: currentContext,
+    // 5b. First contact: send welcome message regardless of what the patient typed.
+    // This ensures the clinic's configured greeting always reaches new patients,
+    // even when they start with "agendar" instead of "oi".
+    if (isFirstContact && botSettings.message_welcome?.trim()) {
+      const zapiUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/zapi/send-text`
+      await fetch(zapiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
         },
-        clinicId
-      )
-      return
+        body: JSON.stringify({ conversationId, phone, text: botSettings.message_welcome.trim(), internalCall: true }),
+      })
+      await new Promise(r => setTimeout(r, 400))
     }
 
-    // Pre-load appointments into context for cancel/reschedule flows so the
-    // engine can present the right selection screen when > 1 appointment exists.
-    if (
-      currentState === 'menu' &&
-      !currentContext.appointments
-    ) {
-      const intent = messageText.toLowerCase()
-      const needsAppointments =
-        intent.includes('cancelar') || intent.includes('desmarcar') ||
-        intent.includes('remarcar') || intent.includes('reagendar') ||
-        /\b[23]\b/.test(intent)
+    // Pre-load appointments into context whenever the patient might need them.
+    // This covers: menu intent for cancel/reschedule/view, and the ver_agendamentos state.
+    // We do it ONCE here so the engine always receives real data without extra round-trips.
+    if (!currentContext.appointments) {
+      const intentRaw = messageText.toLowerCase()
+      const stateNeedsAppointments =
+        currentState === 'ver_agendamentos' ||
+        (currentState === 'menu' && (
+          intentRaw.includes('cancelar') || intentRaw.includes('desmarcar') ||
+          intentRaw.includes('remarcar') || intentRaw.includes('reagendar') ||
+          intentRaw.includes('ver') || intentRaw.includes('agendamento') ||
+          /\b[2-5]\b/.test(intentRaw)
+        ))
 
-      if (needsAppointments) {
+      if (stateNeedsAppointments) {
         const appointments = await getPatientAppointments(clinicId, phone)
-        if (appointments.length > 1) {
-          // Determine flow from intent
-          const isCancel = intent.includes('cancelar') || intent.includes('desmarcar') || /\b3\b/.test(intent)
-          const { templates } = await import('@/lib/bot/templates')
-          const msg = isCancel
-            ? templates.whichAppointmentCancel(appointments)
-            : templates.whichAppointmentReschedule(appointments)
-          const nextState: BotState = isCancel ? 'cancelar_qual' : 'reagendar_qual'
-          await sendBotResponse(
-            conversationId,
-            phone,
-            { message: msg, nextState, nextContext: { ...currentContext, appointments } },
-            clinicId
-          )
-          return
-        }
-        // Exactly 1 — put it in context so cancel/reschedule handlers can use it
-        if (appointments.length === 1) {
-          currentContext = { ...currentContext, appointmentId: appointments[0].id, appointments }
+        if (appointments.length > 0) {
+          currentContext = { ...currentContext, appointments }
+          // If there's exactly one appointment, also set appointmentId for direct cancel/reschedule
+          if (appointments.length === 1) {
+            currentContext = { ...currentContext, appointmentId: appointments[0].id }
+          }
         }
       }
     }

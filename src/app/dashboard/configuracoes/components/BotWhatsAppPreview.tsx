@@ -324,6 +324,27 @@ export default function BotWhatsAppPreview({
         ],
       },
       {
+        id: 'remarcar',
+        label: 'Remarcar',
+        description: 'Remarcação via seleção de data e horário por lista',
+        messages: [
+          { sender: 'patient', text: 'Quero remarcar minha consulta' },
+          {
+            sender: 'bot',
+            text: '📅 Escolha o novo dia da consulta:',
+            choices: ['Segunda-feira, 28/04', 'Terça-feira, 29/04', 'Quarta-feira, 30/04', 'Quinta-feira, 01/05', 'Sexta-feira, 02/05', 'Segunda-feira, 05/05', 'Terça-feira, 06/05', '📅 Ver mais datas'],
+          },
+          { sender: 'patient', text: 'Quarta-feira, 30/04' },
+          {
+            sender: 'bot',
+            text: '🕐 Horários disponíveis para *Quarta-feira, 30/04*:',
+            choices: ['09h00', '10h00', '11h00', '14h00', '14h30', '15h00', '16h00', '16h30', '↩️ Outra data'],
+          },
+          { sender: 'patient', text: '14h30' },
+          { sender: 'bot', text: confirmReschedule },
+        ],
+      },
+      {
         id: 'cancelar',
         label: 'Cancelar',
         description: 'Confirmação de cancelamento de consulta',

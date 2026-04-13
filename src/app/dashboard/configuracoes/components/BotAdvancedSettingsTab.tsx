@@ -48,6 +48,12 @@ export default function BotAdvancedSettingsTab({
 		setTimeout(() => setToast(null), 3000)
 	}
 
+	const insertVar = (field: keyof BotSettings, variable: string) => {
+		if (!settings) return
+		const current = (settings[field] as string) || ''
+		setSettings({ ...settings, [field]: current + variable })
+	}
+
 	if (!settings) {
 		return (
 			<div className="text-sm text-red-600">
@@ -273,21 +279,8 @@ export default function BotAdvancedSettingsTab({
 								Confirmações automáticas
 							</p>
 							<p className="text-xs text-neutral-400 mb-3">
-								Use as variáveis abaixo para personalizar com os dados reais do agendamento:
+								Clique nas variáveis para inserir no campo. Os valores reais são preenchidos automaticamente no envio.
 							</p>
-							{/* Variable chips */}
-							<div className="flex flex-wrap gap-1.5 mb-4">
-								{TEMPLATE_VARIABLES.map((v) => (
-									<span
-										key={v.key}
-										title={v.description}
-										className="inline-flex items-center gap-1 rounded border border-sky-200 bg-sky-50 px-2 py-0.5 font-mono text-[11px] text-sky-700 cursor-default select-all"
-									>
-										{v.label}
-										<span className="font-sans text-[10px] text-sky-500 non-mono">= {v.description}</span>
-									</span>
-								))}
-							</div>
 							<div className="space-y-3">
 								<div>
 									<label htmlFor="message-confirm-schedule" className="block text-xs font-medium text-neutral-700 mb-1">
@@ -298,8 +291,17 @@ export default function BotAdvancedSettingsTab({
 										value={settings.message_confirm_schedule}
 										onChange={(e) => setSettings({ ...settings, message_confirm_schedule: e.target.value })}
 										rows={2}
-								className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+										className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
 									/>
+									<div className="flex flex-wrap gap-1 mt-1">
+										{TEMPLATE_VARIABLES.map((v) => (
+											<button key={v.key} type="button" title={v.description}
+												onClick={() => insertVar('message_confirm_schedule', v.label)}
+												className="rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 font-mono text-[10px] text-sky-700 hover:bg-sky-100 transition-colors">
+												{v.label}
+											</button>
+										))}
+									</div>
 								</div>
 								<div>
 									<label htmlFor="message-confirm-reschedule" className="block text-xs font-medium text-neutral-700 mb-1">
@@ -310,8 +312,17 @@ export default function BotAdvancedSettingsTab({
 										value={settings.message_confirm_reschedule}
 										onChange={(e) => setSettings({ ...settings, message_confirm_reschedule: e.target.value })}
 										rows={2}
-								className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+										className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
 									/>
+									<div className="flex flex-wrap gap-1 mt-1">
+										{TEMPLATE_VARIABLES.map((v) => (
+											<button key={v.key} type="button" title={v.description}
+												onClick={() => insertVar('message_confirm_reschedule', v.label)}
+												className="rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 font-mono text-[10px] text-sky-700 hover:bg-sky-100 transition-colors">
+												{v.label}
+											</button>
+										))}
+									</div>
 								</div>
 								<div>
 									<label htmlFor="message-confirm-cancel" className="block text-xs font-medium text-neutral-700 mb-1">
@@ -324,6 +335,15 @@ export default function BotAdvancedSettingsTab({
 										rows={2}
 										className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
 									/>
+									<div className="flex flex-wrap gap-1 mt-1">
+										{TEMPLATE_VARIABLES.map((v) => (
+											<button key={v.key} type="button" title={v.description}
+												onClick={() => insertVar('message_confirm_cancel', v.label)}
+												className="rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 font-mono text-[10px] text-sky-700 hover:bg-sky-100 transition-colors">
+												{v.label}
+											</button>
+										))}
+									</div>
 								</div>
 							</div>
 						</div>
