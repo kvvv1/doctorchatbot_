@@ -109,14 +109,30 @@ export function formatSlotLabel(date: Date): string {
 /**
  * Fetch appointment settings for a clinic.
  * Returns defaults if no settings row exists.
+ * Only selects columns that are guaranteed to exist (migration 022).
+ * buffer_time_minutes and min_advance_booking_hours are added by migration 023.
  */
 async function getAppointmentSettings(clinicId: string) {
   const supabase = createAdminClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('appointment_settings')
     .select('default_duration_minutes, buffer_time_minutes, min_advance_booking_hours')
     .eq('clinic_id', clinicId)
     .maybeSingle()
+
+  if (error) {
+    // Columns may not exist yet (migration 023 pending) — fall back gracefully
+    const { data: fallback } = await supabase
+      .from('appointment_settings')
+      .select('default_duration_minutes')
+      .eq('clinic_id', clinicId)
+      .maybeSingle()
+    return {
+      durationMinutes: fallback?.default_duration_minutes ?? 30,
+      bufferMinutes: 0,
+      minAdvanceHours: 2,
+    }
+  }
 
   return {
     durationMinutes: data?.default_duration_minutes ?? 30,
