@@ -29,7 +29,7 @@ type AppointmentUpdatePayload = {
   description?: string
 }
 
-type SourceFilter = 'all' | 'bot' | 'manual' | 'google'
+type SourceFilter = 'all' | 'bot' | 'manual' | 'google' | 'gestaods'
 
 function isBotAppointment(appointment: Appointment): boolean {
   return (
@@ -41,9 +41,10 @@ function isBotAppointment(appointment: Appointment): boolean {
 
 interface AgendaPageClientProps {
   initialAppointments: Appointment[]
+  activeProvider: 'gestaods' | 'google' | null
 }
 
-export default function AgendaPageClient({ initialAppointments }: AgendaPageClientProps) {
+export default function AgendaPageClient({ initialAppointments, activeProvider }: AgendaPageClientProps) {
   const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments)
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
   const [view, setView] = useState<View>('month')
@@ -326,11 +327,15 @@ export default function AgendaPageClient({ initialAppointments }: AgendaPageClie
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1">
             {([
-              { key: 'all', label: 'Todos' },
-              { key: 'bot', label: 'Bot' },
-              { key: 'manual', label: 'Manual' },
-              { key: 'google', label: 'Google' },
-            ] as const).map((option) => (
+              { key: 'all' as const, label: 'Todos' },
+              { key: 'bot' as const, label: 'Bot' },
+              { key: 'manual' as const, label: 'Manual' },
+              ...(activeProvider === 'gestaods'
+                ? [{ key: 'gestaods' as const, label: 'GestaoDS' }]
+                : activeProvider === 'google'
+                ? [{ key: 'google' as const, label: 'Google' }]
+                : []),
+            ]).map((option) => (
               <button
                 key={option.key}
                 onClick={() => setSourceFilter(option.key)}

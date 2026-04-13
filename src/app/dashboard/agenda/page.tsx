@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getSessionProfile } from '@/lib/auth/getSessionProfile'
 import { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns'
 import { checkSubscription } from '@/lib/services/subscriptionService'
 import { hasFeatureAccess, PlanFeature } from '@/lib/services/planFeatures'
@@ -79,7 +80,23 @@ export default async function AgendaPage() {
   }
 
   const supabase = await createClient()
+  const admin = createAdminClient()
   const clinicId = session.clinic.id
+
+  // Buscar qual integração de agenda está ativa para essa clínica
+  const { data: integrations } = await admin
+    .from('clinic_integrations')
+    .select('provider')
+    .eq('clinic_id', clinicId)
+    .eq('is_connected', true)
+
+  // Prioridade: gestaods > google > null
+  const activeProvider: 'gestaods' | 'google' | null =
+    integrations?.find((i) => i.provider === 'gestaods')
+      ? 'gestaods'
+      : integrations?.find((i) => i.provider === 'google')
+      ? 'google'
+      : null
 
   // Carregar appointments do mês atual
   const now = new Date()
@@ -106,7 +123,7 @@ export default async function AgendaPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <AgendaPageClient initialAppointments={appointments || []} />
+      <AgendaPageClient initialAppointments={appointments || []} activeProvider={activeProvider} />
     </div>
   )
 }
