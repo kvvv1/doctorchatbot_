@@ -193,17 +193,24 @@ function normalizeString(value: unknown): string | null {
 
 /**
  * Parseia data no formato GestaoDS: "dd/mm/yyyy hh:mm" ou "dd/mm/yyyy hh:mm:ss"
+ * GestaoDS usa horário de Brasília (UTC-3). Adicionamos o offset explicitamente
+ * para garantir que o ISO gerado seja UTC correto independentemente do timezone do servidor.
  */
 function parseGestaoDSDate(raw: string): Date | null {
   if (!raw) return null
-  // Tenta parse ISO nativo primeiro (caso futuramente API mude)
-  const iso = new Date(raw)
-  if (!Number.isNaN(iso.getTime()) && raw.includes('-')) return iso
+  // Tenta parse ISO nativo primeiro (caso futuramente a API mude para ISO)
+  if (raw.includes('-') && !raw.startsWith('0')) {
+    const iso = new Date(raw)
+    if (!Number.isNaN(iso.getTime())) return iso
+  }
   // Formato brasileiro: "06/04/2026 08:40" ou "06/04/2026 08:40:00"
   const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:[\s T](\d{2}):(\d{2})(?::(\d{2}))?)?/)
   if (!match) return null
-  const [, day, month, year, hours = '0', minutes = '0', seconds = '0'] = match
-  return new Date(Number(year), Number(month) - 1, Number(day), Number(hours), Number(minutes), Number(seconds))
+  const [, day, month, year, hours = '00', minutes = '00', seconds = '00'] = match
+  // Interpreta como Brasília (UTC-3) para armazenar UTC correto no banco
+  const isoWithOffset = `${year}-${month}-${day}T${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:${seconds.padStart(2, '0')}-03:00`
+  const d = new Date(isoWithOffset)
+  return Number.isNaN(d.getTime()) ? null : d
 }
 
 /**
