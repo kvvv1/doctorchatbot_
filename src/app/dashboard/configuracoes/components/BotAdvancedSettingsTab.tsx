@@ -1,14 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import type { BotSettings, WorkingHoursDay, PlanKey } from '@/lib/types/database'
-import { Save, Bot, Clock, MessageSquare } from 'lucide-react'
+import type { BotSettings, PlanKey } from '@/lib/types/database'
+import { Save, Bot, MessageSquare } from 'lucide-react'
 import UpgradePrompt from '../../components/UpgradePrompt'
 
 interface BotAdvancedSettingsTabProps {
 	clinicId: string
 	initialSettings: BotSettings | null
-	initialDefaultDurationMinutes?: number
 	planKey: PlanKey | null
 	hasCustomFlows: boolean
 }
@@ -31,12 +30,10 @@ const MESSAGE_PRESETS = {
 export default function BotAdvancedSettingsTab({
 	clinicId,
 	initialSettings,
-	initialDefaultDurationMinutes = 30,
 	planKey,
 	hasCustomFlows,
 }: BotAdvancedSettingsTabProps) {
 	const [settings, setSettings] = useState<BotSettings | null>(initialSettings)
-	const [defaultDurationMinutes, setDefaultDurationMinutes] = useState(initialDefaultDurationMinutes)
 	const [isSaving, setIsSaving] = useState(false)
 	const [toast, setToast] = useState<{
 		message: string

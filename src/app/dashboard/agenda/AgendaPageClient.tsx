@@ -172,15 +172,14 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
   const handleSyncGestaods = async () => {
     setSyncing(true)
     try {
-      const today = new Date()
-      const start = format(addDays(today, -7), 'yyyy-MM-dd')
-      const end = format(addDays(today, 30), 'yyyy-MM-dd')
-      const response = await fetch(`/api/integrations/gestaods/sync?start_date=${start}&end_date=${end}`, { method: 'POST' })
+      const response = await fetch('/api/integrations/gestaods/sync', { method: 'POST' })
       const data = await response.json()
       if (!response.ok) {
         addToast('error', data.error || 'Erro ao sincronizar com GestaoDS.')
       } else {
-        addToast('success', `GestaoDS sincronizado: ${data.synced ?? 0} agendamentos importados.`)
+        const s = data.summary
+        const count = (s?.created ?? 0) + (s?.updated ?? 0)
+        addToast('success', `GestaoDS sincronizado: ${count} agendamento${count !== 1 ? 's' : ''} importado${count !== 1 ? 's' : ''}.`)
         loadAppointments()
       }
     } catch {

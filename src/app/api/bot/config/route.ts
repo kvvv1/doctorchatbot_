@@ -17,11 +17,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    if (!Number.isFinite(defaultDurationMinutes) || defaultDurationMinutes <= 0) {
-      return NextResponse.json(
-        { error: 'Duração padrão da consulta inválida' },
-        { status: 400 }
-      )
+    // defaultDurationMinutes is optional — only validated when provided
+    if (defaultDurationMinutes !== undefined && defaultDurationMinutes !== null) {
+      if (!Number.isFinite(defaultDurationMinutes) || defaultDurationMinutes <= 0) {
+        return NextResponse.json(
+          { error: 'Duração padrão da consulta inválida' },
+          { status: 400 }
+        )
+      }
     }
 
     const supabase = createAdminClient()
@@ -42,20 +45,23 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Falha ao salvar configurações do bot' }, { status: 500 })
     }
 
-    const { error: appointmentSettingsError } = await supabase
-      .from('appointment_settings')
-      .upsert(
-        {
-          clinic_id: clinicId,
-          default_duration_minutes: defaultDurationMinutes,
-          updated_at: now,
-        },
-        { onConflict: 'clinic_id' }
-      )
+    // Only update appointment duration when explicitly provided
+    if (Number.isFinite(defaultDurationMinutes) && defaultDurationMinutes > 0) {
+      const { error: appointmentSettingsError } = await supabase
+        .from('appointment_settings')
+        .upsert(
+          {
+            clinic_id: clinicId,
+            default_duration_minutes: defaultDurationMinutes,
+            updated_at: now,
+          },
+          { onConflict: 'clinic_id' }
+        )
 
-    if (appointmentSettingsError) {
-      console.error('[BotConfig] Failed to update appointment_settings:', appointmentSettingsError)
-      return NextResponse.json({ error: 'Falha ao salvar duração padrão de consulta' }, { status: 500 })
+      if (appointmentSettingsError) {
+        console.error('[BotConfig] Failed to update appointment_settings:', appointmentSettingsError)
+        return NextResponse.json({ error: 'Falha ao salvar duração padrão de consulta' }, { status: 500 })
+      }
     }
 
     return NextResponse.json({
