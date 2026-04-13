@@ -284,6 +284,11 @@ function ClinicaTab({
 	const [isSaving, setIsSaving] = useState(false)
 	const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
+	// Sync local state when server refreshes parent props (e.g. after router.refresh())
+	useEffect(() => {
+		setDefaultDurationMinutes(initialDefaultDurationMinutes)
+	}, [initialDefaultDurationMinutes])
+
 	const showToast = (message: string, type: 'success' | 'error') => {
 		setToast({ message, type })
 		setTimeout(() => setToast(null), 3500)
@@ -331,6 +336,11 @@ function ClinicaTab({
 			if (!res.ok) {
 				const data = await res.json().catch(() => null)
 				throw new Error(data?.error || 'Falha ao salvar')
+			}
+
+			const data = await res.json().catch(() => null)
+			if (data?.defaultDurationMinutes) {
+				setDefaultDurationMinutes(data.defaultDurationMinutes)
 			}
 
 			showToast('Configurações salvas com sucesso!', 'success')

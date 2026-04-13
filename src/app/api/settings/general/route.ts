@@ -47,7 +47,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Nome da clínica é obrigatório' }, { status: 400 })
     }
 
-    if (!Number.isFinite(defaultDurationMinutes) || (defaultDurationMinutes ?? 0) <= 0) {
+    const parsedDuration = Number(defaultDurationMinutes)
+    if (!Number.isFinite(parsedDuration) || parsedDuration <= 0) {
       return NextResponse.json(
         { error: 'Duração padrão deve ser um número positivo' },
         { status: 400 }
@@ -82,7 +83,7 @@ export async function PUT(request: NextRequest) {
       .upsert(
         {
           clinic_id: clinicId,
-          default_duration_minutes: defaultDurationMinutes,
+          default_duration_minutes: parsedDuration,
           updated_at: now,
         },
         { onConflict: 'clinic_id' }
@@ -119,7 +120,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({
       success: true,
       clinicName: trimmedClinicName,
-      defaultDurationMinutes,
+      defaultDurationMinutes: parsedDuration,
     })
   } catch (error) {
     console.error('[GeneralSettings] Unexpected error:', error)
