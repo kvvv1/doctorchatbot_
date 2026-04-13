@@ -79,17 +79,7 @@ export default async function AgendaPage() {
   }
 
   const supabase = await createClient()
-
-  // Buscar perfil do usuário para pegar clinic_id
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('clinic_id')
-    .eq('id', session.user.id)
-    .single()
-
-  if (!profile?.clinic_id) {
-    redirect('/dashboard')
-  }
+  const clinicId = session.clinic.id
 
   // Carregar appointments do mês atual
   const now = new Date()
@@ -109,7 +99,7 @@ export default async function AgendaPage() {
       )
     `
     )
-    .eq('clinic_id', profile.clinic_id)
+    .eq('clinic_id', clinicId)
     .gte('starts_at', startDate.toISOString())
     .lte('starts_at', endDate.toISOString())
     .order('starts_at', { ascending: true })
