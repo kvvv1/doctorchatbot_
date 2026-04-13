@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getMissingCredentials, zapiReconnect, validateCredentials } from '@/lib/zapi/client';
 import { assertSubscriptionActive } from '@/lib/services/subscriptionService';
 
@@ -25,8 +26,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Obter clinic_id do usuário
-    const { data: profile, error: profileError } = await supabase
+    // 2. Obter clinic_id do usuário (admin para bypassar RLS)
+    const admin = createAdminClient();
+    const { data: profile, error: profileError } = await admin
       .from('profiles')
       .select('clinic_id')
       .eq('id', user.id)
@@ -52,8 +54,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Buscar instância WhatsApp da clínica
-    const { data: instance, error: instanceError } = await supabase
+    // 3. Buscar instância WhatsApp da clínica (admin para bypassar RLS)
+    const { data: instance, error: instanceError } = await admin
       .from('whatsapp_instances')
       .select('id, instance_id, token, client_token, status')
       .eq('clinic_id', clinicId)

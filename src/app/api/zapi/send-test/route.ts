@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { zapiSendText, validateCredentials } from '@/lib/zapi/client'
 import { assertSubscriptionActive } from '@/lib/services/subscriptionService'
 
@@ -27,7 +28,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Não autenticado' }, { status: 401 })
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const admin = createAdminClient()
+    const { data: profile, error: profileError } = await admin
       .from('profiles')
       .select('clinic_id')
       .eq('id', user.id)
@@ -61,7 +63,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data: instance, error: instanceError } = await supabase
+    const { data: instance, error: instanceError } = await admin
       .from('whatsapp_instances')
       .select('instance_id, token, client_token, status')
       .eq('clinic_id', clinicId)
