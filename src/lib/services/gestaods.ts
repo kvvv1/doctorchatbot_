@@ -209,21 +209,24 @@ export class GestaoDSService {
 
     /**
      * Relatório de agendamentos para sincronização (GET)
+     * Nota: o endpoint de listagem só existe na rota /dados-agendamento/listagem/ (sem prefixo dev-).
+     * O isDev diferencia apenas outras operações (criar/cancelar agendamentos de teste).
      */
     async listAppointments(startDate: string, endDate: string): Promise<GestaoDSResponse<any[]>> {
         try {
-            // Ambiente dev não tem endpoint /listagem — usa /dev-dados-agendamento/{token}/
-            // Produção: GET /api/dados-agendamento/listagem/{token}?data_inicial=...&data_final=...
-            const endpoint = this.isDev
-                ? `${this.baseUrl}/dev-dados-agendamento/${this.apiToken}/`
-                : `${this.baseUrl}/dados-agendamento/listagem/${this.apiToken}?data_inicial=${startDate}&data_final=${endDate}`
+            // Converte datas de yyyy-MM-dd para dd/mm/yyyy (formato da API brasileira)
+            const toApiDate = (d: string) => {
+                const [y, m, day] = d.split('-')
+                return `${day}/${m}/${y}`
+            }
+            const endpoint = `${this.baseUrl}/dados-agendamento/listagem/${this.apiToken}?data_inicial=${toApiDate(startDate)}&data_final=${toApiDate(endDate)}`
 
             const response = await fetch(endpoint, {
                 method: 'GET',
                 headers: { 'Accept': 'application/json' }
             })
 
-            if (!response.ok) return { success: false, error: response.statusText }
+            if (!response.ok) return { success: false, error: `HTTP ${response.status}: ${response.statusText}` }
 
             const data = await response.json()
             return { success: true, data: Array.isArray(data) ? data : [] }

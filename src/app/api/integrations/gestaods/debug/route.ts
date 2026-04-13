@@ -35,9 +35,15 @@ export async function GET() {
   const isDev = config.gestaods_is_dev ?? true
   const token = config.gestaods_api_token
 
-  const endpoint = isDev
-    ? `${baseUrl}/dev-dados-agendamento/${token}/`
-    : `${baseUrl}/dados-agendamento/listagem/${token}?data_inicial=2026-01-01&data_final=2026-12-31`
+  // O endpoint de listagem não tem versão dev — usa sempre /dados-agendamento/listagem/
+  // isDev só diferencia criação/cancelamento de agendamento
+  void isDev // suprime warning de unused
+  const today = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const fmt = (d: Date) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+  const pastDate = new Date(today); pastDate.setDate(today.getDate() - 7)
+  const futureDate = new Date(today); futureDate.setDate(today.getDate() + 30)
+  const endpoint = `${baseUrl}/dados-agendamento/listagem/${token}?data_inicial=${fmt(pastDate)}&data_final=${fmt(futureDate)}`
 
   try {
     const response = await fetch(endpoint, {
