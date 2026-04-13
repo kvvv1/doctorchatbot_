@@ -53,28 +53,6 @@ export default function BotAdvancedSettingsTab({
 		)
 	}
 
-	const updateWorkingDay = (day: string, field: keyof WorkingHoursDay, value: any) => {
-		setSettings({
-			...settings,
-			working_hours: {
-				...settings.working_hours,
-				days: settings.working_hours.days.map((d) =>
-					d.day === day ? { ...d, [field]: value } : d
-				),
-			},
-		})
-	}
-
-	const dayLabels: Record<string, string> = {
-		mon: 'Segunda-feira',
-		tue: 'Terça-feira',
-		wed: 'Quarta-feira',
-		thu: 'Quinta-feira',
-		fri: 'Sexta-feira',
-		sat: 'Sábado',
-		sun: 'Domingo',
-	}
-
 	const handleSave = async () => {
 		if (!settings) return
 		setIsSaving(true)
@@ -85,11 +63,10 @@ export default function BotAdvancedSettingsTab({
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					clinicId,
-					defaultDurationMinutes,
+					// working_hours and defaultDurationMinutes are managed in the Clínica tab
 					settings: {
 						bot_default_enabled: settings.bot_default_enabled,
 						working_hours_enabled: settings.working_hours_enabled,
-						working_hours: settings.working_hours,
 						message_welcome: settings.message_welcome,
 						message_menu: settings.message_menu,
 						message_out_of_hours: settings.message_out_of_hours,
@@ -118,34 +95,6 @@ export default function BotAdvancedSettingsTab({
 
 	return (
 		<div className="space-y-6">
-			{/* Parâmetros de consulta */}
-			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-				<h3 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
-					<Clock className="h-4 w-4 text-sky-600" />
-					Parâmetros de consulta
-				</h3>
-				<div>
-					<label htmlFor="bot-default-duration" className="block text-sm font-medium text-neutral-700 mb-1">
-						Duração padrão da consulta
-					</label>
-					<select
-						id="bot-default-duration"
-						value={defaultDurationMinutes}
-						onChange={(e) => setDefaultDurationMinutes(Number(e.target.value))}
-						className="w-full max-w-xs rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-					>
-						<option value={15}>15 minutos</option>
-						<option value={30}>30 minutos</option>
-						<option value={45}>45 minutos</option>
-						<option value={60}>60 minutos</option>
-						<option value={90}>90 minutos</option>
-					</select>
-					<p className="mt-1 text-xs text-neutral-500">
-						Este valor é usado no bot e na agenda para novos agendamentos.
-					</p>
-				</div>
-			</div>
-
 			{/* Comportamento do Bot */}
 			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
 				<h3 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
@@ -185,7 +134,7 @@ export default function BotAdvancedSettingsTab({
 						<div className="flex-1">
 							<p className="text-sm font-medium text-neutral-800">Respeitar horário de funcionamento</p>
 							<p className="text-xs text-neutral-500">
-								Responder com mensagem especial fora do horário.
+								O bot envia mensagem de fora do horário quando a clínica está fechada. Configure o horário na aba <span className="font-medium text-sky-700">Clínica</span>.
 							</p>
 						</div>
 						<button
@@ -209,49 +158,6 @@ export default function BotAdvancedSettingsTab({
 					</div>
 				</div>
 			</div>
-
-			{/* Horário de funcionamento */}
-			{settings.working_hours_enabled && (
-				<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-					<h3 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
-						<Clock className="h-4 w-4 text-sky-600" />
-						Horário de funcionamento
-					</h3>
-					<div className="space-y-2">
-						{settings.working_hours.days.map((day) => (
-							<div
-								key={day.day}
-								className="flex items-center gap-3 p-2 bg-neutral-50 rounded-lg"
-							>
-								<input
-									type="checkbox"
-									checked={day.enabled}
-									onChange={(e) => updateWorkingDay(day.day, 'enabled', e.target.checked)}
-									className="h-4 w-4 text-sky-600 rounded"
-								/>
-								<span className="w-28 text-xs font-medium text-neutral-800">
-									{dayLabels[day.day]}
-								</span>
-								<input
-									type="time"
-									value={day.start}
-									onChange={(e) => updateWorkingDay(day.day, 'start', e.target.value)}
-									disabled={!day.enabled}
-									className="px-3 py-1.5 border border-neutral-300 rounded-lg text-xs disabled:bg-neutral-100"
-								/>
-								<span className="text-xs text-neutral-500">até</span>
-								<input
-									type="time"
-									value={day.end}
-									onChange={(e) => updateWorkingDay(day.day, 'end', e.target.value)}
-									disabled={!day.enabled}
-									className="px-3 py-1.5 border border-neutral-300 rounded-lg text-xs disabled:bg-neutral-100"
-								/>
-							</div>
-						))}
-					</div>
-				</div>
-			)}
 
 			{/* Mensagens do Bot */}
 			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">

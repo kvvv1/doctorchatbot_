@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
 	Save,
-	Settings,
+	Settings2,
 	MessageSquare,
-	Calendar,
 	Bot,
 	Bell,
 	User as UserIcon,
 	CreditCard,
+	Plug,
+	Clock,
 } from 'lucide-react'
 import { FaWhatsapp } from 'react-icons/fa'
 import SignOutButton from '../ui/SignOutButton'
@@ -18,57 +19,15 @@ import QuickRepliesManager from './components/QuickRepliesManager'
 import NotificationSettingsTab from './components/NotificationSettingsTab'
 import AgendaIntegrationTab from './components/AgendaIntegrationTab'
 import BotAdvancedSettingsTab from './components/BotAdvancedSettingsTab'
-
-import type { BotSettings, PlanKey } from '@/lib/types/database'
 import WhatsAppConnectionTab from './components/WhatsAppConnectionTab'
 
-type WorkDaysState = {
-	mon: boolean
-	tue: boolean
-	wed: boolean
-	thu: boolean
-	fri: boolean
-	sat: boolean
-	sun: boolean
-}
+import type { BotSettings, PlanKey, WorkingHoursDay } from '@/lib/types/database'
 
-const DAY_ORDER: Array<keyof WorkDaysState> = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
-function inferStartTime(settings: BotSettings | null): string {
-	const enabledDay = settings?.working_hours?.days?.find((day) => day.enabled)
-	return enabledDay?.start ?? '08:00'
-}
-
-function inferEndTime(settings: BotSettings | null): string {
-	const enabledDay = settings?.working_hours?.days?.find((day) => day.enabled)
-	return enabledDay?.end ?? '18:00'
-}
-
-function inferWorkDays(settings: BotSettings | null): WorkDaysState {
-	const defaults: WorkDaysState = {
-		mon: true,
-		tue: true,
-		wed: true,
-		thu: true,
-		fri: true,
-		sat: false,
-		sun: false,
-	}
-
-	const days = settings?.working_hours?.days
-	if (!days?.length) {
-		return defaults
-	}
-
-	const next = { ...defaults }
-	for (const day of days) {
-		next[day.day] = day.enabled
-	}
-
-	return next
-}
-
-type TabId = 'geral' | 'whatsapp' | 'agenda' | 'bot' | 'notificacoes' | 'assinatura' | 'conta'
+type TabId = 'clinica' | 'whatsapp' | 'integracoes' | 'bot' | 'notificacoes' | 'plano' | 'conta'
 
 interface Tab {
 	id: TabId
@@ -76,15 +35,83 @@ interface Tab {
 	icon: React.ComponentType<{ className?: string }>
 }
 
+// Backward-compat map: old tab IDs → new tab IDs
+const TAB_ALIASES: Record<string, TabId> = {
+	geral: 'clinica',
+	agenda: 'integracoes',
+	assinatura: 'plano',
+}
+
 const TABS: Tab[] = [
-	{ id: 'geral', label: 'Geral', icon: Settings },
+	{ id: 'clinica', label: 'Clínica', icon: Settings2 },
 	{ id: 'whatsapp', label: 'WhatsApp', icon: FaWhatsapp },
-	{ id: 'agenda', label: 'Agenda', icon: Calendar },
+	{ id: 'integracoes', label: 'Integrações', icon: Plug },
 	{ id: 'bot', label: 'Bot', icon: Bot },
 	{ id: 'notificacoes', label: 'Notificações', icon: Bell },
-	{ id: 'assinatura', label: 'Assinatura', icon: CreditCard },
+	{ id: 'plano', label: 'Plano', icon: CreditCard },
 	{ id: 'conta', label: 'Conta', icon: UserIcon },
 ]
+
+const DAY_ORDER: WorkingHoursDay['day'][] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+
+const DAY_LABELS: Record<string, string> = {
+	mon: 'Segunda-feira',
+	tue: 'Terça-feira',
+	wed: 'Quarta-feira',
+	thu: 'Quinta-feira',
+	fri: 'Sexta-feira',
+	sat: 'Sábado',
+	sun: 'Domingo',
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function buildDefaultWorkingHours(settings: BotSettings | null): WorkingHoursDay[] {
+	if (settings?.working_hours?.days?.length === 7) return settings.working_hours.days
+	return DAY_ORDER.map((day) => ({
+		day,
+		enabled: ['mon', 'tue', 'wed', 'thu', 'fri'].includes(day),
+		start: '08:00',
+		end: '18:00',
+	}))
+}
+
+// ---------------------------------------------------------------------------
+// Toggle component (reusable)
+// ---------------------------------------------------------------------------
+
+function Toggle({
+	value,
+	onChange,
+	disabled,
+}: {
+	value: boolean
+	onChange: (v: boolean) => void
+	disabled?: boolean
+}) {
+	return (
+		<button
+			type="button"
+			onClick={() => onChange(!value)}
+			disabled={disabled}
+			className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+				value ? 'bg-sky-600' : 'bg-neutral-300'
+			}`}
+		>
+			<span
+				className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+					value ? 'translate-x-5' : 'translate-x-1'
+				}`}
+			/>
+		</button>
+	)
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 export default function ConfiguracoesPageClient({
 	initialClinicName,
@@ -103,49 +130,28 @@ export default function ConfiguracoesPageClient({
 }) {
 	const router = useRouter()
 	const searchParams = useSearchParams()
-	const [activeTab, setActiveTab] = useState<TabId>('geral')
-	const [clinicName, setClinicName] = useState(initialClinicName)
+	const [activeTab, setActiveTab] = useState<TabId>('clinica')
 	const [botActive, setBotActive] = useState(true)
-	const [isSaving, setIsSaving] = useState(false)
-	const [saveMessage, setSaveMessage] = useState<string | null>(null)
 	const [loadingBotStatus, setLoadingBotStatus] = useState(true)
-	const [defaultDurationMinutes, setDefaultDurationMinutes] = useState(initialDefaultDurationMinutes)
 
-	// Horário de funcionamento
-	const [startTime, setStartTime] = useState(() => inferStartTime(initialBotSettings))
-	const [endTime, setEndTime] = useState(() => inferEndTime(initialBotSettings))
-	const [workDays, setWorkDays] = useState<WorkDaysState>(() => inferWorkDays(initialBotSettings))
-	const [workingHoursEnabled, setWorkingHoursEnabled] = useState(
-		() => initialBotSettings?.working_hours_enabled ?? true
-	)
-	const [workTimezone, setWorkTimezone] = useState(
-		() => initialBotSettings?.working_hours?.timezone || 'America/Sao_Paulo'
-	)
-
-	// Sincronizar aba com URL
+	// Sync active tab from URL (with backward-compat aliases)
 	useEffect(() => {
-		const tab = searchParams.get('tab') as TabId
-		if (tab && TABS.find((t) => t.id === tab)) {
-			setActiveTab(tab)
+		const raw = searchParams.get('tab') ?? ''
+		const resolved = (TAB_ALIASES[raw] ?? raw) as TabId
+		if (resolved && TABS.find((t) => t.id === resolved)) {
+			setActiveTab(resolved)
 		}
 	}, [searchParams])
 
-	// Carregar status do bot
+	// Load bot on/off status
 	useEffect(() => {
-		const loadBotStatus = async () => {
-			try {
-				const response = await fetch('/api/bot/status')
-				if (response.ok) {
-					const data = await response.json()
-					setBotActive(data.status === 'active')
-				}
-			} catch (error) {
-				console.error('Error loading bot status:', error)
-			} finally {
-				setLoadingBotStatus(false)
-			}
-		}
-		loadBotStatus()
+		fetch('/api/bot/status')
+			.then((r) => (r.ok ? r.json() : null))
+			.then((data) => {
+				if (data) setBotActive(data.status === 'active')
+			})
+			.catch(console.error)
+			.finally(() => setLoadingBotStatus(false))
 	}, [])
 
 	const changeTab = (tabId: TabId) => {
@@ -153,81 +159,16 @@ export default function ConfiguracoesPageClient({
 		router.push(`/dashboard/configuracoes?tab=${tabId}`, { scroll: false })
 	}
 
-	const handleSave = async () => {
-		if (!clinicName.trim()) {
-			setSaveMessage('Informe o nome da clínica.')
-			return
-		}
-
-		if (startTime >= endTime) {
-			setSaveMessage('Horário inválido: o fechamento precisa ser depois da abertura.')
-			return
-		}
-
-		const enabledDays = Object.values(workDays).some(Boolean)
-		if (!enabledDays) {
-			setSaveMessage('Selecione pelo menos um dia de funcionamento.')
-			return
-		}
-
-		setIsSaving(true)
-		setSaveMessage(null)
-
-		try {
-			const workingHours = {
-				timezone: workTimezone,
-				days: DAY_ORDER.map((day) => ({
-					day,
-					enabled: workDays[day],
-					start: startTime,
-					end: endTime,
-				})),
-			}
-
-			const response = await fetch('/api/settings/general', {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					clinicId,
-					clinicName,
-					defaultDurationMinutes,
-					workingHoursEnabled,
-					workingHours,
-				}),
-			})
-
-			if (!response.ok) {
-				const data = await response.json().catch(() => null)
-				throw new Error(data?.error || 'Falha ao salvar horário de funcionamento')
-			}
-
-			setSaveMessage('Configurações gerais salvas com sucesso.')
-			router.refresh()
-		} catch (error) {
-			console.error('Error saving settings:', error)
-			setSaveMessage(error instanceof Error ? error.message : 'Erro ao salvar configurações')
-		} finally {
-			setIsSaving(false)
-		}
-	}
-
 	const handleToggleBot = async (newValue: boolean) => {
 		setBotActive(newValue)
-
-		// Salvar automaticamente no backend
 		try {
-			const response = await fetch('/api/bot/status', {
+			const res = await fetch('/api/bot/status', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ is_active: newValue }),
 			})
-
-			if (!response.ok) {
-				throw new Error('Failed to update bot status')
-			}
-		} catch (error) {
-			console.error('Error updating bot status:', error)
-			// Reverter em caso de erro
+			if (!res.ok) throw new Error()
+		} catch {
 			setBotActive(!newValue)
 			alert('Erro ao atualizar status do bot. Tente novamente.')
 		}
@@ -240,7 +181,7 @@ export default function ConfiguracoesPageClient({
 				<div className="p-4 sm:p-6 lg:px-8">
 					<h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Configurações</h1>
 					<p className="mt-1 text-sm text-neutral-600">
-						Gerencie as configurações da sua clínica e integração
+						Gerencie sua clínica, integrações e automações
 					</p>
 				</div>
 
@@ -254,15 +195,11 @@ export default function ConfiguracoesPageClient({
 								<button
 									key={tab.id}
 									onClick={() => changeTab(tab.id)}
-									className={`
-										flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap
-										border-b-2 transition-all
-										${
-											isActive
-												? 'border-sky-600 text-sky-700'
-												: 'border-transparent text-neutral-600 hover:text-neutral-900 hover:border-neutral-300'
-										}
-									`}
+									className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-all ${
+										isActive
+											? 'border-sky-600 text-sky-700'
+											: 'border-transparent text-neutral-600 hover:text-neutral-900 hover:border-neutral-300'
+									}`}
 								>
 									<Icon className={`size-4 ${isActive ? 'text-sky-600' : 'text-neutral-500'}`} />
 									{tab.label}
@@ -276,16 +213,16 @@ export default function ConfiguracoesPageClient({
 			{/* Tab Content */}
 			<div className="p-4 sm:p-6 lg:p-8">
 				<div className="max-w-4xl mx-auto">
-					{/* Aba Geral */}
-					{activeTab === 'geral' && <GeralTab />}
-
-					{/* Aba WhatsApp */}
-					{activeTab === 'whatsapp' && <WhatsAppTab />}
-
-					{/* Aba Agenda */}
-					{activeTab === 'agenda' && <AgendaTab />}
-
-					{/* Aba Bot */}
+					{activeTab === 'clinica' && (
+						<ClinicaTab
+							clinicId={clinicId}
+							initialClinicName={initialClinicName}
+							initialDefaultDurationMinutes={initialDefaultDurationMinutes}
+							initialBotSettings={initialBotSettings}
+						/>
+					)}
+					{activeTab === 'whatsapp' && <WhatsAppTab clinicId={clinicId} />}
+					{activeTab === 'integracoes' && <IntegracoesTab clinicId={clinicId} />}
 					{activeTab === 'bot' && (
 						<BotTab
 							botActive={botActive}
@@ -293,39 +230,117 @@ export default function ConfiguracoesPageClient({
 							onToggleBot={handleToggleBot}
 							clinicId={clinicId}
 							initialBotSettings={initialBotSettings}
-							initialDefaultDurationMinutes={defaultDurationMinutes}
 							planKey={planKey}
 							hasCustomFlows={hasCustomFlows}
 						/>
 					)}
-
-					{/* Aba Notificações */}
 					{activeTab === 'notificacoes' && <NotificationSettingsTab clinicId={clinicId} />}
-
-					{/* Aba Assinatura */}
-					{activeTab === 'assinatura' && <AssinaturaTab />}
-
-					{/* Aba Conta */}
+					{activeTab === 'plano' && <PlanoTab planKey={planKey} />}
 					{activeTab === 'conta' && <ContaTab />}
 				</div>
 			</div>
 		</div>
 	)
+}
 
-	// ============ TAB COMPONENTS ============
+// ---------------------------------------------------------------------------
+// Clínica Tab — nome, duração e horário de funcionamento
+// ---------------------------------------------------------------------------
 
-	function GeralTab() {
-		return (
-			<div className="space-y-6">
-				{/* Informações da Clínica */}
-				<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-					<h2 className="mb-2 text-lg font-semibold text-neutral-900">Informações da Clínica</h2>
-					<p className="mb-4 text-sm text-neutral-600">
-						Defina o nome da sua clínica. Esse nome aparecerá no topo do dashboard e nas comunicações
-						com pacientes.
-					</p>
-					<div className="space-y-4">
-						<div>
+function ClinicaTab({
+	clinicId,
+	initialClinicName,
+	initialDefaultDurationMinutes,
+	initialBotSettings,
+}: {
+	clinicId: string
+	initialClinicName: string
+	initialDefaultDurationMinutes: number
+	initialBotSettings: BotSettings | null
+}) {
+	const router = useRouter()
+	const [clinicName, setClinicName] = useState(initialClinicName)
+	const [defaultDurationMinutes, setDefaultDurationMinutes] = useState(initialDefaultDurationMinutes)
+	const [workingHoursEnabled, setWorkingHoursEnabled] = useState(
+		initialBotSettings?.working_hours_enabled ?? true
+	)
+	const [timezone] = useState(
+		initialBotSettings?.working_hours?.timezone || 'America/Sao_Paulo'
+	)
+	const [days, setDays] = useState<WorkingHoursDay[]>(() =>
+		buildDefaultWorkingHours(initialBotSettings)
+	)
+	const [isSaving, setIsSaving] = useState(false)
+	const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+	const showToast = (message: string, type: 'success' | 'error') => {
+		setToast({ message, type })
+		setTimeout(() => setToast(null), 3500)
+	}
+
+	const updateDay = (day: string, field: keyof WorkingHoursDay, value: unknown) => {
+		setDays((prev) =>
+			prev.map((d) => (d.day === day ? { ...d, [field]: value } : d))
+		)
+	}
+
+	const handleSave = async () => {
+		if (!clinicName.trim()) {
+			showToast('Informe o nome da clínica.', 'error')
+			return
+		}
+
+		const enabledDays = days.filter((d) => d.enabled)
+		if (workingHoursEnabled && enabledDays.length === 0) {
+			showToast('Selecione pelo menos um dia de funcionamento.', 'error')
+			return
+		}
+
+		for (const d of enabledDays) {
+			if (d.start >= d.end) {
+				showToast(`Horário inválido em ${DAY_LABELS[d.day]}: fechamento precisa ser depois da abertura.`, 'error')
+				return
+			}
+		}
+
+		setIsSaving(true)
+		try {
+			const res = await fetch('/api/settings/general', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					clinicId,
+					clinicName,
+					defaultDurationMinutes,
+					workingHoursEnabled,
+					workingHours: { timezone, days },
+				}),
+			})
+
+			if (!res.ok) {
+				const data = await res.json().catch(() => null)
+				throw new Error(data?.error || 'Falha ao salvar')
+			}
+
+			showToast('Configurações salvas com sucesso!', 'success')
+			router.refresh()
+		} catch (err) {
+			showToast(err instanceof Error ? err.message : 'Erro ao salvar configurações.', 'error')
+		} finally {
+			setIsSaving(false)
+		}
+	}
+
+	return (
+		<div className="space-y-6">
+			{/* Informações da Clínica */}
+			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+				<h2 className="mb-1 text-lg font-semibold text-neutral-900">Informações da Clínica</h2>
+				<p className="mb-4 text-sm text-neutral-500">
+					Nome exibido no dashboard e nas comunicações com pacientes.
+				</p>
+				<div className="space-y-4">
+					<div>
 						<label htmlFor="clinicName" className="block text-sm font-medium text-neutral-700">
 							Nome da Clínica
 						</label>
@@ -337,299 +352,307 @@ export default function ConfiguracoesPageClient({
 							placeholder="Ex: Clínica Dr. Silva"
 							className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
 						/>
-						</div>
+					</div>
+					<div>
+						<label htmlFor="defaultDuration" className="block text-sm font-medium text-neutral-700">
+							Duração padrão da consulta
+						</label>
+						<select
+							id="defaultDuration"
+							value={defaultDurationMinutes}
+							onChange={(e) => setDefaultDurationMinutes(Number(e.target.value))}
+							className="mt-1 block w-full max-w-xs rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+						>
+							<option value={15}>15 minutos</option>
+							<option value={30}>30 minutos</option>
+							<option value={45}>45 minutos</option>
+							<option value={60}>60 minutos</option>
+							<option value={90}>90 minutos</option>
+						</select>
+						<p className="mt-1 text-xs text-neutral-500">
+							Usado pelo bot e pela agenda para novos agendamentos.
+						</p>
+					</div>
+				</div>
+			</div>
 
-						<div>
-							<label htmlFor="defaultDuration" className="block text-sm font-medium text-neutral-700">
-								Duração padrão da consulta
-							</label>
-							<select
-								id="defaultDuration"
-								value={defaultDurationMinutes}
-								onChange={(e) => setDefaultDurationMinutes(Number(e.target.value))}
-								className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+			{/* Horário de Funcionamento */}
+			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+				<div className="flex items-start justify-between mb-4">
+					<div>
+						<h2 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+							<Clock className="size-5 text-sky-600" />
+							Horário de Funcionamento
+						</h2>
+						<p className="mt-1 text-sm text-neutral-500">
+							Defina quando a clínica atende. O bot respeita esses horários quando configurado.
+						</p>
+					</div>
+					<Toggle value={workingHoursEnabled} onChange={setWorkingHoursEnabled} />
+				</div>
+
+				{workingHoursEnabled && (
+					<div className="space-y-2">
+						{days.map((day) => (
+							<div
+								key={day.day}
+								className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
+									day.enabled ? 'border-neutral-200 bg-neutral-50' : 'border-neutral-100 bg-white opacity-60'
+								}`}
 							>
-								<option value={15}>15 minutos</option>
-								<option value={30}>30 minutos</option>
-								<option value={45}>45 minutos</option>
-								<option value={60}>60 minutos</option>
-								<option value={90}>90 minutos</option>
-							</select>
-							<p className="mt-1 text-xs text-neutral-500">
-								Esse tempo será usado pelo bot e pela agenda como padrão para novos agendamentos.
-							</p>
-						</div>
-					</div>
-				</div>
-
-				{/* Horário de Funcionamento */}
-				<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-					<h2 className="mb-2 text-lg font-semibold text-neutral-900">Horário de Funcionamento</h2>
-					<p className="mb-4 text-sm text-neutral-600">
-						Defina quando sua secretaria está disponível para atendimento. O sistema exibirá "Online"
-						durante esses horários e "Offline" fora deles.
-					</p>
-					<div className="mb-4 flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-						<div>
-							<p className="text-sm font-medium text-neutral-800">Restringir bot ao horário definido</p>
-							<p className="text-xs text-neutral-500">Se desativado, o bot responde em qualquer horário.</p>
-						</div>
-						<button
-							type="button"
-							onClick={() => setWorkingHoursEnabled((prev) => !prev)}
-							className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${
-								workingHoursEnabled ? 'bg-sky-600' : 'bg-neutral-300'
-							}`}
-						>
-							<span
-								className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-									workingHoursEnabled ? 'translate-x-5' : 'translate-x-1'
-								}`}
-							/>
-						</button>
-					</div>
-					<div className="space-y-4">
-						<div className="grid grid-cols-2 gap-4">
-							<div>
-								<label htmlFor="startTime" className="block text-sm font-medium text-neutral-700">
-									Horário de Abertura
-								</label>
 								<input
-									type="time"
-									id="startTime"
-									value={startTime}
-									onChange={(e) => setStartTime(e.target.value)}
-									className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+									type="checkbox"
+									checked={day.enabled}
+									onChange={(e) => updateDay(day.day, 'enabled', e.target.checked)}
+									className="h-4 w-4 rounded text-sky-600 accent-sky-600"
 								/>
+								<span className="w-32 text-sm font-medium text-neutral-800 shrink-0">
+									{DAY_LABELS[day.day]}
+								</span>
+								<div className="flex items-center gap-2 flex-wrap">
+									<input
+										type="time"
+										value={day.start}
+										onChange={(e) => updateDay(day.day, 'start', e.target.value)}
+										disabled={!day.enabled}
+										className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm disabled:bg-neutral-100 disabled:text-neutral-400 focus:border-sky-500 focus:outline-none"
+									/>
+									<span className="text-sm text-neutral-400">até</span>
+									<input
+										type="time"
+										value={day.end}
+										onChange={(e) => updateDay(day.day, 'end', e.target.value)}
+										disabled={!day.enabled}
+										className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm disabled:bg-neutral-100 disabled:text-neutral-400 focus:border-sky-500 focus:outline-none"
+									/>
+								</div>
 							</div>
-							<div>
-								<label htmlFor="endTime" className="block text-sm font-medium text-neutral-700">
-									Horário de Fechamento
-								</label>
-								<input
-									type="time"
-									id="endTime"
-									value={endTime}
-									onChange={(e) => setEndTime(e.target.value)}
-									className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-								/>
-							</div>
-						</div>
-						<div>
-							<label className="block text-sm font-medium text-neutral-700 mb-2">
-								Dias de Funcionamento
-							</label>
-							<div className="flex flex-wrap gap-2">
-								{[
-									{ key: 'mon', label: 'Seg' },
-									{ key: 'tue', label: 'Ter' },
-									{ key: 'wed', label: 'Qua' },
-									{ key: 'thu', label: 'Qui' },
-									{ key: 'fri', label: 'Sex' },
-									{ key: 'sat', label: 'Sáb' },
-									{ key: 'sun', label: 'Dom' },
-								].map((day) => (
-									<button
-										key={day.key}
-										type="button"
-										onClick={() => {
-											setWorkDays((prev) => ({ ...prev, [day.key]: !prev[day.key as keyof typeof prev] }))
-										}}
-										className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-											workDays[day.key as keyof typeof workDays]
-												? 'bg-sky-600 text-white'
-												: 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-										}`}
-									>
-										{day.label}
-									</button>
-								))}
-							</div>
-						</div>
-						{saveMessage && (
-							<p className={`text-sm ${saveMessage.includes('sucesso') ? 'text-emerald-700' : 'text-red-600'}`}>
-								{saveMessage}
-							</p>
-						)}
+						))}
 					</div>
-				</div>
-
-				{/* Botão Salvar */}
-				<button
-					onClick={handleSave}
-					disabled={isSaving}
-					className="flex w-full items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-3 text-sm font-medium text-white shadow-sm hover:bg-sky-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-				>
-					<Save className="size-4" />
-					{isSaving ? 'Salvando...' : 'Salvar Configurações'}
-				</button>
+				)}
 			</div>
-		)
-	}
 
-	function WhatsAppTab() {
-		return (
-			<div className="space-y-6">
-				<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-					<h2 className="mb-2 text-lg font-semibold text-neutral-900">Conectar WhatsApp</h2>
-					<p className="mb-4 text-sm text-neutral-600">
-						Gerencie a conexão do WhatsApp diretamente por aqui. Veja o status em tempo real, gere ou regenere o QR Code e acompanhe se está tudo certo com a sua instância.
-					</p>
-					<WhatsAppConnectionTab clinicId={clinicId} />
-				</div>
-			</div>
-		)
-	}
+			{/* Save */}
+			<button
+				onClick={handleSave}
+				disabled={isSaving}
+				className="flex w-full items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-3 text-sm font-medium text-white shadow-sm hover:bg-sky-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+			>
+				<Save className="size-4" />
+				{isSaving ? 'Salvando...' : 'Salvar configurações da clínica'}
+			</button>
 
-	function AgendaTab() {
-		return (
-			<div className="space-y-6">
-				<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-					<h2 className="mb-2 text-lg font-semibold text-neutral-900">
-						Integração com Google Calendar
-					</h2>
-					<p className="mb-4 text-sm text-neutral-600">
-						Conecte sua agenda do Google para sincronizar automaticamente as consultas agendadas através do sistema.
-					</p>
-					<AgendaIntegrationTab clinicId={clinicId} />
-				</div>
-			</div>
-		)
-	}
-
-	function BotTab({
-		botActive,
-		loadingBotStatus,
-		onToggleBot,
-		clinicId,
-		initialBotSettings,
-		initialDefaultDurationMinutes,
-		planKey,
-		hasCustomFlows,
-	}: {
-		botActive: boolean
-		loadingBotStatus: boolean
-		onToggleBot: (value: boolean) => void
-		clinicId: string
-		initialBotSettings: BotSettings | null
-		initialDefaultDurationMinutes: number
-		planKey: PlanKey | null
-		hasCustomFlows: boolean
-	}) {
-		return (
-			<div className="space-y-6">
-				{/* Status do Bot */}
-				<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-						<h2 className="mb-2 text-lg font-semibold text-neutral-900">Automação do Bot</h2>
-					<p className="mb-4 text-sm text-neutral-600">
-						Ative o bot para responder automaticamente pacientes quando a secretária não assumir o
-						atendimento. O bot pode agendar consultas, tirar dúvidas e coletar informações.
-					</p>
-					<div className="flex items-center justify-between">
-						<div>
-							<p className="text-sm font-medium text-neutral-700">Bot Ativo</p>
-							<p className="text-xs text-neutral-500">
-								{loadingBotStatus
-									? 'Carregando...'
-									: botActive
-									? 'Respondendo automaticamente'
-									: 'Respostas automáticas pausadas'}
-							</p>
-						</div>
-						<button
-							onClick={() => onToggleBot(!botActive)}
-							disabled={loadingBotStatus}
-							className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-								botActive ? 'bg-sky-600' : 'bg-neutral-300'
-							}`}
-						>
-							<span
-								className={`inline-block size-4 transform rounded-full bg-white transition-transform ${
-									botActive ? 'translate-x-6' : 'translate-x-1'
-								}`}
-							/>
-						</button>
-					</div>
-				</div>
-
-				{/* Respostas Rápidas */}
-				<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-					<QuickRepliesManager clinicId={clinicId} />
-				</div>
-
-				{/* Configurações avançadas do bot inline */}
-				<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-					<h3 className="text-sm font-semibold text-neutral-900 mb-2">Configurações avançadas do bot</h3>
-					<p className="text-xs text-neutral-600 mb-4">
-						Personalize o comportamento, horário de funcionamento e mensagens padrão do bot.
-					</p>
-					<BotAdvancedSettingsTab
-						clinicId={clinicId}
-						initialSettings={initialBotSettings}
-						initialDefaultDurationMinutes={initialDefaultDurationMinutes}
-						planKey={planKey}
-						hasCustomFlows={hasCustomFlows}
-					/>
-				</div>
-			</div>
-		)
-	}
-
-	function AssinaturaTab() {
-		return (
-			<div className="space-y-6">
-				<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-					<h2 className="mb-2 text-lg font-semibold text-neutral-900">Gerenciar Assinatura</h2>
-					<p className="mb-4 text-sm text-neutral-600">
-						Visualize seu plano atual, histórico de pagamentos e gerencie sua assinatura.
-					</p>
-					<a
-						href="/dashboard/billing"
-						className="block rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50 p-6 hover:border-sky-500 hover:bg-sky-50 transition-all group"
+			{toast && (
+				<div className="fixed bottom-6 right-6 z-50">
+					<div
+						className={`px-4 py-3 rounded-lg text-sm shadow-lg ${
+							toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+						}`}
 					>
-						<div className="flex items-center gap-4">
-							<div className="flex-shrink-0 w-12 h-12 rounded-full bg-sky-100 group-hover:bg-sky-200 flex items-center justify-center transition-colors">
-								<CreditCard className="w-6 h-6 text-sky-600" />
-							</div>
-							<div className="flex-1">
-								<h3 className="text-sm font-semibold text-neutral-900 mb-1 group-hover:text-sky-700 transition-colors">
-									Acessar Painel de Assinatura
-								</h3>
-								<p className="text-xs text-neutral-600">
-									Ver plano, faturas, mudar plano ou cancelar assinatura
-								</p>
-							</div>
-							<div className="flex-shrink-0">
-								<svg
-									className="w-5 h-5 text-neutral-400 group-hover:text-sky-600 transition-colors"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-								</svg>
-							</div>
-						</div>
-					</a>
-				</div>
-			</div>
-		)
-	}
-
-	function ContaTab() {
-		return (
-			<div className="space-y-6">
-				<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-					<h2 className="mb-4 text-lg font-semibold text-neutral-900">Sessão</h2>
-					<div className="flex items-center justify-between">
-						<div>
-							<p className="text-sm font-medium text-neutral-700">Encerrar Sessão</p>
-							<p className="text-xs text-neutral-500">Sair da sua conta no sistema</p>
-						</div>
-						<SignOutButton />
+						{toast.message}
 					</div>
 				</div>
+			)}
+		</div>
+	)
+}
+
+// ---------------------------------------------------------------------------
+// WhatsApp Tab
+// ---------------------------------------------------------------------------
+
+function WhatsAppTab({ clinicId }: { clinicId: string }) {
+	return (
+		<div className="space-y-6">
+			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+				<h2 className="mb-2 text-lg font-semibold text-neutral-900">Conexão WhatsApp</h2>
+				<p className="mb-4 text-sm text-neutral-500">
+					Gerencie a conexão da sua instância WhatsApp. Acompanhe o status em tempo real e gere um
+					novo QR Code quando necessário.
+				</p>
+				<WhatsAppConnectionTab clinicId={clinicId} />
 			</div>
-		)
-	}
+		</div>
+	)
+}
+
+// ---------------------------------------------------------------------------
+// Integrações Tab — Google Calendar + GestaoDS (e futuras)
+// ---------------------------------------------------------------------------
+
+function IntegracoesTab({ clinicId }: { clinicId: string }) {
+	return (
+		<div className="space-y-6">
+			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+				<h2 className="mb-2 text-lg font-semibold text-neutral-900">Integrações</h2>
+				<p className="mb-4 text-sm text-neutral-500">
+					Conecte sua agenda e sistemas de gestão para sincronizar consultas automaticamente.
+				</p>
+				<AgendaIntegrationTab clinicId={clinicId} />
+			</div>
+		</div>
+	)
+}
+
+// ---------------------------------------------------------------------------
+// Bot Tab — status + comportamento + mensagens + respostas rápidas
+// ---------------------------------------------------------------------------
+
+function BotTab({
+	botActive,
+	loadingBotStatus,
+	onToggleBot,
+	clinicId,
+	initialBotSettings,
+	planKey,
+	hasCustomFlows,
+}: {
+	botActive: boolean
+	loadingBotStatus: boolean
+	onToggleBot: (value: boolean) => void
+	clinicId: string
+	initialBotSettings: BotSettings | null
+	planKey: PlanKey | null
+	hasCustomFlows: boolean
+}) {
+	return (
+		<div className="space-y-6">
+			{/* Status do Bot */}
+			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+				<h2 className="mb-1 text-lg font-semibold text-neutral-900">Automação do Bot</h2>
+				<p className="mb-4 text-sm text-neutral-500">
+					Quando ativo, o bot responde automaticamente às mensagens enquanto nenhum atendente
+					assume a conversa.
+				</p>
+				<div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+					<div>
+						<p className="text-sm font-medium text-neutral-800">Bot ativo</p>
+						<p className="text-xs text-neutral-500">
+							{loadingBotStatus
+								? 'Carregando...'
+								: botActive
+								? 'Respondendo automaticamente'
+								: 'Respostas automáticas pausadas'}
+						</p>
+					</div>
+					<Toggle value={botActive} onChange={onToggleBot} disabled={loadingBotStatus} />
+				</div>
+			</div>
+
+			{/* Comportamento + Mensagens (BotAdvancedSettingsTab) */}
+			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+				<h3 className="mb-1 text-base font-semibold text-neutral-900 flex items-center gap-2">
+					<MessageSquare className="size-4 text-sky-600" />
+					Comportamento e Mensagens
+				</h3>
+				<p className="mb-4 text-sm text-neutral-500">
+					Configure o tom do bot, as mensagens automáticas e o comportamento em horários fora de
+					expediente.
+				</p>
+				<BotAdvancedSettingsTab
+					clinicId={clinicId}
+					initialSettings={initialBotSettings}
+					planKey={planKey}
+					hasCustomFlows={hasCustomFlows}
+				/>
+			</div>
+
+			{/* Respostas Rápidas */}
+			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+				<QuickRepliesManager clinicId={clinicId} />
+			</div>
+		</div>
+	)
+}
+
+// ---------------------------------------------------------------------------
+// Plano Tab
+// ---------------------------------------------------------------------------
+
+const PLAN_LABELS: Record<string, { label: string; description: string }> = {
+	free: { label: 'Gratuito', description: 'Plano básico com funcionalidades essenciais.' },
+	starter: { label: 'Starter', description: 'Ideal para consultórios pequenos.' },
+	pro: { label: 'Profissional', description: 'Recursos avançados para clínicas em crescimento.' },
+	clinic_pro: { label: 'Clinic Pro', description: 'Solução completa para clínicas maiores.' },
+}
+
+function PlanoTab({ planKey }: { planKey: PlanKey | null }) {
+	const plan = planKey ? (PLAN_LABELS[planKey] ?? null) : null
+
+	return (
+		<div className="space-y-6">
+			{/* Plano atual */}
+			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+				<h2 className="mb-4 text-lg font-semibold text-neutral-900">Plano atual</h2>
+				{plan ? (
+					<div className="flex items-center gap-4 rounded-lg border border-sky-200 bg-sky-50 p-4">
+						<div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-full bg-sky-100">
+							<CreditCard className="w-6 h-6 text-sky-600" />
+						</div>
+						<div>
+							<p className="text-base font-semibold text-sky-800">{plan.label}</p>
+							<p className="text-sm text-sky-600">{plan.description}</p>
+						</div>
+					</div>
+				) : (
+					<p className="text-sm text-neutral-500">Nenhum plano ativo encontrado.</p>
+				)}
+			</div>
+
+			{/* Gerenciar assinatura */}
+			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+				<h2 className="mb-2 text-lg font-semibold text-neutral-900">Gerenciar assinatura</h2>
+				<p className="mb-4 text-sm text-neutral-500">
+					Veja faturas, mude de plano ou cancele sua assinatura.
+				</p>
+				<a
+					href="/dashboard/billing"
+					className="block rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50 p-6 hover:border-sky-500 hover:bg-sky-50 transition-all group"
+				>
+					<div className="flex items-center gap-4">
+						<div className="flex-shrink-0 w-12 h-12 rounded-full bg-sky-100 group-hover:bg-sky-200 flex items-center justify-center transition-colors">
+							<CreditCard className="w-6 h-6 text-sky-600" />
+						</div>
+						<div className="flex-1">
+							<h3 className="text-sm font-semibold text-neutral-900 group-hover:text-sky-700 transition-colors">
+								Acessar painel de assinatura
+							</h3>
+							<p className="text-xs text-neutral-500">
+								Plano, faturas e cancelamento
+							</p>
+						</div>
+						<svg
+							className="w-5 h-5 text-neutral-400 group-hover:text-sky-600 transition-colors"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+						</svg>
+					</div>
+				</a>
+			</div>
+		</div>
+	)
+}
+
+// ---------------------------------------------------------------------------
+// Conta Tab
+// ---------------------------------------------------------------------------
+
+function ContaTab() {
+	return (
+		<div className="space-y-6">
+			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+				<h2 className="mb-4 text-lg font-semibold text-neutral-900">Sessão</h2>
+				<div className="flex items-center justify-between">
+					<div>
+						<p className="text-sm font-medium text-neutral-700">Encerrar sessão</p>
+						<p className="text-xs text-neutral-500">Sair da sua conta</p>
+					</div>
+					<SignOutButton />
+				</div>
+			</div>
+		</div>
+	)
 }

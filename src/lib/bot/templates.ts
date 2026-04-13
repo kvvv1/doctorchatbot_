@@ -52,7 +52,7 @@ Qual horário você prefere?
 
   scheduleConflict: (slots: Slot[]) => {
     const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')
-    return `⚠️ Este horário já está ocupado. Temos disponível:\n\n${lines}\n\nDigite o número da opção desejada ou sugira outro horário.`
+    return `⚠️ Este horário está ocupado. Escolha um horário disponível:\n\n${lines}`
   },
 
   scheduleNoSlots: `😕 Não encontrei horários disponíveis nos próximos dias.
@@ -83,7 +83,7 @@ Qual o *novo horário*?
 
   rescheduleConflict: (slots: Slot[]) => {
     const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')
-    return `⚠️ Este horário também está ocupado. Temos disponível:\n\n${lines}\n\nDigite o número da opção desejada ou sugira outro horário.`
+    return `⚠️ Este horário também está ocupado. Escolha um horário disponível:\n\n${lines}`
   },
 
   // -------------------------------------------------------------------------
@@ -91,16 +91,16 @@ Qual o *novo horário*?
   // -------------------------------------------------------------------------
   whichAppointmentCancel: (appointments: AppointmentSummary[]) => {
     const lines = appointments.map((a, i) => `${i + 1}️⃣ ${a.label}`).join('\n')
-    return `Encontrei ${appointments.length} consultas agendadas:\n\n${lines}\n\nQual delas você deseja *cancelar*? Digite o número.`
+    return `Encontrei ${appointments.length} consulta(s) agendada(s). Qual deseja *cancelar*?\n\n${lines}`
   },
 
   whichAppointmentReschedule: (appointments: AppointmentSummary[]) => {
     const lines = appointments.map((a, i) => `${i + 1}️⃣ ${a.label}`).join('\n')
-    return `Encontrei ${appointments.length} consultas agendadas:\n\n${lines}\n\nQual delas você deseja *remarcar*? Digite o número.`
+    return `Encontrei ${appointments.length} consulta(s) agendada(s). Qual deseja *remarcar*?\n\n${lines}`
   },
 
   invalidChoice: (max: number) =>
-    `Por favor, digite um número entre 1 e ${max}.`,
+    `Por favor, escolha uma das opções disponíveis (1 a ${max}).`,
 
   // -------------------------------------------------------------------------
   // Cancelamento
