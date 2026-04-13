@@ -19,9 +19,9 @@ export const metadata: Metadata = {
   },
   description: "Sistema inteligente de atendimento por WhatsApp para clínicas médicas",
   icons: {
-    icon: '/brand.png',
-    shortcut: '/brand.png',
-    apple: '/brand.png',
+    icon: [{ url: "/brand.png", type: "image/png" }],
+    shortcut: [{ url: "/brand.png", type: "image/png" }],
+    apple: [{ url: "/brand.png", type: "image/png" }],
   },
 };
 
