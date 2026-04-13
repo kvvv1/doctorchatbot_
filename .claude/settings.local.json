@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs ls:*)",
+      "Bash(grep -rn \"styled\\\\|css\\\\`\\\\|@emotion\\\\|@stitches\" \"/c/Users/KV/Documents/doctor-chat-bot/doctor-chat-bot/src\")",
+      "Bash(xargs wc:*)",
+      "Bash(npm run:*)"
+    ]
+  }
+}

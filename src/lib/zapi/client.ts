@@ -19,12 +19,19 @@ export interface ZapiQrResponse {
   value: string;
 }
 
+export interface ZapiChoiceOption {
+  id: string;
+  label: string;
+}
+
 export type ZapiStatus = 'connected' | 'disconnected' | 'connecting';
 
 interface ZapiError {
   error: string;
   message?: string;
 }
+
+type ZapiMethod = 'GET' | 'POST';
 
 // Configuração
 const ZAPI_BASE_URL = process.env.ZAPI_BASE_URL || 'https://api.z-api.io';
@@ -54,14 +61,33 @@ async function zapiRequest<T>(
       },
     });
 
-    const data = await response.json();
+    const contentType = response.headers.get('content-type') || '';
+    const rawBody = await response.text();
+
+    let data: any = null;
+    if (rawBody.length > 0) {
+      if (contentType.includes('application/json')) {
+        data = JSON.parse(rawBody);
+      } else {
+        try {
+          data = JSON.parse(rawBody);
+        } catch {
+          data = rawBody;
+        }
+      }
+    }
 
     if (!response.ok) {
       console.error('[Z-API] Request failed:', {
         status: response.status,
         data,
+        url,
       });
-      throw new Error(data.message || 'Z-API request failed');
+      const message =
+        (typeof data === 'object' && data && (data.message || data.error)) ||
+        (typeof data === 'string' && data.trim().length > 0 ? data : null) ||
+        'Z-API request failed';
+      throw new Error(message);
     }
 
     return data;
@@ -83,50 +109,104 @@ export async function zapiGetQr(
   const { instanceId, token, clientToken } = credentials;
   const baseUrl = getInstanceUrl(instanceId, token);
 
-  try {
-    // TODO: Verificar o endpoint correto na doc Z-API
-    // Opções comuns:
-    // - GET /qr-code
-    // - GET /qr-code/image
-    // - POST /connect
-    const url = `${baseUrl}/qr-code`;
+  const headers = clientToken
+    ? {
+        'Client-Token': clientToken,
+        'client-token': clientToken,
+      }
+    : undefined;
 
-    const data = await zapiRequest<any>(url, {
-      method: 'GET',
-      headers: clientToken
-        ? { 'Client-Token': clientToken }
-        : undefined,
-    });
+  const attempts: Array<{ method: ZapiMethod; path: string }> = [
+    { method: 'GET', path: '/qr-code' },
+    { method: 'GET', path: '/qr-code/image' },
+    { method: 'GET', path: '/qr-code/base64' },
+    { method: 'POST', path: '/connect' },
+    { method: 'POST', path: '/restart' },
+  ];
 
-    // Log the full response to understand the structure
-    console.log('[Z-API] QR Code response:', JSON.stringify(data, null, 2));
+  const errors: string[] = [];
 
-    // TODO: Ajustar mapeamento conforme resposta real da Z-API
-    // A resposta pode variar:
-    // - { qrcode: "base64string" }
-    // - { value: "text", image: "base64" }
-    // - { qr: "text" }
-    
-    if (data.qrcode || data.image) {
-      return {
-        type: 'base64',
-        value: data.qrcode || data.image,
-      };
+  for (const attempt of attempts) {
+    const url = `${baseUrl}${attempt.path}`;
+
+    try {
+      const data = await zapiRequest<any>(url, {
+        method: attempt.method,
+        headers,
+      });
+
+      const parsed = extractQrFromResponse(data);
+      if (parsed) {
+        return parsed;
+      }
+
+      errors.push(`${attempt.method} ${attempt.path}: resposta sem QR`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`${attempt.method} ${attempt.path}: ${message}`);
     }
-
-    if (data.value || data.qr) {
-      return {
-        type: 'text',
-        value: data.value || data.qr,
-      };
-    }
-
-    console.error('[Z-API] QR code not found. Response keys:', Object.keys(data));
-    throw new Error('QR code not found in response');
-  } catch (error) {
-    console.error('[Z-API] Failed to get QR code:', error);
-    throw new Error('Falha ao obter QR Code. Verifique a configuração da instância.');
   }
+
+  console.error('[Z-API] Failed to get QR code after all attempts:', errors);
+  throw new Error(
+    `Falha ao obter QR Code. Verifique instanceId/token/clientToken da instância. Detalhe: ${errors[0] || 'sem detalhe'}`
+  );
+}
+
+function extractQrFromResponse(data: unknown): ZapiQrResponse | null {
+  if (!data) return null;
+
+  if (typeof data === 'string') {
+    const raw = data.trim();
+    if (!raw) return null;
+    if (raw.startsWith('data:image/')) {
+      return { type: 'base64', value: raw };
+    }
+    return { type: 'text', value: raw };
+  }
+
+  if (typeof data !== 'object') return null;
+
+  const source = data as Record<string, unknown>;
+  const nested =
+    source.value && typeof source.value === 'object'
+      ? (source.value as Record<string, unknown>)
+      : source.qrcode && typeof source.qrcode === 'object'
+      ? (source.qrcode as Record<string, unknown>)
+      : null;
+
+  const base64Candidate =
+    toNonEmptyString(source.qrcode) ||
+    toNonEmptyString(source.image) ||
+    toNonEmptyString(source.base64) ||
+    toNonEmptyString(source.qrCode) ||
+    toNonEmptyString(source.code) ||
+    (nested ? toNonEmptyString(nested.base64) || toNonEmptyString(nested.image) : null);
+
+  if (base64Candidate) {
+    return {
+      type: base64Candidate.startsWith('data:image/') ? 'base64' : 'base64',
+      value: base64Candidate,
+    };
+  }
+
+  const textCandidate =
+    toNonEmptyString(source.value) ||
+    toNonEmptyString(source.qr) ||
+    toNonEmptyString(source.qrcodeString) ||
+    (nested ? toNonEmptyString(nested.value) || toNonEmptyString(nested.qr) : null);
+
+  if (textCandidate) {
+    return { type: 'text', value: textCandidate };
+  }
+
+  return null;
+}
+
+function toNonEmptyString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
 }
 
 /**
@@ -306,13 +386,110 @@ export async function zapiSendText(
 }
 
 /**
+ * Envia escolhas interativas via Z-API:
+ * - poucas opções (<= 3): /send-button-list
+ * - muitas opções (> 3): /send-option-list
+ */
+export async function zapiSendChoices(
+  credentials: ZapiCredentials,
+  phone: string,
+  message: string,
+  options: ZapiChoiceOption[],
+  title = 'Opções disponíveis'
+): Promise<{ success: boolean; messageId?: string; mode: 'buttons' | 'list' }> {
+  const { instanceId, token, clientToken } = credentials;
+  const baseUrl = getInstanceUrl(instanceId, token);
+  const cleanPhone = phone.replace(/[^0-9]/g, '');
+
+  const cleanedOptions = options
+    .map((option, idx) => ({
+      id: String(option.id || idx + 1),
+      label: String(option.label || '').trim(),
+    }))
+    .filter(option => option.label.length > 0);
+
+  if (cleanedOptions.length === 0) {
+    throw new Error('Nenhuma opção válida foi informada para envio interativo.');
+  }
+
+  const headers = clientToken
+    ? { 'Client-Token': clientToken }
+    : undefined;
+
+  if (cleanedOptions.length <= 3) {
+    const url = `${baseUrl}/send-button-list`;
+    const payload = {
+      phone: cleanPhone,
+      message,
+      buttonList: {
+        buttons: cleanedOptions.map(option => ({
+          id: option.id,
+          label: option.label,
+        })),
+      },
+    };
+
+    const data = await zapiRequest<any>(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    return {
+      success: true,
+      messageId: data.messageId || data.id || data.zaapId,
+      mode: 'buttons',
+    };
+  }
+
+  const url = `${baseUrl}/send-option-list`;
+  const payload = {
+    phone: cleanPhone,
+    message,
+    optionList: {
+      title,
+      buttonLabel: 'Ver opções',
+      options: cleanedOptions.map(option => ({
+        id: option.id,
+        title: option.label,
+      })),
+    },
+  };
+
+  const data = await zapiRequest<any>(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  return {
+    success: true,
+    messageId: data.messageId || data.id || data.zaapId,
+    mode: 'list',
+  };
+}
+
+/**
  * Verifica se as credenciais estão válidas
  */
 export function validateCredentials(credentials: ZapiCredentials): boolean {
-  return !!(
-    credentials.instanceId &&
-    credentials.token &&
-    credentials.instanceId.trim() !== '' &&
-    credentials.token.trim() !== ''
-  );
+  return getMissingCredentials(credentials).length === 0;
+}
+
+export function getMissingCredentials(credentials: ZapiCredentials): string[] {
+  const missing: string[] = [];
+
+  if (!credentials.instanceId || credentials.instanceId.trim() === '') {
+    missing.push('instanceId');
+  }
+
+  if (!credentials.token || credentials.token.trim() === '') {
+    missing.push('token');
+  }
+
+  if (!credentials.clientToken || credentials.clientToken.trim() === '') {
+    missing.push('clientToken');
+  }
+
+  return missing;
 }

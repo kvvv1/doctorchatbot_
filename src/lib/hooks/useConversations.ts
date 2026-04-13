@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import type { Conversation } from '@/lib/types/database'
 import { hasArrayChanged } from '@/lib/utils/dataComparison'
 
-const POLLING_INTERVAL = 3000 // 3 seconds
+const POLLING_INTERVAL = 20000 // 20 seconds
+const IS_LOCAL = process.env.NEXT_PUBLIC_LOCAL_DB === 'sqlite'
 
 interface UseConversationsOptions {
 	clinicId: string
@@ -24,27 +25,36 @@ export function useConversations({ clinicId, searchQuery = '', enabled = true }:
 		try {
 			if (isInitial) setLoading(true)
 
-			const supabase = createClient()
-			
-			let query = supabase
-				.from('conversations')
-				.select('*')
-				.eq('clinic_id', clinicId)
-				.order('last_message_at', { ascending: false, nullsFirst: false })
-				.order('created_at', { ascending: false })
+			let data: Conversation[] | null = null
 
-			// Apply search filter if provided
-			if (searchQuery.trim()) {
-				query = query.or(`patient_name.ilike.%${searchQuery}%,patient_phone.ilike.%${searchQuery}%`)
+			if (IS_LOCAL) {
+				const params = new URLSearchParams({ clinic_id: clinicId })
+				if (searchQuery.trim()) params.set('search', searchQuery)
+				const res = await fetch(`/api/local/conversations?${params}`)
+				if (!res.ok) throw new Error(await res.text())
+				data = await res.json()
+			} else {
+				const supabase = createClient()
+
+				let query = supabase
+					.from('conversations')
+					.select('*')
+					.eq('clinic_id', clinicId)
+					.order('last_message_at', { ascending: false, nullsFirst: false })
+					.order('created_at', { ascending: false })
+
+				if (searchQuery.trim()) {
+					query = query.or(`patient_name.ilike.%${searchQuery}%,patient_phone.ilike.%${searchQuery}%`)
+				}
+
+				const { data: d, error: fetchError } = await query
+				if (fetchError) throw fetchError
+				data = d
 			}
-
-			const { data, error: fetchError } = await query
-
-			if (fetchError) throw fetchError
 
 			// Only update state if data actually changed
 			const changed = hasArrayChanged(conversationsRef.current, data || [], 'updated_at')
-			
+
 			if (changed) {
 				conversationsRef.current = data || []
 				setConversations(data || [])
@@ -67,15 +77,25 @@ export function useConversations({ clinicId, searchQuery = '', enabled = true }:
 		// Initial fetch
 		fetchConversations(true)
 
-		// Setup polling
-		intervalRef.current = setInterval(() => {
-			fetchConversations(false)
-		}, POLLING_INTERVAL)
+		const startPolling = () => {
+			if (intervalRef.current) clearInterval(intervalRef.current)
+			intervalRef.current = setInterval(() => {
+				if (!document.hidden) fetchConversations(false)
+			}, POLLING_INTERVAL)
+		}
+
+		const handleVisibilityChange = () => {
+			if (!document.hidden) {
+				fetchConversations(false)
+			}
+		}
+
+		startPolling()
+		document.addEventListener('visibilitychange', handleVisibilityChange)
 
 		return () => {
-			if (intervalRef.current) {
-				clearInterval(intervalRef.current)
-			}
+			if (intervalRef.current) clearInterval(intervalRef.current)
+			document.removeEventListener('visibilitychange', handleVisibilityChange)
 		}
 	}, [clinicId, searchQuery, enabled])
 

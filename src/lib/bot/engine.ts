@@ -1,45 +1,57 @@
 /**
- * Bot Engine - State Machine for automated responses
+ * Bot Engine — State Machine
+ * Processes one patient message and returns the next bot response.
+ *
+ * All database operations go through actions.ts (no internal HTTP calls).
+ * Slot availability is checked through availability.ts against real data.
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { detectIntent, detectYesNo } from './intent';
-import { templates } from './templates';
-import type { BotSettings } from '@/lib/types/database';
+import { createAdminClient } from '@/lib/supabase/admin'
+import { detectIntent, detectYesNo } from './intent'
+import { templates } from './templates'
+import {
+  parseDayText,
+  parseTimeText,
+  formatSlotLabel,
+  createAppointment,
+  createAppointmentFromSlot,
+  cancelAppointment,
+  rescheduleAppointment,
+  addToWaitlist,
+} from './actions'
+import { checkSlotAvailable, getAvailableSlots } from './availability'
+import { setHours, setMinutes, addMinutes } from 'date-fns'
+import type { BotState, BotContext, Slot } from './context'
+import type { BotSettings } from '@/lib/types/database'
 
-export type BotState =
-  | 'menu'
-  | 'agendar_nome'
-  | 'agendar_dia'
-  | 'agendar_hora'
-  | 'reagendar_dia'
-  | 'reagendar_hora'
-  | 'cancelar_confirmar'
-  | 'cancelar_encaixe'
-  | 'atendente'
-  | 'ver_agendamentos'
-  | 'confirmar_presenca';
+// ---------------------------------------------------------------------------
+// Public types
+// ---------------------------------------------------------------------------
 
-export type BotContext = {
-  name?: string;
-  day?: string;
-  time?: string;
-  intent?: string;
-  patientPhone?: string;
-};
+export type { BotState, BotContext }
 
-type BotResponse = {
-  message: string;
-  nextState: BotState;
-  nextContext: BotContext;
-  conversationStatus?: string;
-  appointmentCreated?: boolean;
-  appointmentId?: string;
-  transferToHuman?: boolean;
-};
+export type BotResponse = {
+  message: string
+  nextState: BotState
+  nextContext: BotContext
+  conversationStatus?: string
+  transferToHuman?: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Entry point
+// ---------------------------------------------------------------------------
 
 /**
- * Main bot engine - processes user message and returns response
+ * Process one patient message through the state machine.
+ *
+ * @param conversationId  - DB id of the conversation
+ * @param userMessage     - raw text sent by the patient
+ * @param currentState    - current bot state (default: 'menu')
+ * @param currentContext  - current bot context
+ * @param botSettings     - clinic bot settings (working hours, messages, …)
+ * @param patientPhone    - patient WhatsApp number (E.164)
+ * @param clinicId        - clinic UUID (required for DB queries)
  */
 export async function handleBotTurn(
   conversationId: string,
@@ -47,345 +59,531 @@ export async function handleBotTurn(
   currentState: BotState = 'menu',
   currentContext: BotContext = {},
   botSettings?: BotSettings | null,
-  patientPhone?: string
+  patientPhone?: string,
+  clinicId?: string
 ): Promise<BotResponse> {
-  const state = currentState || 'menu';
+  const state = currentState || 'menu'
+  const ctx: BotContext = { ...currentContext, patientPhone: patientPhone ?? currentContext.patientPhone }
 
   switch (state) {
     case 'menu':
-      return handleMenuState(userMessage, currentContext, botSettings);
+      return handleMenu(userMessage, ctx, botSettings, clinicId)
 
     case 'agendar_nome':
-      return handleAgendarNomeState(userMessage, currentContext);
+      return handleAgendarNome(userMessage, ctx, botSettings, clinicId)
 
     case 'agendar_dia':
-      return handleAgendarDiaState(userMessage, currentContext);
+      return handleAgendarDia(userMessage, ctx)
 
     case 'agendar_hora':
-      return await handleAgendarHoraState(conversationId, userMessage, currentContext, botSettings);
+      return handleAgendarHora(conversationId, userMessage, ctx, botSettings, clinicId)
+
+    case 'agendar_slot_escolha':
+      return handleSlotEscolha(conversationId, userMessage, ctx, clinicId, 'agendar')
+
+    case 'reagendar_qual':
+      return handleQualAppointment(userMessage, ctx, 'reagendar', botSettings, clinicId)
 
     case 'reagendar_dia':
-      return handleReagendarDiaState(userMessage, currentContext);
+      return handleReagendarDia(userMessage, ctx)
 
     case 'reagendar_hora':
-      return handleReagendarHoraState(userMessage, currentContext, botSettings);
+      return handleReagendarHora(userMessage, ctx, botSettings, clinicId)
+
+    case 'reagendar_slot_escolha':
+      return handleSlotEscolha(conversationId, userMessage, ctx, clinicId, 'reagendar')
+
+    case 'cancelar_qual':
+      return handleQualAppointment(userMessage, ctx, 'cancelar', botSettings, clinicId)
 
     case 'cancelar_confirmar':
-      return handleCancelarConfirmarState(userMessage, currentContext);
+      return handleCancelarConfirmar(userMessage, ctx)
 
     case 'cancelar_encaixe':
-      return handleCancelarEncaixeState(userMessage, currentContext);
+      return handleCancelarEncaixe(conversationId, userMessage, ctx, clinicId)
 
     case 'atendente':
-      // Qualquer mensagem volta ao menu quando atendente assume
       return {
         message: botSettings?.message_menu || templates.menu,
         nextState: 'menu',
         nextContext: {},
-      };
+      }
 
     case 'ver_agendamentos':
-      return await handleVerAgendamentosResponseState(userMessage, currentContext);
+      return handleVerAgendamentosResposta(userMessage, ctx)
 
     case 'confirmar_presenca':
-      return handleConfirmarPresencaState(userMessage, currentContext);
-
-    default:
-      return {
-        message: botSettings?.message_menu || templates.menu,
-        nextState: 'menu',
-        nextContext: {},
-      };
-  }
-}
-
-/**
- * Handle menu state - detect intent and route
- */
-function handleMenuState(userMessage: string, context: BotContext, botSettings?: BotSettings | null): BotResponse {
-  const intent = detectIntent(userMessage);
-
-  switch (intent) {
-    case 'schedule':
-      return {
-        message: templates.scheduleAskName,
-        nextState: 'agendar_nome',
-        nextContext: { intent: 'schedule' },
-      };
-
-    case 'reschedule':
-      return {
-        message: templates.rescheduleAskDay,
-        nextState: 'reagendar_dia',
-        nextContext: { intent: 'reschedule' },
-      };
-
-    case 'cancel':
-      return {
-        message: templates.cancelConfirm,
-        nextState: 'cancelar_confirmar',
-        nextContext: { intent: 'cancel' },
-      };
-
-    case 'attendant':
-      return {
-        message: templates.attendantTransfer,
-        nextState: 'atendente',
-        nextContext: { intent: 'attendant' },
-        conversationStatus: 'waiting_human',
-        transferToHuman: true,
-      };
-
-    case 'view_appointments':
-      return {
-        message: '🔍 Buscando seus agendamentos...',
-        nextState: 'ver_agendamentos',
-        nextContext: { intent: 'view_appointments', patientPhone: context.patientPhone },
-      };
-
-    case 'confirm_attendance':
-      return {
-        message: templates.confirmAttendanceAsk,
-        nextState: 'confirmar_presenca',
-        nextContext: { intent: 'confirm_attendance' },
-      };
+      return handleConfirmarPresenca(userMessage, ctx)
 
     default:
       return {
         message: botSettings?.message_fallback || templates.notUnderstood,
         nextState: 'menu',
         nextContext: {},
-      };
+      }
   }
 }
 
-/**
- * Scheduling flow - collect name
- */
-function handleAgendarNomeState(userMessage: string, context: BotContext): BotResponse {
-  const name = userMessage.trim();
+// ---------------------------------------------------------------------------
+// State handlers
+// ---------------------------------------------------------------------------
 
-  return {
-    message: templates.scheduleAskDay(name),
-    nextState: 'agendar_dia',
-    nextContext: { ...context, name },
-  };
-}
-
-/**
- * Scheduling flow - collect day
- */
-function handleAgendarDiaState(userMessage: string, context: BotContext): BotResponse {
-  const day = userMessage.trim();
-
-  return {
-    message: templates.scheduleAskTime(day),
-    nextState: 'agendar_hora',
-    nextContext: { ...context, day },
-  };
-}
-
-/**
- * Scheduling flow - collect time and finish
- */
-async function handleAgendarHoraState(
-  conversationId: string,
-  userMessage: string,
-  context: BotContext,
-  botSettings?: BotSettings | null
+async function handleMenu(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
 ): Promise<BotResponse> {
-  const time = userMessage.trim();
-  const name = context.name || 'Paciente';
-  const day = context.day || 'a definir';
-
-  try {
-    const response = await fetch(`${process.env.APP_URL || 'http://localhost:3000'}/api/bot/create-appointment`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ conversationId, dayText: day, timeText: time }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      return {
-        message: data.message,
-        nextState: 'menu',
-        nextContext: {},
-        conversationStatus: 'scheduled',
-        appointmentCreated: true,
-        appointmentId: data.appointmentId,
-      };
-    } else {
-      return {
-        message: data.message || 'Não consegui confirmar o agendamento. Pode tentar outro horário?',
-        nextState: 'agendar_hora',
-        nextContext: context,
-      };
-    }
-  } catch (error) {
-    console.error('Error creating appointment from bot:', error);
+  if (isGreetingMessage(msg)) {
     return {
-      message: botSettings?.message_confirm_schedule || templates.scheduleConfirm(name, day, time),
+      message: botSettings?.message_menu || templates.menu,
+      nextState: 'menu',
+      nextContext: ctx,
+    }
+  }
+
+  const intent = detectIntent(msg)
+
+  switch (intent) {
+    case 'schedule':
+      if (!ctx.patientName) {
+        return { message: templates.scheduleAskName, nextState: 'agendar_nome', nextContext: { ...ctx, intent: 'schedule' } }
+      }
+
+      return offerSlotSelection({
+        clinicId,
+        botSettings,
+        ctx: { ...ctx, intent: 'schedule' },
+        flow: 'agendar',
+      })
+
+    case 'reschedule':
+      return {
+        message: '🔍 Buscando suas consultas para remarcar...',
+        nextState: 'ver_agendamentos',
+        nextContext: { ...ctx, intent: 'reschedule' },
+      }
+
+    case 'cancel':
+      return { message: templates.cancelConfirmGeneric, nextState: 'cancelar_confirmar', nextContext: { ...ctx, intent: 'cancel' } }
+
+    case 'attendant':
+      return {
+        message: botSettings?.message_menu
+          ? templates.attendantTransfer
+          : templates.attendantTransfer,
+        nextState: 'atendente',
+        nextContext: { ...ctx, intent: 'attendant' },
+        conversationStatus: 'waiting_human',
+        transferToHuman: true,
+      }
+
+    case 'view_appointments':
+      return {
+        message: '🔍 Buscando seus agendamentos...',
+        nextState: 'ver_agendamentos',
+        nextContext: { ...ctx, intent: 'view_appointments' },
+      }
+
+    case 'confirm_attendance':
+      return { message: templates.confirmAttendanceAsk, nextState: 'confirmar_presenca', nextContext: { ...ctx, intent: 'confirm_attendance' } }
+
+    default:
+      return {
+        message: botSettings?.message_fallback || templates.notUnderstood,
+        nextState: 'menu',
+        nextContext: ctx,
+      }
+  }
+}
+
+function isGreetingMessage(text: string): boolean {
+  const normalized = text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+
+  if (!normalized) return false
+
+  return /\b(oi|ola|bom dia|boa tarde|boa noite|opa|e ai|hey)\b/.test(normalized)
+}
+
+// ---- Agendar ---------------------------------------------------------------
+
+async function handleAgendarNome(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const name = msg.trim()
+  return offerSlotSelection({
+    clinicId,
+    botSettings,
+    ctx: { ...ctx, patientName: name },
+    flow: 'agendar',
+  })
+}
+
+function handleAgendarDia(msg: string, ctx: BotContext): BotResponse {
+  return {
+    message: templates.scheduleAskTime(msg.trim()),
+    nextState: 'agendar_hora',
+    nextContext: { ...ctx, requestedDay: msg.trim() },
+  }
+}
+
+async function handleAgendarHora(
+  conversationId: string,
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string
+): Promise<BotResponse> {
+  if (!clinicId) return technicalError(ctx)
+
+  const requestedDay = ctx.requestedDay || ''
+  const requestedTime = msg.trim()
+
+  // Try to parse and create directly
+  const result = await createAppointment({
+    clinicId,
+    conversationId,
+    patientName: ctx.patientName || 'Paciente',
+    patientPhone: ctx.patientPhone || '',
+    dayText: requestedDay,
+    timeText: requestedTime,
+  })
+
+  // Success
+  if (result.success) {
+    return {
+      message: result.message,
       nextState: 'menu',
       nextContext: {},
-      conversationStatus: 'waiting_patient',
-    };
+      conversationStatus: 'scheduled',
+    }
+  }
+
+  // Parsing errors — ask again
+  if (result.error === 'invalid_date') {
+    return { message: result.message, nextState: 'agendar_dia', nextContext: ctx }
+  }
+  if (result.error === 'invalid_time' || result.error === 'too_soon') {
+    return { message: result.message, nextState: 'agendar_hora', nextContext: { ...ctx, requestedTime } }
+  }
+
+  // Conflict — offer real available slots
+  if (botSettings && result.error !== 'db_error') {
+    const parsedDate = parseDayText(requestedDay)
+    if (parsedDate) {
+      const slots = await getAvailableSlots(clinicId, parsedDate, botSettings, 3)
+      if (slots.length > 0) {
+        return {
+          message: templates.scheduleConflict(slots),
+          nextState: 'agendar_slot_escolha',
+          nextContext: { ...ctx, requestedTime, availableSlots: slots },
+        }
+      }
+    }
+    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: {} }
+  }
+
+  return technicalError(ctx)
+}
+
+async function handleSlotEscolha(
+  conversationId: string,
+  msg: string,
+  ctx: BotContext,
+  clinicId: string | undefined,
+  flow: 'agendar' | 'reagendar'
+): Promise<BotResponse> {
+  if (!clinicId) return technicalError(ctx)
+
+  const slots = ctx.availableSlots ?? []
+  const choice = resolveChoiceIndex(msg, slots.map(slot => slot.label))
+
+  if (choice < 0 || choice >= slots.length) {
+    return {
+      message: templates.invalidChoice(slots.length),
+      nextState: flow === 'agendar' ? 'agendar_slot_escolha' : 'reagendar_slot_escolha',
+      nextContext: ctx,
+    }
+  }
+
+  const slot = slots[choice]
+
+  if (flow === 'agendar') {
+    const result = await createAppointmentFromSlot({
+      clinicId,
+      conversationId,
+      patientName: ctx.patientName || 'Paciente',
+      patientPhone: ctx.patientPhone || '',
+      slot,
+    })
+    return {
+      message: result.message,
+      nextState: result.success ? 'menu' : 'agendar_slot_escolha',
+      nextContext: result.success ? {} : ctx,
+      conversationStatus: result.success ? 'scheduled' : undefined,
+    }
+  }
+
+  // reagendar
+  if (!ctx.appointmentId) return technicalError(ctx)
+  const result = await rescheduleAppointment({ clinicId, appointmentId: ctx.appointmentId, slot })
+  return {
+    message: result.message,
+    nextState: result.success ? 'menu' : 'reagendar_slot_escolha',
+    nextContext: result.success ? {} : ctx,
+    conversationStatus: result.success ? 'scheduled' : undefined,
   }
 }
 
-/**
- * Rescheduling flow - collect new day
- */
-function handleReagendarDiaState(userMessage: string, context: BotContext): BotResponse {
-  const day = userMessage.trim();
+// ---- Reagendar -------------------------------------------------------------
 
+async function handleQualAppointment(
+  msg: string,
+  ctx: BotContext,
+  flow: 'cancelar' | 'reagendar',
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const appointments = ctx.appointments ?? []
+  const choice = resolveChoiceIndex(msg, appointments.map(appointment => appointment.label))
+
+  if (choice < 0 || choice >= appointments.length) {
+    return {
+      message: templates.invalidChoice(appointments.length),
+      nextState: flow === 'cancelar' ? 'cancelar_qual' : 'reagendar_qual',
+      nextContext: ctx,
+    }
+  }
+
+  const chosen = appointments[choice]
+
+  if (flow === 'cancelar') {
+    return {
+      message: templates.cancelConfirmSingle(chosen.label),
+      nextState: 'cancelar_confirmar',
+      nextContext: { ...ctx, appointmentId: chosen.id },
+    }
+  }
+
+  return offerSlotSelection({
+    clinicId,
+    botSettings,
+    ctx: { ...ctx, appointmentId: chosen.id },
+    flow: 'reagendar',
+  })
+}
+
+function handleReagendarDia(msg: string, ctx: BotContext): BotResponse {
   return {
-    message: templates.rescheduleAskTime(day),
+    message: templates.rescheduleAskTime(msg.trim()),
     nextState: 'reagendar_hora',
-    nextContext: { ...context, day },
-  };
+    nextContext: { ...ctx, requestedDay: msg.trim() },
+  }
 }
 
-/**
- * Rescheduling flow - collect new time and finish
- */
-function handleReagendarHoraState(userMessage: string, context: BotContext, botSettings?: BotSettings | null): BotResponse {
-  const time = userMessage.trim();
-  const day = context.day || 'a definir';
+async function handleReagendarHora(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string
+): Promise<BotResponse> {
+  if (!clinicId || !ctx.appointmentId) return technicalError(ctx)
 
+  const requestedDay = ctx.requestedDay || ''
+  const requestedTime = msg.trim()
+
+  const parsedDate = parseDayText(requestedDay)
+  const parsedTime = parseTimeText(requestedTime)
+
+  if (!parsedDate) {
+    return { message: 'Não consegui entender a data. Pode repetir? (ex: segunda-feira, 28/04)', nextState: 'reagendar_dia', nextContext: ctx }
+  }
+  if (!parsedTime) {
+    return { message: 'Não consegui entender o horário. Pode repetir? (ex: 14h, 14:30)', nextState: 'reagendar_hora', nextContext: { ...ctx, requestedTime } }
+  }
+
+  const durationMinutes = 30 // will be fetched from settings in availability service
+  const startsAt = setMinutes(setHours(parsedDate, parsedTime.hours), parsedTime.minutes)
+  const endsAt = addMinutes(startsAt, durationMinutes)
+
+  if (botSettings) {
+    const available = await checkSlotAvailable(clinicId, startsAt, endsAt, botSettings)
+    if (!available) {
+      const slots = await getAvailableSlots(clinicId, parsedDate, botSettings, 3)
+      if (slots.length > 0) {
+        return {
+          message: templates.rescheduleConflict(slots),
+          nextState: 'reagendar_slot_escolha',
+          nextContext: { ...ctx, requestedTime, availableSlots: slots },
+        }
+      }
+      return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: {} }
+    }
+  }
+
+  const slot: Slot = {
+    startsAt: startsAt.toISOString(),
+    endsAt: endsAt.toISOString(),
+    label: formatSlotLabel(startsAt),
+  }
+
+  const result = await rescheduleAppointment({ clinicId, appointmentId: ctx.appointmentId, slot })
   return {
-    message: botSettings?.message_confirm_reschedule || templates.rescheduleConfirm(day, time),
-    nextState: 'menu',
-    nextContext: {},
-    conversationStatus: 'reschedule',
-  };
+    message: result.message,
+    nextState: result.success ? 'menu' : 'reagendar_hora',
+    nextContext: result.success ? {} : ctx,
+    conversationStatus: result.success ? 'scheduled' : undefined,
+  }
 }
 
-/**
- * Cancellation flow - confirm cancellation
- */
-function handleCancelarConfirmarState(userMessage: string, context: BotContext): BotResponse {
-  const response = detectYesNo(userMessage);
+// ---- Cancelar --------------------------------------------------------------
 
-  if (response === 'yes') {
+function handleCancelarConfirmar(msg: string, ctx: BotContext): BotResponse {
+  const answer = detectYesNo(msg)
+
+  if (answer === 'yes') {
     return {
       message: templates.cancelAskWaitlist,
       nextState: 'cancelar_encaixe',
-      nextContext: context,
-    };
+      nextContext: ctx,
+    }
   }
 
-  if (response === 'no') {
-    return {
-      message: templates.cancelAborted,
-      nextState: 'menu',
-      nextContext: {},
-    };
+  if (answer === 'no') {
+    return { message: templates.cancelAborted, nextState: 'menu', nextContext: {} }
   }
 
-  return {
-    message: templates.cancelConfirm,
-    nextState: 'cancelar_confirmar',
-    nextContext: context,
-  };
+  return { message: templates.cancelConfirmGeneric, nextState: 'cancelar_confirmar', nextContext: ctx }
 }
 
-/**
- * Cancellation flow - ask about waitlist
- */
-function handleCancelarEncaixeState(userMessage: string, context: BotContext): BotResponse {
-  const response = detectYesNo(userMessage);
+async function handleCancelarEncaixe(
+  conversationId: string,
+  msg: string,
+  ctx: BotContext,
+  clinicId?: string
+): Promise<BotResponse> {
+  const answer = detectYesNo(msg)
 
-  if (response === 'yes') {
+  if (answer === 'unknown') {
+    return { message: templates.cancelAskWaitlist, nextState: 'cancelar_encaixe', nextContext: ctx }
+  }
+
+  // Cancel the appointment in DB
+  if (ctx.appointmentId && clinicId) {
+    await cancelAppointment(clinicId, ctx.appointmentId)
+  }
+
+  if (answer === 'yes') {
+    if (clinicId) await addToWaitlist(clinicId, conversationId)
     return {
       message: templates.cancelWithWaitlist,
       nextState: 'menu',
       nextContext: {},
       conversationStatus: 'waitlist',
-    };
-  }
-
-  if (response === 'no') {
-    return {
-      message: templates.cancelWithoutWaitlist,
-      nextState: 'menu',
-      nextContext: {},
-      conversationStatus: 'canceled',
-    };
+    }
   }
 
   return {
-    message: templates.cancelAskWaitlist,
-    nextState: 'cancelar_encaixe',
-    nextContext: context,
-  };
-}
-
-/**
- * View appointments - handle patient response after listing
- */
-async function handleVerAgendamentosResponseState(
-  userMessage: string,
-  context: BotContext
-): Promise<BotResponse> {
-  const intent = detectIntent(userMessage);
-
-  if (intent === 'reschedule' || userMessage.trim() === '1') {
-    return {
-      message: templates.rescheduleAskDay,
-      nextState: 'reagendar_dia',
-      nextContext: { intent: 'reschedule' },
-    };
-  }
-
-  if (intent === 'cancel' || userMessage.trim() === '2') {
-    return {
-      message: templates.cancelConfirm,
-      nextState: 'cancelar_confirmar',
-      nextContext: { intent: 'cancel' },
-    };
-  }
-
-  return {
-    message: templates.menu,
+    message: templates.cancelWithoutWaitlist,
     nextState: 'menu',
     nextContext: {},
-  };
+    conversationStatus: 'canceled',
+  }
 }
 
-/**
- * Confirm attendance flow
- */
-function handleConfirmarPresencaState(userMessage: string, context: BotContext): BotResponse {
-  const response = detectYesNo(userMessage);
+// ---- Ver agendamentos ------------------------------------------------------
 
-  if (response === 'yes') {
+async function handleVerAgendamentosResposta(
+  msg: string,
+  ctx: BotContext
+): Promise<BotResponse> {
+  // This state is entered right after "ver agendamentos" intent is detected.
+  // The FIRST call here should fetch and display appointments.
+  // Subsequent calls handle the patient's choice (remarcar / cancelar / menu).
+  //
+  // We detect this by checking if appointments are already in context.
+  if (!ctx.appointments) {
+    // First entry — appointments haven't been fetched yet (fetched in the engine
+    // right before this state is reached, but we handle it here for safety).
+    return {
+      message: templates.viewAppointmentsNotFound,
+      nextState: 'menu',
+      nextContext: {},
+    }
+  }
+
+  const intent = detectIntent(msg)
+  const num = parseInt(msg.trim(), 10)
+
+  if (intent === 'reschedule' || num === 1) {
+    if (ctx.appointments.length > 1) {
+      return {
+        message: templates.whichAppointmentReschedule(ctx.appointments),
+        nextState: 'reagendar_qual',
+        nextContext: { ...ctx, intent: 'reschedule' },
+      }
+    }
+
+    return {
+      message: templates.whichAppointmentReschedule(ctx.appointments),
+      nextState: 'reagendar_qual',
+      nextContext: { ...ctx, intent: 'reschedule' },
+    }
+  }
+
+  if (intent === 'cancel' || num === 2) {
+    if (ctx.appointments.length > 1) {
+      return {
+        message: templates.whichAppointmentCancel(ctx.appointments),
+        nextState: 'cancelar_qual',
+        nextContext: { ...ctx, intent: 'cancel' },
+      }
+    }
+
+    return {
+      message: templates.cancelConfirmSingle(ctx.appointments[0].label),
+      nextState: 'cancelar_confirmar',
+      nextContext: { ...ctx, intent: 'cancel', appointmentId: ctx.appointments[0].id },
+    }
+  }
+
+  return { message: templates.menu, nextState: 'menu', nextContext: {} }
+}
+
+// ---- Confirmar presença ----------------------------------------------------
+
+function handleConfirmarPresenca(msg: string, ctx: BotContext): BotResponse {
+  const answer = detectYesNo(msg)
+
+  if (answer === 'yes') {
     return {
       message: templates.confirmAttendanceSuccess,
       nextState: 'menu',
       nextContext: {},
       conversationStatus: 'scheduled',
-    };
+    }
   }
 
-  if (response === 'no') {
-    return {
-      message: templates.confirmAttendanceCancel,
-      nextState: 'menu',
-      nextContext: {},
-    };
+  if (answer === 'no') {
+    return { message: templates.confirmAttendanceCancel, nextState: 'menu', nextContext: {} }
   }
 
-  return {
-    message: templates.confirmAttendanceAsk,
-    nextState: 'confirmar_presenca',
-    nextContext: context,
-  };
+  return { message: templates.confirmAttendanceAsk, nextState: 'confirmar_presenca', nextContext: ctx }
 }
 
+// ---------------------------------------------------------------------------
+// Send bot response + persist state
+// ---------------------------------------------------------------------------
+
 /**
- * Send bot message and update conversation
+ * Send the bot message via Z-API and persist the new state to the database.
  */
 export async function sendBotResponse(
   conversationId: string,
@@ -393,74 +591,95 @@ export async function sendBotResponse(
   response: BotResponse,
   clinicId: string
 ): Promise<boolean> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createAdminClient()
+  const interactive = extractInteractiveChoices(response.message)
 
   try {
-    // 1. Send message via Z-API
+    // 1. Send via Z-API
     const sendResult = await fetch(
       `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/zapi/send-text`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${supabaseServiceKey}`,
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
         },
         body: JSON.stringify({
           conversationId,
           phone,
-          text: response.message,
+          text: interactive?.message || response.message,
+          choices: interactive?.choices,
+          choicesTitle: interactive?.title,
           internalCall: true,
         }),
       }
-    );
+    )
 
     if (!sendResult.ok) {
-      console.error('[Bot] Failed to send message via Z-API:', await sendResult.text());
-      return false;
+      console.error('[Bot] Failed to send message via Z-API:', await sendResult.text())
+      return false
     }
 
-    // 2. Save bot message in database
-    const { error: messageError } = await supabase.from('messages').insert({
+    // 2. Save bot message
+    const { error: msgError } = await supabase.from('messages').insert({
       conversation_id: conversationId,
       sender: 'bot',
       content: response.message,
       created_at: new Date().toISOString(),
-    });
+    })
 
-    if (messageError) {
-      console.error('[Bot] Failed to save bot message:', messageError);
-      return false;
+    if (msgError) {
+      console.error('[Bot] Failed to save bot message:', msgError)
+      return false
     }
 
-    // 3. Update conversation
-    const updateData: any = {
+    // 3. Update conversation state
+    const update: Record<string, unknown> = {
       last_message_at: new Date().toISOString(),
       last_message_preview: response.message.substring(0, 100),
       bot_state: response.nextState,
       bot_context: response.nextContext,
-    };
-
-    if (response.conversationStatus) {
-      updateData.status = response.conversationStatus;
     }
 
-    // Desabilitar bot se transferiu para atendente humano
-    if (response.transferToHuman) {
-      updateData.bot_enabled = false;
-    }
+    if (response.conversationStatus) update.status = response.conversationStatus
+    if (response.transferToHuman) update.bot_enabled = false
 
-    const { error: conversationError } = await supabase
+    const { error: convError } = await supabase
       .from('conversations')
-      .update(updateData)
-      .eq('id', conversationId);
+      .update(update)
+      .eq('id', conversationId)
 
-    if (conversationError) {
-      console.error('[Bot] Failed to update conversation:', conversationError);
-      return false;
+    if (convError) {
+      console.error('[Bot] Failed to update conversation:', convError)
+      return false
     }
 
+    // 4. Create in-app alert when the bot transfers the conversation to human
+    if (response.transferToHuman) {
+      try {
+        const { data: conversation } = await supabase
+          .from('conversations')
+          .select('patient_name')
+          .eq('id', conversationId)
+          .single()
+
+        const patientLabel = conversation?.patient_name || phone
+
+        await supabase.from('notifications').insert({
+          clinic_id: clinicId,
+          type: 'conversation_waiting',
+          title: 'Bot solicitou atendimento humano',
+          message: `A conversa com ${patientLabel} foi transferida para humano e está aguardando ação.`,
+          link: `/dashboard/conversas?id=${conversationId}`,
+          conversation_id: conversationId,
+        })
+      } catch (notificationError) {
+        // Non-blocking: message delivery/state update should succeed even if alert fails.
+        console.error('[Bot] Failed to create handoff notification:', notificationError)
+      }
+    }
+
+    // 5. Log bot response activity
     await supabase.from('logs').insert({
       clinic_id: clinicId,
       event: 'bot.response.sent',
@@ -471,22 +690,141 @@ export async function sendBotResponse(
         statusChange: response.conversationStatus,
         transferToHuman: response.transferToHuman || false,
       },
-    });
+    })
 
-    return true;
+    return true
   } catch (error) {
-    console.error('[Bot] Error in sendBotResponse:', error);
+    console.error('[Bot] Error in sendBotResponse:', error)
 
-    await supabase.from('logs').insert({
-      clinic_id: clinicId,
-      event: 'bot.response.failed',
-      level: 'error',
-      metadata: {
-        conversationId,
-        error: error instanceof Error ? error.message : String(error),
-      },
-    });
+    try {
+      await supabase.from('logs').insert({
+        clinic_id: clinicId,
+        event: 'bot.response.failed',
+        level: 'error',
+        metadata: {
+          conversationId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      })
+    } catch {
+      // ignore logging errors
+    }
 
-    return false;
+    return false
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function technicalError(ctx: BotContext): BotResponse {
+  return {
+    message: templates.technicalError,
+    nextState: 'menu',
+    nextContext: ctx,
+  }
+}
+
+async function offerSlotSelection(params: {
+  clinicId?: string
+  botSettings?: BotSettings | null
+  ctx: BotContext
+  flow: 'agendar' | 'reagendar'
+}): Promise<BotResponse> {
+  if (!params.clinicId || !params.botSettings) {
+    return technicalError(params.ctx)
+  }
+
+  const slots = await getAvailableSlots(params.clinicId, new Date(), params.botSettings, 5)
+  if (slots.length === 0) {
+    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: {} }
+  }
+
+  return {
+    message:
+      params.flow === 'agendar'
+        ? templates.scheduleChooseSlot(slots)
+        : templates.rescheduleChooseSlot(slots),
+    nextState: params.flow === 'agendar' ? 'agendar_slot_escolha' : 'reagendar_slot_escolha',
+    nextContext: { ...params.ctx, availableSlots: slots },
+  }
+}
+
+function resolveChoiceIndex(message: string, options: string[]): number {
+  const normalizedMessage = normalizeChoiceText(message)
+  const numericChoice = parseInt(normalizedMessage, 10)
+
+  if (!Number.isNaN(numericChoice) && numericChoice >= 1 && numericChoice <= options.length) {
+    return numericChoice - 1
+  }
+
+  return options.findIndex(option => normalizeChoiceText(option) === normalizedMessage)
+}
+
+function normalizeChoiceText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+type InteractiveChoice = {
+  id: string
+  label: string
+}
+
+function extractInteractiveChoices(
+  message: string,
+): { message: string; choices: InteractiveChoice[]; title: string } | null {
+  const lines = message
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+
+  const inlineChoiceRegex = /(\d+)\s*[️⃣.):-]?\s+([^\n\r]+?)(?=\s+\d+\s*[️⃣.):-]\s+|$)/g
+  const collected: InteractiveChoice[] = []
+
+  const consumeLabel = (raw: string): string => {
+    let label = raw.trim().replace(/^[\-•\s]+/, '')
+    label = label.replace(/\s{2,}/g, ' ').trim()
+    return label
+  }
+
+  for (const line of lines) {
+    const lineMatch = line.match(/^(\d+)\s*[️⃣.):-]\s+(.+)$/)
+    if (lineMatch) {
+      const id = lineMatch[1]
+      const label = consumeLabel(lineMatch[2])
+      if (label) collected.push({ id, label })
+      continue
+    }
+
+    const matches = [...line.matchAll(inlineChoiceRegex)]
+    for (const match of matches) {
+      const id = String(match[1] || '').trim()
+      const label = consumeLabel(String(match[2] || ''))
+      if (id && label) collected.push({ id, label })
+    }
+  }
+
+  const deduped = collected.filter(
+    (choice, index, arr) =>
+      arr.findIndex(item => item.id === choice.id || item.label === choice.label) === index,
+  )
+
+  if (deduped.length < 2) return null
+
+  const inlineChoiceLinePattern = /\d+\s*[️⃣.):-]\s+.+\d+\s*[️⃣.):-]\s+/
+  const cleanedLines = lines.filter(
+    line => !/^(\d+)\s*[️⃣.):-]\s+/.test(line) && !inlineChoiceLinePattern.test(line),
+  )
+  const cleanedMessage = cleanedLines.join('\n').trim()
+
+  return {
+    message: cleanedMessage.length > 0 ? cleanedMessage : 'Escolha uma opção:',
+    choices: deduped,
+    title: 'Opções disponíveis',
   }
 }

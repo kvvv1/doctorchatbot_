@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Verificar conflitos com appointments existentes
-        const hasConflict = existingAppointments?.some((apt) => {
+        const hasConflict = existingAppointments?.some((apt: { starts_at: string; ends_at: string }) => {
           const aptStart = new Date(apt.starts_at)
           const aptEnd = new Date(apt.ends_at)
 

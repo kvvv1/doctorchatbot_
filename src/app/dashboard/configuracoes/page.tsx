@@ -5,6 +5,7 @@ import { Metadata } from 'next'
 import { checkSubscription } from '@/lib/services/subscriptionService'
 import { hasFeatureAccess, PlanFeature } from '@/lib/services/planFeatures'
 import { getBotSettings } from '@/lib/services/botSettingsService'
+import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = {
 	title: 'Configurações',
@@ -21,6 +22,13 @@ export default async function ConfiguracoesPage() {
 
 	const subscription = await checkSubscription(clinic.id)
 	const botSettings = await getBotSettings(clinic.id)
+	const supabase = await createClient()
+	const { data: appointmentSettings } = await supabase
+		.from('appointment_settings')
+		.select('default_duration_minutes')
+		.eq('clinic_id', clinic.id)
+		.maybeSingle()
+	const initialDefaultDurationMinutes = appointmentSettings?.default_duration_minutes ?? 30
 	const hasCustomFlows = hasFeatureAccess(
 		subscription.planKey,
 		PlanFeature.BOT_CUSTOM_FLOWS
@@ -31,6 +39,7 @@ export default async function ConfiguracoesPage() {
 			initialClinicName={clinic.name} 
 			clinicId={clinic.id}
 			initialBotSettings={botSettings}
+			initialDefaultDurationMinutes={initialDefaultDurationMinutes}
 			planKey={subscription.planKey}
 			hasCustomFlows={hasCustomFlows}
 		/>

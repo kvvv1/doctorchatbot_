@@ -6,6 +6,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns'
 
+type AppointmentMetricRow = {
+  status: string
+  starts_at: string
+}
+
 export interface TodayAppointmentStats {
   total: number
   scheduled: number
@@ -55,25 +60,25 @@ export async function getAppointmentMetrics(clinicId: string): Promise<Appointme
       .lte('starts_at', monthEnd.toISOString()),
   ])
 
-  const safeToday = todayAppointments || []
-  const safeMonth = monthAppointments || []
+  const safeToday: AppointmentMetricRow[] = todayAppointments || []
+  const safeMonth: AppointmentMetricRow[] = monthAppointments || []
 
   const today: TodayAppointmentStats = {
     total: safeToday.length,
-    scheduled: safeToday.filter((a) => a.status === 'scheduled').length,
-    confirmed: safeToday.filter((a) => a.status === 'confirmed').length,
-    completed: safeToday.filter((a) => a.status === 'completed').length,
-    canceled: safeToday.filter((a) => a.status === 'canceled').length,
-    noShow: safeToday.filter((a) => a.status === 'no_show').length,
+    scheduled: safeToday.filter((a: AppointmentMetricRow) => a.status === 'scheduled').length,
+    confirmed: safeToday.filter((a: AppointmentMetricRow) => a.status === 'confirmed').length,
+    completed: safeToday.filter((a: AppointmentMetricRow) => a.status === 'completed').length,
+    canceled: safeToday.filter((a: AppointmentMetricRow) => a.status === 'canceled').length,
+    noShow: safeToday.filter((a: AppointmentMetricRow) => a.status === 'no_show').length,
   }
 
   const monthTotal = safeMonth.length
-  const monthConfirmed = safeMonth.filter((a) => a.status === 'confirmed').length
-  const monthCompleted = safeMonth.filter((a) => a.status === 'completed').length
-  const monthCanceled = safeMonth.filter((a) => a.status === 'canceled').length
-  const monthNoShow = safeMonth.filter((a) => a.status === 'no_show').length
+  const monthConfirmed = safeMonth.filter((a: AppointmentMetricRow) => a.status === 'confirmed').length
+  const monthCompleted = safeMonth.filter((a: AppointmentMetricRow) => a.status === 'completed').length
+  const monthCanceled = safeMonth.filter((a: AppointmentMetricRow) => a.status === 'canceled').length
+  const monthNoShow = safeMonth.filter((a: AppointmentMetricRow) => a.status === 'no_show').length
 
-  const confirmationBase = safeMonth.filter((a) =>
+  const confirmationBase = safeMonth.filter((a: AppointmentMetricRow) =>
     a.status === 'scheduled' || a.status === 'confirmed' || a.status === 'completed'
   ).length
 

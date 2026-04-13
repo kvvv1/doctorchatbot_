@@ -1,0 +1,271 @@
+/**
+ * Bot Availability Service
+ * Checks real working hours and existing appointments to determine free slots.
+ * Uses bot_settings.working_hours (JSON) as the working hours source.
+ */
+
+import { addDays, addMinutes, format, getDay, setHours, setMinutes, startOfDay } from 'date-fns'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { formatSlotLabel } from './actions'
+import type { Slot } from './context'
+import type { BotSettings } from '@/lib/types/database'
+import { GestaoDSService } from '@/lib/services/gestaods'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** JS getDay() → BotSettings day key */
+const JS_DAY_TO_KEY = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
+
+/**
+ * Parse a "HH:MM" string into { hours, minutes }.
+ */
+function parseHHMM(value: string): { hours: number; minutes: number } {
+  const [h, m] = value.split(':').map(Number)
+  return { hours: h, minutes: m ?? 0 }
+}
+
+/**
+ * Fetch appointment duration and buffer for a clinic.
+ * Falls back to sensible defaults if no row exists.
+ */
+async function getSettings(clinicId: string) {
+  const supabase = createAdminClient()
+  const { data } = await supabase
+    .from('appointment_settings')
+    .select('default_duration_minutes, buffer_time_minutes, min_advance_booking_hours')
+    .eq('clinic_id', clinicId)
+    .maybeSingle()
+
+  return {
+    durationMinutes: data?.default_duration_minutes ?? 30,
+    bufferMinutes: data?.buffer_time_minutes ?? 0,
+    minAdvanceHours: data?.min_advance_booking_hours ?? 2,
+  }
+}
+
+/**
+ * Fetch appointments that overlap a given time window for a clinic.
+ */
+async function getConflictingAppointments(
+  clinicId: string,
+  windowStart: Date,
+  windowEnd: Date
+): Promise<Array<{ starts_at: string; ends_at: string }>> {
+  const supabase = createAdminClient()
+  const { data } = await supabase
+    .from('appointments')
+    .select('starts_at, ends_at')
+    .eq('clinic_id', clinicId)
+    .in('status', ['scheduled', 'confirmed'])
+    .lt('starts_at', windowEnd.toISOString())
+    .gt('ends_at', windowStart.toISOString())
+
+  return data ?? []
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true if the given day has working hours configured and enabled.
+ * Uses the working_hours JSON stored in bot_settings.
+ */
+export function isDayWorking(botSettings: BotSettings, date: Date): boolean {
+  if (!botSettings.working_hours_enabled) return true // no restriction
+
+  const key = JS_DAY_TO_KEY[getDay(date)]
+  const dayConfig = botSettings.working_hours.days.find((d) => d.day === key)
+  return !!dayConfig?.enabled
+}
+
+/**
+ * Check whether a specific slot is free:
+ *   - Within working hours
+ *   - No conflicting appointment
+ *   - Not in the past (respects min advance booking)
+ */
+export async function checkSlotAvailable(
+  clinicId: string,
+  startsAt: Date,
+  endsAt: Date,
+  botSettings: BotSettings
+): Promise<boolean> {
+  // 1. Past check
+  const settings = await getSettings(clinicId)
+  const earliest = new Date(Date.now() + settings.minAdvanceHours * 3_600_000)
+  if (startsAt < earliest) return false
+
+  // 2. Working hours check
+  if (botSettings.working_hours_enabled) {
+    const key = JS_DAY_TO_KEY[getDay(startsAt)]
+    const dayConfig = botSettings.working_hours.days.find((d) => d.day === key)
+    if (!dayConfig?.enabled) return false
+
+    const { hours: sh, minutes: sm } = parseHHMM(dayConfig.start)
+    const { hours: eh, minutes: em } = parseHHMM(dayConfig.end)
+    const startOfWork = setMinutes(setHours(startOfDay(startsAt), sh), sm)
+    const endOfWork = setMinutes(setHours(startOfDay(startsAt), eh), em)
+
+    if (startsAt < startOfWork || endsAt > endOfWork) return false
+  }
+
+  // 3. Conflict check
+  const conflicts = await getConflictingAppointments(clinicId, startsAt, endsAt)
+  return conflicts.length === 0
+}
+
+/**
+ * Return up to `count` available slots on `targetDate` (or nearby days).
+ * Searches forward up to 14 days to find enough slots.
+ */
+export async function getAvailableSlots(
+  clinicId: string,
+  targetDate: Date,
+  botSettings: BotSettings,
+  count = 3
+): Promise<Slot[]> {
+  const external = await getExternalAvailableSlots(clinicId, targetDate, count)
+  if (external.length > 0) {
+    return external
+  }
+
+  const settings = await getSettings(clinicId)
+  const { durationMinutes, bufferMinutes } = settings
+  const stepMinutes = durationMinutes + bufferMinutes
+
+  const slots: Slot[] = []
+  const maxDaysAhead = 14
+  let daysChecked = 0
+  let cursor = startOfDay(targetDate)
+
+  while (slots.length < count && daysChecked < maxDaysAhead) {
+    if (isDayWorking(botSettings, cursor)) {
+      // Determine start and end of working hours for this day
+      let dayStart: Date
+      let dayEnd: Date
+
+      if (botSettings.working_hours_enabled) {
+        const key = JS_DAY_TO_KEY[getDay(cursor)]
+        const dayConfig = botSettings.working_hours.days.find((d) => d.day === key)
+
+        if (dayConfig?.enabled) {
+          const { hours: sh, minutes: sm } = parseHHMM(dayConfig.start)
+          const { hours: eh, minutes: em } = parseHHMM(dayConfig.end)
+          dayStart = setMinutes(setHours(cursor, sh), sm)
+          dayEnd = setMinutes(setHours(cursor, eh), em)
+        } else {
+          cursor = addMinutes(cursor, 24 * 60)
+          daysChecked++
+          continue
+        }
+      } else {
+        // Default business hours fallback
+        dayStart = setMinutes(setHours(cursor, 8), 0)
+        dayEnd = setMinutes(setHours(cursor, 18), 0)
+      }
+
+      // Walk through the day generating candidate slots
+      let slotStart = dayStart
+      while (slotStart < dayEnd && slots.length < count) {
+        const slotEnd = addMinutes(slotStart, durationMinutes)
+        if (slotEnd > dayEnd) break
+
+        const available = await checkSlotAvailable(clinicId, slotStart, slotEnd, botSettings)
+        if (available) {
+          slots.push({
+            startsAt: slotStart.toISOString(),
+            endsAt: slotEnd.toISOString(),
+            label: formatSlotLabel(slotStart),
+          })
+        }
+
+        slotStart = addMinutes(slotStart, stepMinutes)
+      }
+    }
+
+    cursor = addMinutes(cursor, 24 * 60)
+    daysChecked++
+  }
+
+  return slots
+}
+
+async function getExternalAvailableSlots(
+  clinicId: string,
+  targetDate: Date,
+  count: number,
+): Promise<Slot[]> {
+  const supabase = createAdminClient()
+  const { data: integration } = await supabase
+    .from('clinic_integrations')
+    .select('provider, gestaods_api_token, gestaods_is_dev')
+    .eq('clinic_id', clinicId)
+    .eq('provider', 'gestaods')
+    .eq('is_connected', true)
+    .maybeSingle()
+
+  if (!integration?.gestaods_api_token) {
+    return []
+  }
+
+  const settings = await getSettings(clinicId)
+  const service = new GestaoDSService(
+    integration.gestaods_api_token,
+    integration.gestaods_is_dev ?? true,
+  )
+
+  const slots: Slot[] = []
+
+  for (let offset = 0; offset < 7 && slots.length < count; offset++) {
+    const date = addDays(startOfDay(targetDate), offset)
+    const times = await loadGestaoDSAvailableTimes(service, date)
+
+    for (const time of times) {
+      const parsed = parseHHMM(time)
+      const startsAt = setMinutes(setHours(date, parsed.hours), parsed.minutes)
+      const endsAt = addMinutes(startsAt, settings.durationMinutes)
+
+      slots.push({
+        startsAt: startsAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+        label: formatSlotLabel(startsAt),
+      })
+
+      if (slots.length >= count) break
+    }
+  }
+
+  return slots
+}
+
+async function loadGestaoDSAvailableTimes(service: GestaoDSService, date: Date): Promise<string[]> {
+  const attempts = [format(date, 'yyyy-MM-dd'), format(date, 'dd/MM/yyyy')]
+
+  for (const candidate of attempts) {
+    const response = await service.getAvailableTimes(candidate)
+    if (!response.success) continue
+
+    const normalized = normalizeGestaoDSTimes(response.data)
+    if (normalized.length > 0) return normalized
+  }
+
+  return []
+}
+
+function normalizeGestaoDSTimes(payload: unknown): string[] {
+  if (!Array.isArray(payload)) return []
+
+  return payload
+    .map(item => {
+      if (typeof item === 'string') return item
+      if (!item || typeof item !== 'object') return null
+
+      const record = item as Record<string, unknown>
+      const raw = record.horario || record.hora || record.time || record.label
+      return typeof raw === 'string' ? raw : null
+    })
+    .filter((value): value is string => typeof value === 'string' && /^\d{1,2}:\d{2}/.test(value))
+}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { zapiSendText, validateCredentials } from '@/lib/zapi/client';
+import { zapiSendChoices, zapiSendText, validateCredentials } from '@/lib/zapi/client';
 import { assertSubscriptionActive } from '@/lib/services/subscriptionService';
 
 /**
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   try {
     // Parse body first to check if this is an internal call
     const body = await request.json();
-    const { conversationId, phone, text, internalCall } = body;
+    const { conversationId, phone, text, internalCall, choices, choicesTitle } = body;
 
     let clinicId: string;
     let supabase;
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('clinic_id')
-        .eq('user_id', user.id)
+        .eq('id', user.id)
         .single();
 
       if (profileError || !profile?.clinic_id) {
@@ -203,7 +203,41 @@ export async function POST(request: NextRequest) {
     // 6. Enviar mensagem via Z-API
     let zapiResult;
     try {
-      zapiResult = await zapiSendText(credentials, phone, text);
+      const normalizedChoices = Array.isArray(choices)
+        ? choices
+            .map((choice: unknown, index: number) => {
+              if (typeof choice === 'string') {
+                const label = choice.trim();
+                return label ? { id: String(index + 1), label } : null;
+              }
+
+              if (choice && typeof choice === 'object') {
+                const source = choice as { id?: unknown; label?: unknown; title?: unknown };
+                const labelRaw = source.label ?? source.title;
+                const label = typeof labelRaw === 'string' ? labelRaw.trim() : '';
+                if (!label) return null;
+                const id = source.id != null ? String(source.id) : String(index + 1);
+                return { id, label };
+              }
+
+              return null;
+            })
+            .filter((item): item is { id: string; label: string } => item !== null)
+        : [];
+
+      if (normalizedChoices.length >= 2) {
+        zapiResult = await zapiSendChoices(
+          credentials,
+          phone,
+          text,
+          normalizedChoices,
+          typeof choicesTitle === 'string' && choicesTitle.trim().length > 0
+            ? choicesTitle.trim()
+            : 'Opções disponíveis'
+        );
+      } else {
+        zapiResult = await zapiSendText(credentials, phone, text);
+      }
     } catch (error) {
       console.error('[Send Text] Z-API send failed:', error);
       

@@ -21,6 +21,7 @@ interface AppointmentDetailsModalProps {
   }
   onClose: () => void
   onStatusChange: (appointmentId: string, newStatus: 'scheduled' | 'confirmed' | 'canceled' | 'completed' | 'no_show') => Promise<void>
+  onUpdate: (appointmentId: string, updates: { starts_at?: string; ends_at?: string; description?: string }) => Promise<void>
   onDelete: (appointmentId: string) => Promise<void>
 }
 
@@ -28,9 +29,14 @@ export default function AppointmentDetailsModal({
   appointment,
   onClose,
   onStatusChange,
+  onUpdate,
   onDelete,
 }: AppointmentDetailsModalProps) {
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editDate, setEditDate] = useState(format(new Date(appointment.starts_at), 'yyyy-MM-dd'))
+  const [editTime, setEditTime] = useState(format(new Date(appointment.starts_at), 'HH:mm'))
+  const [editDescription, setEditDescription] = useState(appointment.description || '')
 
   const statusConfig = {
     scheduled: { label: 'Agendado', bg: 'bg-purple-100', text: 'text-purple-700' },
@@ -41,6 +47,16 @@ export default function AppointmentDetailsModal({
   }
 
   const config = statusConfig[appointment.status]
+  const isBotAppointment =
+    appointment.provider === 'manual' &&
+    !!appointment.conversation_id &&
+    (appointment.description || '').toLowerCase().includes('via whatsapp')
+
+  const providerLabel = isBotAppointment
+    ? 'Bot WhatsApp'
+    : appointment.provider === 'google'
+      ? 'Google Calendar'
+      : 'Manual'
 
   const handleStatusChange = async (newStatus: 'scheduled' | 'confirmed' | 'canceled' | 'completed' | 'no_show') => {
     setIsProcessing(true)
@@ -58,6 +74,31 @@ export default function AppointmentDetailsModal({
     try {
       await onDelete(appointment.id)
       onClose()
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editDate || !editTime) {
+      alert('Informe data e horário válidos para editar o agendamento.')
+      return
+    }
+
+    const startsAt = new Date(`${editDate}T${editTime}:00`)
+    const originalStartsAt = new Date(appointment.starts_at)
+    const originalEndsAt = new Date(appointment.ends_at)
+    const durationMs = Math.max(originalEndsAt.getTime() - originalStartsAt.getTime(), 15 * 60 * 1000)
+    const endsAt = new Date(startsAt.getTime() + durationMs)
+
+    setIsProcessing(true)
+    try {
+      await onUpdate(appointment.id, {
+        starts_at: startsAt.toISOString(),
+        ends_at: endsAt.toISOString(),
+        description: editDescription.trim() || undefined,
+      })
+      setIsEditing(false)
     } finally {
       setIsProcessing(false)
     }
@@ -128,13 +169,22 @@ export default function AppointmentDetailsModal({
               <div className="rounded-lg bg-purple-100 p-2">
                 <Calendar className="h-5 w-5 text-purple-600" />
               </div>
-              <div>
+              <div className="w-full">
                 <div className="text-sm font-medium text-neutral-500">Data</div>
-                <div className="text-base font-semibold text-neutral-900">
-                  {format(new Date(appointment.starts_at), "dd 'de' MMMM 'de' yyyy", {
-                    locale: ptBR,
-                  })}
-                </div>
+                {isEditing ? (
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  />
+                ) : (
+                  <div className="text-base font-semibold text-neutral-900">
+                    {format(new Date(appointment.starts_at), "dd 'de' MMMM 'de' yyyy", {
+                      locale: ptBR,
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -142,12 +192,21 @@ export default function AppointmentDetailsModal({
               <div className="rounded-lg bg-orange-100 p-2">
                 <Clock className="h-5 w-5 text-orange-600" />
               </div>
-              <div>
+              <div className="w-full">
                 <div className="text-sm font-medium text-neutral-500">Horário</div>
-                <div className="text-base font-semibold text-neutral-900">
-                  {format(new Date(appointment.starts_at), 'HH:mm')} -{' '}
-                  {format(new Date(appointment.ends_at), 'HH:mm')}
-                </div>
+                {isEditing ? (
+                  <input
+                    type="time"
+                    value={editTime}
+                    onChange={(e) => setEditTime(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  />
+                ) : (
+                  <div className="text-base font-semibold text-neutral-900">
+                    {format(new Date(appointment.starts_at), 'HH:mm')} -{' '}
+                    {format(new Date(appointment.ends_at), 'HH:mm')}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -160,9 +219,35 @@ export default function AppointmentDetailsModal({
               </div>
               <div className="flex-1">
                 <div className="text-sm font-medium text-neutral-500 mb-1">Descrição</div>
-                <div className="text-sm text-neutral-700 bg-neutral-50 rounded-lg p-3">
-                  {appointment.description}
-                </div>
+                {isEditing ? (
+                  <textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  />
+                ) : (
+                  <div className="text-sm text-neutral-700 bg-neutral-50 rounded-lg p-3">
+                    {appointment.description}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {isEditing && !appointment.description && (
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-blue-100 p-2">
+                <FileText className="h-5 w-5 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-medium text-neutral-500 mb-1">Descrição</div>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                />
               </div>
             </div>
           )}
@@ -187,7 +272,7 @@ export default function AppointmentDetailsModal({
 
           {/* Provider Info */}
           <div className="text-xs text-neutral-500 border-t border-neutral-200 pt-4">
-            Provedor: {appointment.provider === 'google' ? 'Google Calendar' : 'Manual'}
+            Origem: {providerLabel}
             {appointment.provider_reference_id && ` • ID: ${appointment.provider_reference_id.slice(0, 12)}`}
           </div>
         </div>
@@ -195,6 +280,43 @@ export default function AppointmentDetailsModal({
         {/* Actions */}
         <div className="sticky bottom-0 bg-neutral-50 border-t border-neutral-200 px-6 py-4">
           <div className="flex flex-wrap gap-3">
+            {!isEditing && appointment.status !== 'canceled' && (
+              <button
+                onClick={() => setIsEditing(true)}
+                disabled={isProcessing}
+                className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 disabled:opacity-50 transition-colors"
+              >
+                <Edit className="h-4 w-4" />
+                Editar
+              </button>
+            )}
+
+            {isEditing && (
+              <>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={isProcessing}
+                  className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 transition-colors"
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  Salvar edição
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditing(false)
+                    setEditDate(format(new Date(appointment.starts_at), 'yyyy-MM-dd'))
+                    setEditTime(format(new Date(appointment.starts_at), 'HH:mm'))
+                    setEditDescription(appointment.description || '')
+                  }}
+                  disabled={isProcessing}
+                  className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 disabled:opacity-50 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                  Cancelar edição
+                </button>
+              </>
+            )}
+
             {appointment.status === 'scheduled' && (
               <button
                 onClick={() => handleStatusChange('confirmed')}
@@ -231,7 +353,7 @@ export default function AppointmentDetailsModal({
             {appointment.status !== 'canceled' && (
               <button
                 onClick={handleDelete}
-                disabled={isProcessing}
+                disabled={isProcessing || isEditing}
                 className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors ml-auto"
               >
                 <Trash2 className="h-4 w-4" />

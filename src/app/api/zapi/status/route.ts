@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { zapiGetStatus, validateCredentials, ZapiStatus } from '@/lib/zapi/client';
+import { getMissingCredentials, zapiGetStatus, validateCredentials, ZapiStatus } from '@/lib/zapi/client';
 
 /**
  * GET /api/zapi/status
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('clinic_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile?.clinic_id) {
@@ -68,13 +68,18 @@ export async function GET(request: NextRequest) {
     };
 
     if (!validateCredentials(credentials)) {
+      const missingCredentials = getMissingCredentials(credentials);
       // Instância existe mas credenciais ainda não foram configuradas
       // Retornar status especial indicando "em preparação"
       return NextResponse.json({
         ok: true,
         status: 'disconnected',
         pending: true,
-        message: 'Instância em preparação. Aguarde até 2 horas para a liberação.',
+        missingCredentials,
+        message:
+          missingCredentials.includes('clientToken')
+            ? 'Falta o Client Token da Z-API para gerar QR. Preencha em Configurações > WhatsApp.'
+            : 'Instância em preparação. Aguarde até 2 horas para a liberação.',
       });
     }
 

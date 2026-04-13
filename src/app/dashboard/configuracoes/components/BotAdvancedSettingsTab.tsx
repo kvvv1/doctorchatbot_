@@ -8,17 +8,35 @@ import UpgradePrompt from '../../components/UpgradePrompt'
 interface BotAdvancedSettingsTabProps {
 	clinicId: string
 	initialSettings: BotSettings | null
+	initialDefaultDurationMinutes?: number
 	planKey: PlanKey | null
 	hasCustomFlows: boolean
 }
 
+const MESSAGE_PRESETS = {
+	formal: {
+		message_welcome: 'Olá! Seja bem-vindo(a) à clínica. Sou o assistente virtual e vou te ajudar com seu atendimento.',
+		message_fallback: 'Não consegui entender sua solicitação. Pode escolher uma opção do menu ou escrever de outra forma?',
+	},
+	humanizado: {
+		message_welcome: 'Oi! Que bom te ver por aqui 😊 Eu sou a assistente da clínica e vou te ajudar com seu agendamento.',
+		message_fallback: 'Não entendi direitinho 😅 Pode me mandar novamente ou escolher uma opção do menu?',
+	},
+	direto: {
+		message_welcome: 'Olá! Sou o assistente da clínica. Escolha uma opção para continuarmos.',
+		message_fallback: 'Não entendi. Selecione uma opção do menu para continuar.',
+	},
+} as const
+
 export default function BotAdvancedSettingsTab({
 	clinicId,
 	initialSettings,
+	initialDefaultDurationMinutes = 30,
 	planKey,
 	hasCustomFlows,
 }: BotAdvancedSettingsTabProps) {
 	const [settings, setSettings] = useState<BotSettings | null>(initialSettings)
+	const [defaultDurationMinutes, setDefaultDurationMinutes] = useState(initialDefaultDurationMinutes)
 	const [isSaving, setIsSaving] = useState(false)
 	const [toast, setToast] = useState<{
 		message: string
@@ -65,11 +83,12 @@ export default function BotAdvancedSettingsTab({
 		setIsSaving(true)
 
 		try {
-			const response = await fetch('/api/bot/settings', {
+			const response = await fetch('/api/bot/config', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					clinicId,
+					defaultDurationMinutes,
 					settings: {
 						bot_default_enabled: settings.bot_default_enabled,
 						working_hours_enabled: settings.working_hours_enabled,
@@ -102,6 +121,34 @@ export default function BotAdvancedSettingsTab({
 
 	return (
 		<div className="space-y-6">
+			{/* Parâmetros de consulta */}
+			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+				<h3 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+					<Clock className="h-4 w-4 text-sky-600" />
+					Parâmetros de consulta
+				</h3>
+				<div>
+					<label htmlFor="bot-default-duration" className="block text-sm font-medium text-neutral-700 mb-1">
+						Duração padrão da consulta
+					</label>
+					<select
+						id="bot-default-duration"
+						value={defaultDurationMinutes}
+						onChange={(e) => setDefaultDurationMinutes(Number(e.target.value))}
+						className="w-full max-w-xs rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+					>
+						<option value={15}>15 minutos</option>
+						<option value={30}>30 minutos</option>
+						<option value={45}>45 minutos</option>
+						<option value={60}>60 minutos</option>
+						<option value={90}>90 minutos</option>
+					</select>
+					<p className="mt-1 text-xs text-neutral-500">
+						Este valor é usado no bot e na agenda para novos agendamentos.
+					</p>
+				</div>
+			</div>
+
 			{/* Comportamento do Bot */}
 			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
 				<h3 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
@@ -215,6 +262,50 @@ export default function BotAdvancedSettingsTab({
 					<MessageSquare className="h-4 w-4 text-sky-600" />
 					Mensagens do Bot
 				</h3>
+				<div className="mb-4 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+					<p className="text-xs font-medium text-neutral-700 mb-2">Aplicar tom pronto:</p>
+					<div className="flex flex-wrap gap-2">
+						<button
+							type="button"
+							onClick={() =>
+								setSettings({
+									...settings,
+									message_welcome: MESSAGE_PRESETS.formal.message_welcome,
+									message_fallback: MESSAGE_PRESETS.formal.message_fallback,
+								})
+							}
+							className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+						>
+							Formal
+						</button>
+						<button
+							type="button"
+							onClick={() =>
+								setSettings({
+									...settings,
+									message_welcome: MESSAGE_PRESETS.humanizado.message_welcome,
+									message_fallback: MESSAGE_PRESETS.humanizado.message_fallback,
+								})
+							}
+							className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+						>
+							Humanizado
+						</button>
+						<button
+							type="button"
+							onClick={() =>
+								setSettings({
+									...settings,
+									message_welcome: MESSAGE_PRESETS.direto.message_welcome,
+									message_fallback: MESSAGE_PRESETS.direto.message_fallback,
+								})
+							}
+							className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+						>
+							Direto
+						</button>
+					</div>
+				</div>
 				<div className="space-y-4 text-sm">
 					<div>
 						<label htmlFor="message-welcome" className="block font-medium text-neutral-800 mb-1">

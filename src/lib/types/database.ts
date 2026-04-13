@@ -15,25 +15,9 @@ export type ConversationStatus =
 
 export type MessageSender = 'patient' | 'human' | 'bot'
 
-export type BotState =
-	| 'menu'
-	| 'agendar_nome'
-	| 'agendar_dia'
-	| 'agendar_hora'
-	| 'reagendar_dia'
-	| 'reagendar_hora'
-	| 'cancelar_confirmar'
-	| 'cancelar_encaixe'
-	| 'atendente'
-	| 'ver_agendamentos'
-	| 'confirmar_presenca'
-
-export interface BotContext {
-	name?: string
-	day?: string
-	time?: string
-	intent?: string
-}
+// Canonical types live in bot/context — imported locally and re-exported for consumers
+import type { BotState, BotContext } from '@/lib/bot/context'
+export type { BotState, BotContext }
 
 export interface Conversation {
 	id: string
@@ -103,7 +87,7 @@ export type AppointmentStatus =
 	| 'completed'
 	| 'no_show'
 
-export type AppointmentProvider = 'google' | 'manual'
+export type AppointmentProvider = 'google' | 'gestaods' | 'manual'
 
 export interface Appointment {
 	id: string
@@ -121,7 +105,7 @@ export interface Appointment {
 	updated_at: string
 }
 
-export type CalendarProvider = 'google'
+export type CalendarProvider = 'google' | 'gestaods'
 
 export interface CalendarIntegration {
 	id: string

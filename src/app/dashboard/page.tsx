@@ -82,7 +82,8 @@ async function getAdditionalMetrics(clinicId: string) {
 		.eq('clinic_id', clinicId)
 		.limit(100)
 
-	const conversationIds = clinicConversations?.map((c) => c.id) || []
+	const conversationIds =
+		clinicConversations?.map((c: { id: string }) => c.id) || []
 
 	// Tempo médio de resposta (calculado das últimas mensagens)
 	const { data: recentMessages } =

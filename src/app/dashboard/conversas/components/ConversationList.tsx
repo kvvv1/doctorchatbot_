@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, Plus, ChevronDown, UserCircle } from 'lucide-react'
+import { Search, ChevronDown, UserCircle, Bot } from 'lucide-react'
 import type { Conversation, ConversationStatus } from '@/lib/types/database'
 import StatusBadge from './StatusBadge'
 import SLAIndicator from './SLAIndicator'
@@ -17,7 +17,6 @@ interface ConversationListProps {
 	statusFilter: ConversationStatus | 'all'
 	onStatusFilterChange: (status: ConversationStatus | 'all') => void
 	loading: boolean
-	onCreateNew: () => void
 	showOnlyHumanNeeded: boolean
 	onToggleHumanNeeded: () => void
 	humanNeededCount: number
@@ -41,18 +40,18 @@ export default function ConversationList({
 	statusFilter,
 	onStatusFilterChange,
 	loading,
-	onCreateNew,
 	showOnlyHumanNeeded,
 	onToggleHumanNeeded,
 	humanNeededCount,
 }: ConversationListProps) {
+	const [showStatusMenu, setShowStatusMenu] = useState(false)
+
 	const getInitials = (name: string | null, phone: string) => {
 		if (name) {
 			const parts = name.trim().split(' ')
-			if (parts.length >= 2) {
-				return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
-			}
-			return name.slice(0, 2).toUpperCase()
+			return parts.length >= 2
+				? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+				: name.slice(0, 2).toUpperCase()
 		}
 		return phone.slice(-2)
 	}
@@ -61,42 +60,24 @@ export default function ConversationList({
 		if (!dateString) return ''
 		try {
 			const date = new Date(dateString)
-			if (isToday(date)) {
-				return format(date, 'HH:mm')
-			} else if (isYesterday(date)) {
-				return 'Ontem'
-			} else {
-				return format(date, 'dd/MM')
-			}
-		} catch {
-			return ''
-		}
+			if (isToday(date)) return format(date, 'HH:mm')
+			if (isYesterday(date)) return 'Ontem'
+			return format(date, 'dd/MM')
+		} catch { return '' }
 	}
 
-	const [showStatusMenu, setShowStatusMenu] = useState(false)
-
-	const getStatusLabel = (status: ConversationStatus | 'all') => {
-		return STATUS_OPTIONS.find(opt => opt.id === status)?.label || 'Todas'
-	}
+	const getStatusLabel = (status: ConversationStatus | 'all') =>
+		STATUS_OPTIONS.find(opt => opt.id === status)?.label || 'Todas'
 
 	return (
 		<div className="flex h-full w-full flex-col bg-white">
 			{/* Header */}
 			<div className="border-b border-neutral-200 bg-white px-4 py-2.5">
-				<div className="flex items-center justify-between">
-					<div className="flex items-center gap-2">
-						<h2 className="text-base font-semibold text-neutral-900">Conversas</h2>
-						<span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-neutral-100 px-1.5 text-[11px] font-medium text-neutral-600">
-							{conversations.length}
-						</span>
-					</div>
-					<button
-						onClick={onCreateNew}
-						className="flex size-7 items-center justify-center rounded-lg bg-sky-600 text-white transition-colors hover:bg-sky-700 active:scale-95"
-						title="Nova conversa"
-					>
-						<Plus className="size-4" />
-					</button>
+				<div className="flex items-center gap-2">
+					<h2 className="text-base font-semibold text-neutral-900">Conversas</h2>
+					<span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-neutral-100 px-1.5 text-[11px] font-medium text-neutral-600">
+						{conversations.length}
+					</span>
 				</div>
 			</div>
 
@@ -107,36 +88,32 @@ export default function ConversationList({
 					<input
 						type="text"
 						value={searchQuery}
-						onChange={(e) => onSearchChange(e.target.value)}
+						onChange={e => onSearchChange(e.target.value)}
 						placeholder="Buscar conversa..."
 						className="w-full rounded-lg border border-neutral-200 bg-white py-1.5 pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-neutral-400 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
 					/>
 				</div>
-				
-				{/* Status Dropdown */}
+
+				{/* Status dropdown */}
 				<div className="relative">
 					<button
 						onClick={() => setShowStatusMenu(!showStatusMenu)}
 						className="flex w-full items-center justify-between rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
 					>
-						<span className="text-xs font-medium">Status: <span className="font-semibold">{getStatusLabel(statusFilter)}</span></span>
+						<span className="text-xs font-medium">
+							Status: <span className="font-semibold">{getStatusLabel(statusFilter)}</span>
+						</span>
 						<ChevronDown className={`size-3.5 text-neutral-400 transition-transform ${showStatusMenu ? 'rotate-180' : ''}`} />
 					</button>
 
 					{showStatusMenu && (
 						<>
-							<div
-								className="fixed inset-0 z-10"
-								onClick={() => setShowStatusMenu(false)}
-							/>
+							<div className="fixed inset-0 z-10" onClick={() => setShowStatusMenu(false)} />
 							<div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-neutral-200 bg-white py-1 shadow-lg">
-								{STATUS_OPTIONS.map((option) => (
+								{STATUS_OPTIONS.map(option => (
 									<button
 										key={option.id}
-										onClick={() => {
-											onStatusFilterChange(option.id)
-											setShowStatusMenu(false)
-										}}
+										onClick={() => { onStatusFilterChange(option.id); setShowStatusMenu(false) }}
 										className={`flex w-full items-center px-3 py-2 text-sm transition-colors ${
 											statusFilter === option.id
 												? 'bg-sky-50 text-sky-700 font-medium'
@@ -151,7 +128,7 @@ export default function ConversationList({
 					)}
 				</div>
 
-				{/* Human Attention Filter Toggle */}
+				{/* Human attention filter */}
 				{humanNeededCount > 0 && (
 					<button
 						onClick={onToggleHumanNeeded}
@@ -166,9 +143,7 @@ export default function ConversationList({
 							<span>Pendências humanas</span>
 						</div>
 						<span className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
-							showOnlyHumanNeeded
-								? 'bg-amber-200 text-amber-900'
-								: 'bg-neutral-100 text-neutral-600'
+							showOnlyHumanNeeded ? 'bg-amber-200 text-amber-900' : 'bg-neutral-100 text-neutral-600'
 						}`}>
 							{humanNeededCount}
 						</span>
@@ -176,7 +151,7 @@ export default function ConversationList({
 				)}
 			</div>
 
-			{/* Conversations List */}
+			{/* List */}
 			<div className="flex-1 overflow-y-auto bg-white">
 				{loading && conversations.length === 0 ? (
 					<div className="flex items-center justify-center p-8">
@@ -188,25 +163,16 @@ export default function ConversationList({
 							{searchQuery ? 'Nenhuma conversa encontrada' : 'Nenhuma conversa por aqui.'}
 						</p>
 						{!searchQuery && (
-							<>
-								<p className="mt-1 text-xs text-neutral-400">
-									Conecte o WhatsApp ou crie uma conversa de teste.
-								</p>
-								<button
-									onClick={onCreateNew}
-									className="mt-4 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
-								>
-									Criar conversa de teste
-								</button>
-							</>
+							<p className="mt-1 text-xs text-neutral-400">
+								Conecte o WhatsApp para começar a receber mensagens.
+							</p>
 						)}
 					</div>
 				) : (
 					<div>
-						{conversations.map((conversation) => {
+						{conversations.map(conversation => {
 							const isSelected = conversation.id === selectedId
 							const initials = getInitials(conversation.patient_name, conversation.patient_phone)
-							const hasUnread = Math.random() > 0.7 // Mock unread indicator
 							const needsHumanAttention = !conversation.bot_enabled && conversation.status !== 'done'
 
 							return (
@@ -214,38 +180,23 @@ export default function ConversationList({
 									key={conversation.id}
 									onClick={() => onSelect(conversation.id)}
 									className={`group relative w-full border-b border-neutral-100 px-3 py-3 text-left transition-colors ${
-										isSelected
-											? 'bg-sky-50/50'
-											: 'bg-white hover:bg-neutral-50'
+										isSelected ? 'bg-sky-50/50' : 'bg-white hover:bg-neutral-50'
 									}`}
 								>
 									<div className="flex items-start gap-3">
 										{/* Avatar */}
-										<div className="relative shrink-0">
-											<div
-												className={`flex size-10 items-center justify-center rounded-full text-xs font-semibold ${
-													isSelected
-														? 'bg-sky-600 text-white'
-														: 'bg-neutral-200 text-neutral-600'
-												}`}
-											>
+										<div className="shrink-0">
+											<div className={`flex size-10 items-center justify-center rounded-full text-xs font-semibold ${
+												isSelected ? 'bg-sky-600 text-white' : 'bg-neutral-200 text-neutral-600'
+											}`}>
 												{initials}
 											</div>
-											{hasUnread && !isSelected && (
-												<div className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-white bg-sky-500" />
-											)}
 										</div>
 
 										{/* Content */}
 										<div className="min-w-0 flex-1">
 											<div className="flex items-baseline justify-between gap-2">
-												<p className={`truncate text-sm ${
-													needsHumanAttention 
-														? 'font-semibold text-neutral-900' 
-														: hasUnread && !isSelected 
-															? 'font-semibold text-neutral-900' 
-															: 'font-medium text-neutral-700'
-												}`}>
+												<p className={`truncate text-sm ${needsHumanAttention ? 'font-semibold text-neutral-900' : 'font-medium text-neutral-700'}`}>
 													{conversation.patient_name || conversation.patient_phone}
 												</p>
 												{conversation.last_message_at && (
@@ -257,21 +208,24 @@ export default function ConversationList({
 
 											<div className="flex items-center justify-between gap-2 mt-1">
 												{conversation.last_message_preview && (
-													<p className={`truncate text-xs ${
-														hasUnread && !isSelected ? 'font-medium text-neutral-600' : 'text-neutral-500'
-													}`}>
+													<p className="truncate text-xs text-neutral-500">
 														{conversation.last_message_preview}
 													</p>
 												)}
 												<div className="shrink-0 flex items-center gap-1">
-													{needsHumanAttention && (
+													{needsHumanAttention ? (
 														<span className="inline-flex items-center gap-0.5 rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-800">
 															<UserCircle className="size-2.5" />
 															HUMANO
 														</span>
+													) : conversation.bot_enabled && (
+														<span className="inline-flex items-center gap-0.5 rounded-full border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[9px] font-medium text-indigo-600">
+															<Bot className="size-2.5" />
+															BOT
+														</span>
 													)}
-													<SLAIndicator 
-														lastPatientMessageAt={conversation.last_patient_message_at} 
+													<SLAIndicator
+														lastPatientMessageAt={conversation.last_patient_message_at}
 														thresholdMinutes={30}
 													/>
 													<StatusBadge status={conversation.status} size="sm" />
@@ -280,12 +234,12 @@ export default function ConversationList({
 										</div>
 									</div>
 
-									{/* Selection Indicator */}
+									{/* Selected indicator */}
 									{isSelected && (
 										<div className="absolute left-0 top-0 h-full w-0.5 bg-sky-600" />
 									)}
 
-									{/* Human Attention Indicator (left border) */}
+									{/* Human attention indicator */}
 									{needsHumanAttention && !isSelected && (
 										<div className="absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-amber-400 to-amber-500" />
 									)}

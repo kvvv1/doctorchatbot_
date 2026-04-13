@@ -147,7 +147,7 @@ CREATE POLICY "Users can view reminders from their clinic"
   ON reminders FOR SELECT
   USING (
     clinic_id IN (
-      SELECT clinic_id FROM profiles WHERE user_id = auth.uid()
+      SELECT clinic_id FROM profiles WHERE id = auth.uid()
     )
   );
 
@@ -155,7 +155,7 @@ CREATE POLICY "Users can insert reminders for their clinic"
   ON reminders FOR INSERT
   WITH CHECK (
     clinic_id IN (
-      SELECT clinic_id FROM profiles WHERE user_id = auth.uid()
+      SELECT clinic_id FROM profiles WHERE id = auth.uid()
     )
   );
 
@@ -163,7 +163,7 @@ CREATE POLICY "Users can update reminders from their clinic"
   ON reminders FOR UPDATE
   USING (
     clinic_id IN (
-      SELECT clinic_id FROM profiles WHERE user_id = auth.uid()
+      SELECT clinic_id FROM profiles WHERE id = auth.uid()
     )
   );
 
@@ -173,7 +173,7 @@ CREATE POLICY "Users can view their own notifications"
   USING (
     user_id = auth.uid() OR
     clinic_id IN (
-      SELECT clinic_id FROM profiles WHERE user_id = auth.uid()
+      SELECT clinic_id FROM profiles WHERE id = auth.uid()
     )
   );
 
@@ -186,7 +186,7 @@ CREATE POLICY "Users can update their own notifications"
   USING (
     user_id = auth.uid() OR
     clinic_id IN (
-      SELECT clinic_id FROM profiles WHERE user_id = auth.uid()
+      SELECT clinic_id FROM profiles WHERE id = auth.uid()
     )
   );
 
@@ -195,7 +195,7 @@ CREATE POLICY "Users can view settings from their clinic"
   ON notification_settings FOR SELECT
   USING (
     clinic_id IN (
-      SELECT clinic_id FROM profiles WHERE user_id = auth.uid()
+      SELECT clinic_id FROM profiles WHERE id = auth.uid()
     )
   );
 
@@ -203,7 +203,7 @@ CREATE POLICY "Users can insert settings for their clinic"
   ON notification_settings FOR INSERT
   WITH CHECK (
     clinic_id IN (
-      SELECT clinic_id FROM profiles WHERE user_id = auth.uid()
+      SELECT clinic_id FROM profiles WHERE id = auth.uid()
     )
   );
 
@@ -211,7 +211,7 @@ CREATE POLICY "Users can update settings from their clinic"
   ON notification_settings FOR UPDATE
   USING (
     clinic_id IN (
-      SELECT clinic_id FROM profiles WHERE user_id = auth.uid()
+      SELECT clinic_id FROM profiles WHERE id = auth.uid()
     )
   );
 

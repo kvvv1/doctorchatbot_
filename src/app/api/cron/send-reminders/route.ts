@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { zapiSendText } from '@/lib/zapi/client'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -21,12 +21,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
-    // Buscar reminders pendentes usando a função do DB
+    // Buscar reminders pendentes diretamente para incluir retry_count
     const { data: reminders, error } = await supabase
-      .rpc('get_pending_reminders')
-      .limit(50)
+      .from('reminders')
+      .select('id, clinic_id, appointment_id, type, recipient_phone, message_template, retry_count, scheduled_for')
+      .eq('status', 'pending')
+      .lt('retry_count', 3)
+      .lte('scheduled_for', new Date().toISOString())
+      .order('scheduled_for', { ascending: true })
+      .limit(100)
 
     if (error) {
       console.error('Error fetching reminders:', error)
@@ -68,23 +73,28 @@ export async function GET(request: NextRequest) {
           }
         )
 
-        // Buscar credenciais da clínica para envio via Z-API
-        const { data: clinic } = await supabase
-          .from('clinics')
-          .select('zapi_instance_id, zapi_token, zapi_client_token')
-          .eq('id', reminder.clinic_id)
+        // Buscar credenciais atuais da instância WhatsApp da clínica
+        const { data: instance, error: instanceError } = await supabase
+          .from('whatsapp_instances')
+          .select('instance_id, token, client_token, status')
+          .eq('clinic_id', reminder.clinic_id)
+          .eq('provider', 'zapi')
           .single()
 
-        if (!clinic?.zapi_instance_id || !clinic?.zapi_token) {
-          throw new Error('Z-API not configured for this clinic')
+        if (instanceError || !instance?.instance_id || !instance?.token) {
+          throw new Error('WhatsApp instance not configured for this clinic')
+        }
+
+        if (instance.status !== 'connected') {
+          throw new Error('WhatsApp instance is disconnected')
         }
 
         // Enviar via Z-API
         const zapiResponse = await zapiSendText(
           {
-            instanceId: clinic.zapi_instance_id,
-            token: clinic.zapi_token,
-            clientToken: clinic.zapi_client_token || undefined,
+            instanceId: instance.instance_id,
+            token: instance.token,
+            clientToken: instance.client_token || undefined,
           },
           reminder.recipient_phone,
           message
@@ -114,7 +124,7 @@ export async function GET(request: NextRequest) {
           .update({
             status: 'failed',
             error_message: errorMessage,
-            retry_count: reminder.retry_count + 1,
+            retry_count: (reminder.retry_count || 0) + 1,
           })
           .eq('id', reminder.id)
 

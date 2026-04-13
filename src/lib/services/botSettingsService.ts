@@ -6,7 +6,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import type { BotSettings, WorkingHours } from '@/lib/types/database'
+import type { BotSettings, WorkingHours, WorkingHoursDay } from '@/lib/types/database'
 
 /**
  * Get bot settings for a clinic (admin/server-side).
@@ -92,12 +92,13 @@ export async function updateBotSettings(
   clinicId: string,
   updates: Partial<Omit<BotSettings, 'id' | 'clinic_id' | 'created_at' | 'updated_at'>>
 ): Promise<BotSettings | null> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
+  const payload = normalizeBotSettingsUpdate(updates)
 
   try {
     const { data, error } = await supabase
       .from('bot_settings')
-      .update(updates)
+      .update(payload)
       .eq('clinic_id', clinicId)
       .select()
       .single()
@@ -111,6 +112,41 @@ export async function updateBotSettings(
   } catch (err) {
     console.error('[BotSettingsService] Unexpected error:', err)
     return null
+  }
+}
+
+function normalizeBotSettingsUpdate(
+  updates: Partial<Omit<BotSettings, 'id' | 'clinic_id' | 'created_at' | 'updated_at'>>
+) {
+  const payload: Partial<Omit<BotSettings, 'id' | 'clinic_id' | 'created_at' | 'updated_at'>> = {
+    ...updates,
+  }
+
+  if (updates.working_hours) {
+    payload.working_hours = normalizeWorkingHours(updates.working_hours)
+  }
+
+  return payload
+}
+
+function normalizeWorkingHours(workingHours: WorkingHours): WorkingHours {
+  const defaultDay = { enabled: false, start: '08:00', end: '18:00' }
+  const existing = new Map(workingHours.days.map((day) => [day.day, day]))
+  const dayOrder: WorkingHoursDay['day'][] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+
+  const days: WorkingHours['days'] = dayOrder.map((day) => {
+    const current = existing.get(day) ?? { ...defaultDay, day }
+    return {
+      day,
+      enabled: !!current.enabled,
+      start: current.start || '08:00',
+      end: current.end || '18:00',
+    }
+  })
+
+  return {
+    timezone: workingHours.timezone || 'America/Sao_Paulo',
+    days,
   }
 }
 

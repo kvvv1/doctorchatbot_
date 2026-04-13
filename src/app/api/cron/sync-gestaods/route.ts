@@ -4,25 +4,29 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { GestaoDSService } from '@/lib/services/gestaods'
-import { format, subDays, addDays } from 'date-fns'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { syncGestaoDSClinic } from '@/lib/services/gestaodsSync'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
     try {
-        // Basic security: check for secret if needed, or just run (Supabase Cron calls this)
+        // Basic security for cron invocations
         const authHeader = request.headers.get('authorization')
         if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const supabase = await createClient()
+        const supabase = createAdminClient()
 
-        // 1. Fetch all clinics with GestãoDS enabled
+        // 1. Fetch clinics with active GestãoDS integration (new model)
         const { data: configs, error: configError } = await supabase
-            .from('gestaods_settings')
-            .select('clinic_id, api_token')
-            .eq('is_enabled', true)
+            .from('clinic_integrations')
+            .select('id, clinic_id, gestaods_api_token, gestaods_is_dev')
+            .eq('provider', 'gestaods')
+            .eq('is_connected', true)
+            .not('gestaods_api_token', 'is', null)
 
         if (configError) throw configError
         if (!configs || configs.length === 0) {
@@ -34,80 +38,34 @@ export async function GET(request: NextRequest) {
         for (const config of configs) {
             const clinicResults = {
                 clinic_id: config.clinic_id,
-                synced: 0,
+                created: 0,
+                updated: 0,
+                skipped: 0,
                 errors: [] as string[]
             }
 
             try {
-                const gestaoService = new GestaoDSService(config.api_token)
+                const summary = await syncGestaoDSClinic({
+                    supabase,
+                    config,
+                    daysPast: 1,
+                    daysFuture: 30,
+                })
 
-                // Sync window: yesterday to 30 days from now
-                const startDate = format(subDays(new Date(), 1), 'yyyy-MM-dd')
-                const endDate = format(addDays(new Date(), 30), 'yyyy-MM-dd')
-
-                const gestaoAppointments = await gestaoService.listAppointments(startDate, endDate)
-
-                if (!gestaoAppointments.success || !gestaoAppointments.data) {
-                    clinicResults.errors.push(`Failed to list appointments: ${gestaoAppointments.error}`)
-                    results.push(clinicResults)
-                    continue
-                }
-
-                for (const gApp of gestaoAppointments.data) {
-                    // gApp structure based on documentation/OpenAPI relatorio agendamentos
-                    // Note: Structure might vary depending on the endpoint used. 
-                    // Using the properties from relatorio_agendamentos mapping
-                    const gId = String(gApp.id || gApp.token)
-                    const gPatientCpf = gApp.paciente_cpf || gApp.cpf
-                    const gStartsAt = gApp.data_hora_inicio || gApp.starts_at || gApp.data_agendamento
-                    const gEndsAt = gApp.data_hora_fim || gApp.ends_at || gApp.data_fim_agendamento
-                    const gStatus = gApp.status_nome || gApp.status || 'scheduled'
-
-                    // 1. Check if appointment exists
-                    const { data: existing } = await supabase
-                        .from('appointments')
-                        .select('id')
-                        .eq('gestaods_id', gId)
-                        .maybeSingle()
-
-                    if (existing) continue // Already synced
-
-                    // 2. We need patient info (name/phone). If not in gApp, we might need a separate call.
-                    // For now, if missing, we'll try to find the patient locally by CPF or fetch from GestãoDS.
-                    let patientName = gApp.paciente_nome || 'Paciente GestãoDS'
-                    let patientPhone = gApp.paciente_celular || ''
-
-                    if (!patientPhone && gPatientCpf) {
-                        // Optional: Fetch patient details from GestãoDS to get the phone
-                        const pData = await gestaoService.getPatient(gPatientCpf)
-                        if (pData.success && pData.data) {
-                            patientName = pData.data.nome
-                            patientPhone = pData.data.celular || ''
-                        }
-                    }
-
-                    // 3. Create local appointment
-                    const { error: insertError } = await supabase
-                        .from('appointments')
-                        .insert({
-                            clinic_id: config.clinic_id,
-                            patient_name: patientName,
-                            patient_phone: patientPhone || '00000000000',
-                            starts_at: new Date(gStartsAt).toISOString(),
-                            ends_at: new Date(gEndsAt).toISOString(),
-                            status: mapStatus(gStatus),
-                            provider: 'gestaods',
-                            gestaods_id: gId
-                        })
-
-                    if (insertError) {
-                        clinicResults.errors.push(`Error inserting app ${gId}: ${insertError.message}`)
-                    } else {
-                        clinicResults.synced++
-                    }
-                }
+                clinicResults.created = summary.created
+                clinicResults.updated = summary.updated
+                clinicResults.skipped = summary.skipped
+                clinicResults.errors = summary.errors
             } catch (err) {
                 clinicResults.errors.push(`General error: ${String(err)}`)
+
+                await supabase
+                    .from('clinic_integrations')
+                    .update({
+                        sync_error: String(err),
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', config.id)
             }
 
             results.push(clinicResults)
@@ -118,12 +76,4 @@ export async function GET(request: NextRequest) {
         console.error('GestãoDS Cron Sync Error:', error)
         return NextResponse.json({ error: String(error) }, { status: 500 })
     }
-}
-
-function mapStatus(gestaoStatus: string): string {
-    const s = gestaoStatus.toLowerCase()
-    if (s.includes('confirm')) return 'confirmed'
-    if (s.includes('canc')) return 'canceled'
-    if (s.includes('falt') || s.includes('show')) return 'no_show'
-    return 'scheduled'
 }

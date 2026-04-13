@@ -11,6 +11,20 @@ interface ConflictCheck {
   }>
 }
 
+type AppointmentConflictRow = {
+  id: string
+  patient_name: string
+  starts_at: string
+  ends_at: string
+  professional_id?: string | null
+  resource_id?: string | null
+}
+
+type WorkingHoursRow = {
+  start_time: string
+  end_time: string
+}
+
 /**
  * Verifica se há conflitos de horário para um agendamento
  */
@@ -50,7 +64,7 @@ export async function checkAppointmentConflicts(
     }
 
     // Filtrar por profissional ou recurso se especificado
-    const conflictingAppointments = appointments.filter((apt) => {
+    const conflictingAppointments = appointments.filter((apt: AppointmentConflictRow) => {
       // Se profissional especificado, verificar apenas appointments do mesmo profissional
       if (professionalId && apt.professional_id !== professionalId) {
         return false
@@ -118,7 +132,7 @@ export async function checkWorkingHours(
     }
 
     // Verificar se o horário está dentro de algum período de trabalho
-    return workingHours.some((hours) => {
+    return workingHours.some((hours: WorkingHoursRow) => {
       return timeStr >= hours.start_time && timeStr <= hours.end_time
     })
   } catch (error) {

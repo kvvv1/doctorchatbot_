@@ -31,7 +31,27 @@ export async function POST() {
 			)
 		}
 
-		// Update integration to disconnected state
+		// Primary model: disconnect Google in clinic_integrations
+		const { error: clinicIntegrationError } = await supabase
+			.from('clinic_integrations')
+			.update({
+				is_connected: false,
+				google_access_token: null,
+				google_refresh_token: null,
+				updated_at: new Date().toISOString(),
+			})
+			.eq('clinic_id', profile.clinic_id)
+			.eq('provider', 'google')
+
+		if (clinicIntegrationError) {
+			console.error('Error disconnecting clinic integration:', clinicIntegrationError)
+			return NextResponse.json(
+				{ error: 'Failed to disconnect calendar' },
+				{ status: 500 }
+			)
+		}
+
+		// Legacy compatibility during migration
 		const { error: updateError } = await supabase
 			.from('calendar_integrations')
 			.update({

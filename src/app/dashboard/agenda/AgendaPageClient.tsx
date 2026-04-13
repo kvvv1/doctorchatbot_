@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { View } from 'react-big-calendar'
-import { Plus, RefreshCw } from 'lucide-react'
+import { Bot, Plus, RefreshCw } from 'lucide-react'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from 'date-fns'
 import CalendarView from './components/CalendarView'
 import ViewSwitcher from './components/ViewSwitcher'
@@ -23,12 +23,29 @@ interface Appointment {
   provider_reference_id?: string
 }
 
+type AppointmentUpdatePayload = {
+  starts_at?: string
+  ends_at?: string
+  description?: string
+}
+
+type SourceFilter = 'all' | 'bot' | 'manual' | 'google'
+
+function isBotAppointment(appointment: Appointment): boolean {
+  return (
+    appointment.provider === 'manual' &&
+    !!appointment.conversation_id &&
+    (appointment.description || '').toLowerCase().includes('via whatsapp')
+  )
+}
+
 interface AgendaPageClientProps {
   initialAppointments: Appointment[]
 }
 
 export default function AgendaPageClient({ initialAppointments }: AgendaPageClientProps) {
   const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments)
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
   const [view, setView] = useState<View>('month')
   const [date, setDate] = useState(new Date())
   const [loading, setLoading] = useState(false)
@@ -50,7 +67,7 @@ export default function AgendaPageClient({ initialAppointments }: AgendaPageClie
   // Converter appointments para formato do calendário
   const calendarEvents = appointments.map((apt) => ({
     id: apt.id,
-    title: apt.patient_name,
+    title: `${isBotAppointment(apt) ? '🤖 ' : ''}${apt.patient_name}`,
     start: new Date(apt.starts_at),
     end: new Date(apt.ends_at),
     resource: {
@@ -58,8 +75,11 @@ export default function AgendaPageClient({ initialAppointments }: AgendaPageClie
       patient_name: apt.patient_name,
       patient_phone: apt.patient_phone,
       description: apt.description,
+      source: isBotAppointment(apt) ? 'bot' : apt.provider,
     },
   }))
+
+  const botAppointmentsCount = appointments.filter(isBotAppointment).length
 
   // Carregar appointments do servidor
   const loadAppointments = useCallback(async () => {
@@ -85,6 +105,10 @@ export default function AgendaPageClient({ initialAppointments }: AgendaPageClie
         end_date: endDate.toISOString(),
       })
 
+      if (sourceFilter !== 'all') {
+        params.set('source', sourceFilter)
+      }
+
       const response = await fetch(`/api/appointments/list?${params}`)
       const data = await response.json()
 
@@ -96,7 +120,7 @@ export default function AgendaPageClient({ initialAppointments }: AgendaPageClie
     } finally {
       setLoading(false)
     }
-  }, [date, view])
+  }, [date, sourceFilter, view])
 
   // Recarregar quando view ou data mudar
   useEffect(() => {
@@ -201,6 +225,37 @@ export default function AgendaPageClient({ initialAppointments }: AgendaPageClie
     }
   }
 
+  const handleUpdateAppointment = async (
+    appointmentId: string,
+    updates: AppointmentUpdatePayload
+  ) => {
+    try {
+      const response = await fetch(`/api/appointments/${appointmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+
+      if (!response.ok) {
+        throw new Error('Erro ao editar agendamento')
+      }
+
+      const data = await response.json()
+      if (!data?.appointment) {
+        throw new Error('Resposta inválida ao editar agendamento')
+      }
+
+      const updated = data.appointment as Appointment
+
+      setAppointments((prev) => prev.map((apt) => (apt.id === appointmentId ? updated : apt)))
+      setSelectedAppointment(updated)
+    } catch (error) {
+      console.error('Erro ao editar agendamento:', error)
+      alert('Erro ao editar agendamento')
+      throw error
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -269,12 +324,39 @@ export default function AgendaPageClient({ initialAppointments }: AgendaPageClie
         <ViewSwitcher currentView={view} onViewChange={setView} />
 
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1">
+            {([
+              { key: 'all', label: 'Todos' },
+              { key: 'bot', label: 'Bot' },
+              { key: 'manual', label: 'Manual' },
+              { key: 'google', label: 'Google' },
+            ] as const).map((option) => (
+              <button
+                key={option.key}
+                onClick={() => setSourceFilter(option.key)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  sourceFilter === option.key
+                    ? 'bg-sky-600 text-white'
+                    : 'text-neutral-600 hover:bg-neutral-100'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           <div className="hidden sm:block text-sm text-neutral-600">
             {appointments.length} agendamento{appointments.length !== 1 ? 's' : ''}
           </div>
           <ExportMenu />
         </div>
       </div>
+
+      {botAppointmentsCount > 0 && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 flex items-center gap-2">
+          <Bot className="h-4 w-4 text-sky-600" />
+          {botAppointmentsCount} agendamento{botAppointmentsCount !== 1 ? 's' : ''} criado{botAppointmentsCount !== 1 ? 's' : ''} pelo bot neste período.
+        </div>
+      )}
 
       {/* Calendar */}
       <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
@@ -316,6 +398,7 @@ export default function AgendaPageClient({ initialAppointments }: AgendaPageClie
           appointment={selectedAppointment}
           onClose={() => setSelectedAppointment(null)}
           onStatusChange={handleStatusChange}
+          onUpdate={handleUpdateAppointment}
           onDelete={handleDeleteAppointment}
         />
       )}

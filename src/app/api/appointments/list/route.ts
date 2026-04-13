@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const patientPhone = searchParams.get('patient_phone')
     const professionalId = searchParams.get('professional_id')
+    const source = searchParams.get('source')
 
     // Query base
     let query = supabase
@@ -66,6 +67,17 @@ export async function GET(request: NextRequest) {
     }
     if (professionalId) {
       query = query.eq('professional_id', professionalId)
+    }
+
+    if (source === 'google') {
+      query = query.eq('provider', 'google')
+    } else if (source === 'manual') {
+      query = query.eq('provider', 'manual').is('conversation_id', null)
+    } else if (source === 'bot') {
+      query = query
+        .eq('provider', 'manual')
+        .not('conversation_id', 'is', null)
+        .ilike('description', '%via WhatsApp%')
     }
 
     const { data: appointments, error } = await query

@@ -40,7 +40,7 @@ CREATE POLICY "Users can view their clinic subscription"
   ON subscriptions FOR SELECT
   USING (
     clinic_id IN (
-      SELECT clinic_id FROM profiles WHERE user_id = auth.uid()
+      SELECT clinic_id FROM profiles WHERE id = auth.uid()
     )
   );
 

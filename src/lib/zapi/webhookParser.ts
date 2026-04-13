@@ -11,9 +11,18 @@ export interface ParsedWebhookMessage {
   phone: string
   name: string | null
   messageText: string
+  normalizedText: string
   messageId: string | null
   timestamp: Date
   isFromMe: boolean
+}
+
+export type ParsedConnectionStatus = 'connected' | 'disconnected' | 'connecting'
+
+export interface ParsedConnectionStatusWebhook {
+  instanceId: string
+  token: string | null
+  status: ParsedConnectionStatus
 }
 
 export interface ZapiWebhookPayload {
@@ -32,6 +41,25 @@ export interface ZapiWebhookPayload {
   body?: string // alternative format
   message?: string // another alternative
   [key: string]: any
+}
+
+const CONNECTION_STATUS_MAP: Record<string, ParsedConnectionStatus> = {
+  connected: 'connected',
+  online: 'connected',
+  open: 'connected',
+  opened: 'connected',
+  ready: 'connected',
+  disconnected: 'disconnected',
+  offline: 'disconnected',
+  close: 'disconnected',
+  closed: 'disconnected',
+  logout: 'disconnected',
+  connecting: 'connecting',
+  opening: 'connecting',
+  qrcode: 'connecting',
+  qr: 'connecting',
+  pairing: 'connecting',
+  pending: 'connecting',
 }
 
 /**
@@ -64,8 +92,8 @@ export function parseWebhookPayload(payload: any): ParsedWebhookMessage {
   // Check if message is from us (ignore these)
   const isFromMe = payload.fromMe === true
 
-  // Extract message text
-  const messageText = extractMessageText(payload)
+  // Extract message text and normalized bot input
+  const { messageText, normalizedText } = extractMessageText(payload)
 
   // Extract sender name
   const name = extractSenderName(payload)
@@ -82,6 +110,7 @@ export function parseWebhookPayload(payload: any): ParsedWebhookMessage {
     phone,
     name,
     messageText,
+    normalizedText,
     messageId,
     timestamp,
     isFromMe,
@@ -114,47 +143,138 @@ function normalizePhone(phone: any): string | null {
 /**
  * Extracts message text from various possible payload structures.
  */
-function extractMessageText(payload: ZapiWebhookPayload): string {
+function extractMessageText(payload: ZapiWebhookPayload): {
+  messageText: string
+  normalizedText: string
+} {
+  const interactiveReply = extractInteractiveReply(payload)
+  if (interactiveReply) {
+    return interactiveReply
+  }
+
   // Try different possible locations for message text
   if (payload.text && typeof payload.text === 'object' && payload.text.message) {
-    return String(payload.text.message).trim()
+    const text = dedupeRepeatedLines(String(payload.text.message))
+    return { messageText: text, normalizedText: text }
   }
 
   if (payload.body && typeof payload.body === 'string') {
-    return payload.body.trim()
+    const text = dedupeRepeatedLines(payload.body)
+    return { messageText: text, normalizedText: text }
   }
 
   if (payload.message && typeof payload.message === 'string') {
-    return payload.message.trim()
+    const text = dedupeRepeatedLines(payload.message)
+    return { messageText: text, normalizedText: text }
   }
 
   // If no text found, check if it's a media message
   if (payload.image) {
-    return '[Imagem]'
+    return { messageText: '[Imagem]', normalizedText: '[Imagem]' }
   }
 
   if (payload.audio) {
-    return '[Áudio]'
+    return { messageText: '[Áudio]', normalizedText: '[Áudio]' }
   }
 
   if (payload.video) {
-    return '[Vídeo]'
+    return { messageText: '[Vídeo]', normalizedText: '[Vídeo]' }
   }
 
   if (payload.document) {
-    return '[Documento]'
+    return { messageText: '[Documento]', normalizedText: '[Documento]' }
   }
 
   if (payload.location) {
-    return '[Localização]'
+    return { messageText: '[Localização]', normalizedText: '[Localização]' }
   }
 
   if (payload.contact) {
-    return '[Contato]'
+    return { messageText: '[Contato]', normalizedText: '[Contato]' }
   }
 
   // Default fallback
-  return '[Mensagem sem texto]'
+  return { messageText: '[Mensagem sem texto]', normalizedText: '[Mensagem sem texto]' }
+}
+
+function extractInteractiveReply(payload: ZapiWebhookPayload): {
+  messageText: string
+  normalizedText: string
+} | null {
+  const candidateId =
+    getString(payload.selectedId) ||
+    getString(payload.selectedRowId) ||
+    getString(payload.selectedButtonId) ||
+    getString(payload.buttonId) ||
+    getString(payload.rowId) ||
+    getString(payload.listResponse?.selectedRowId) ||
+    getString(payload.listResponseMessage?.selectedRowId) ||
+    getString(payload.listResponseMessage?.singleSelectReply?.selectedRowId) ||
+    getString(payload.buttonsResponseMessage?.selectedButtonId) ||
+    getString(payload.buttonReply?.id) ||
+    getString(payload.listReply?.id) ||
+    getString(payload.selectedButton?.id) ||
+    getString(payload.selectedRow?.id) ||
+    getString(payload.data?.selectedId) ||
+    getString(payload.data?.selectedRowId) ||
+    getString(payload.data?.selectedButtonId) ||
+    getString(payload.data?.buttonId)
+
+  const candidateText =
+    getString(payload.selectedDisplayText) ||
+    getString(payload.selectedText) ||
+    getString(payload.selectedTitle) ||
+    getString(payload.buttonText?.displayText) ||
+    getString(payload.buttonReply?.title) ||
+    getString(payload.listReply?.title) ||
+    getString(payload.listReply?.description) ||
+    getString(payload.selectedButton?.label) ||
+    getString(payload.selectedButton?.title) ||
+    getString(payload.selectedRow?.title) ||
+    getString(payload.selectedRow?.description) ||
+    getString(payload.listResponse?.title) ||
+    getString(payload.listResponse?.description) ||
+    getString(payload.listResponseMessage?.title) ||
+    getString(payload.buttonsResponseMessage?.selectedDisplayText) ||
+    getString(payload.data?.selectedDisplayText) ||
+    getString(payload.data?.selectedText) ||
+    getString(payload.data?.selectedTitle) ||
+    getString(payload.data?.buttonText?.displayText) ||
+    getString(payload.text?.message) ||
+    getString(payload.body) ||
+    getString(payload.message)
+
+  if (!candidateId && !candidateText) {
+    return null
+  }
+
+  const messageText = dedupeRepeatedLines(candidateText || candidateId || '[Mensagem sem texto]')
+  const normalizedText = candidateId && !/^\d+$/.test(candidateId)
+    ? candidateId
+    : messageText
+
+  return {
+    messageText,
+    normalizedText,
+  }
+}
+
+function dedupeRepeatedLines(value: string): string {
+  const lines = value
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+
+  if (lines.length <= 1) {
+    return value.trim()
+  }
+
+  const deduped = lines.filter((line, index) => {
+    if (index === 0) return true
+    return line !== lines[index - 1]
+  })
+
+  return deduped.join('\n').trim()
 }
 
 /**
@@ -203,4 +323,74 @@ export function shouldProcessWebhook(parsed: ParsedWebhookMessage): boolean {
   }
 
   return true
+}
+
+/**
+ * Parses status-only webhook payloads from Z-API.
+ * Returns null when payload doesn't look like a connection status event.
+ */
+export function parseConnectionStatusWebhook(payload: any): ParsedConnectionStatusWebhook | null {
+  if (!payload || typeof payload !== 'object') {
+    return null
+  }
+
+  const instanceId =
+    getString(payload.instanceId) ||
+    getString(payload.instance) ||
+    getString(payload.instance_id) ||
+    getString(payload.data?.instanceId)
+
+  if (!instanceId) {
+    return null
+  }
+
+  const rawStatus =
+    getString(payload.connectionStatus) ||
+    getString(payload.status) ||
+    getString(payload.event) ||
+    getString(payload.type) ||
+    getString(payload.data?.connectionStatus) ||
+    getString(payload.data?.status) ||
+    getString(payload.value)
+
+  const status = normalizeConnectionStatus(rawStatus)
+  if (!status) {
+    return null
+  }
+
+  const token =
+    getString(payload.token) ||
+    getString(payload.clientToken) ||
+    getString(payload.data?.token) ||
+    null
+
+  // If a payload has phone/message fields, this should be handled by message flow.
+  const hasMessageShape = !!(payload.phone || payload.text || payload.message || payload.body)
+  if (hasMessageShape) {
+    return null
+  }
+
+  return { instanceId, token, status }
+}
+
+function normalizeConnectionStatus(rawStatus: string | null): ParsedConnectionStatus | null {
+  if (!rawStatus) {
+    return null
+  }
+
+  const normalized = rawStatus.trim().toLowerCase()
+  if (normalized in CONNECTION_STATUS_MAP) {
+    return CONNECTION_STATUS_MAP[normalized]
+  }
+
+  return null
+}
+
+function getString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmed = value.trim()
+  return trimmed ? trimmed : null
 }

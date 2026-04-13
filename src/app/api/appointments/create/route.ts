@@ -5,8 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createCalendarEvent } from '@/lib/calendar/googleCalendar'
 import { checkAppointmentConflicts, checkWorkingHours, checkTimeOff } from '@/lib/services/appointmentConflictService'
+import { createExternalAppointment } from '@/lib/integrations/integrationRouter'
 
 interface CreateAppointmentBody {
 	conversationId?: string
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
 				ends_at: endsAt.toISOString(),
 				status: 'scheduled',
 				description: body.description || null,
-				provider: body.conversationId ? 'manual' : 'google',
+				provider: 'manual',
 				professional_id: body.professionalId || null,
 				resource_id: body.resourceId || null,
 			})
@@ -154,52 +154,43 @@ export async function POST(request: NextRequest) {
 			}
 		}
 
-		// Try to create Google Calendar event
+		// Try to sync with external integration via integration router
 		let eventCreated = false
 		let eventError: string | null = null
 
 		try {
-			// Get calendar integration
-			const { data: integration } = await supabase
-				.from('calendar_integrations')
-				.select('*')
-				.eq('clinic_id', profile.clinic_id)
-				.eq('is_connected', true)
-				.single()
+			const externalResult = await createExternalAppointment({
+				supabase,
+				clinicId: profile.clinic_id,
+				patientName: body.patientName,
+				patientPhone: body.patientPhone,
+				startsAt,
+				endsAt,
+				description: body.description,
+				conversationId: body.conversationId,
+			})
 
-			if (
-				integration &&
-				integration.google_access_token &&
-				integration.google_refresh_token
-			) {
-				// Create event in Google Calendar
-				const eventId = await createCalendarEvent({
-					accessToken: integration.google_access_token,
-					refreshToken: integration.google_refresh_token,
-					calendarId: integration.google_calendar_id || 'primary',
-					title: `Consulta - ${body.patientName}`,
-					startsAt,
-					endsAt,
-					description: body.description || `Paciente: ${body.patientName}\nTelefone: ${body.patientPhone}`,
-					patientPhone: body.patientPhone,
-				})
-
-				// Update appointment with event ID
+			if (externalResult.synced && externalResult.providerReferenceId) {
 				await supabase
 					.from('appointments')
 					.update({
-						provider_reference_id: eventId,
+						provider: externalResult.provider,
+						provider_reference_id: externalResult.providerReferenceId,
 					})
 					.eq('id', appointment.id)
 
 				eventCreated = true
 			}
+
+			if (externalResult.error) {
+				eventError = externalResult.error
+			}
 		} catch (error: unknown) {
-			console.error('Error creating calendar event:', error)
+			console.error('Error syncing external integration:', error)
 			if (error instanceof Error) {
 				eventError = error.message
 			} else {
-				eventError = 'Failed to create calendar event'
+				eventError = 'Failed to sync external integration'
 			}
 		}
 

@@ -39,19 +39,34 @@ export default function AgendaConfigPageClient() {
 
 			if (!profile) return
 
-			const { data, error } = await supabase
-				.from('calendar_integrations')
+			const { data: clinicData, error: clinicError } = await supabase
+				.from('clinic_integrations')
 				.select('*')
 				.eq('clinic_id', profile.clinic_id)
-				.single()
+				.eq('provider', 'google')
+				.maybeSingle()
 
-			if (error && error.code !== 'PGRST116') {
-				// PGRST116 = no rows returned
-				console.error('Error fetching integration:', error)
+			if (clinicError && clinicError.code !== 'PGRST116') {
+				console.error('Error fetching clinic integration:', clinicError)
+			}
+
+			if (clinicData) {
+				setIntegration(clinicData as unknown as CalendarIntegration)
 				return
 			}
 
-			setIntegration(data)
+			const { data: legacyData, error: legacyError } = await supabase
+				.from('calendar_integrations')
+				.select('*')
+				.eq('clinic_id', profile.clinic_id)
+				.maybeSingle()
+
+			if (legacyError && legacyError.code !== 'PGRST116') {
+				console.error('Error fetching legacy integration:', legacyError)
+				return
+			}
+
+			setIntegration(legacyData)
 		} catch (error) {
 			console.error('Error fetching integration:', error)
 		} finally {

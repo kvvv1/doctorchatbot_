@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import type { Message } from '@/lib/types/database'
 import { hasArrayChanged } from '@/lib/utils/dataComparison'
 
-const POLLING_INTERVAL = 3000 // 3 seconds
+const POLLING_INTERVAL = 20000 // 20 seconds
+const IS_LOCAL = process.env.NEXT_PUBLIC_LOCAL_DB === 'sqlite'
 
 interface UseMessagesOptions {
 	conversationId: string | null
@@ -29,19 +30,26 @@ export function useMessages({ conversationId, enabled = true }: UseMessagesOptio
 		try {
 			if (isInitial) setLoading(true)
 
-			const supabase = createClient()
-			
-			const { data, error: fetchError } = await supabase
-				.from('messages')
-				.select('*')
-				.eq('conversation_id', conversationId)
-				.order('created_at', { ascending: true })
+			let data: Message[] | null = null
 
-			if (fetchError) throw fetchError
+			if (IS_LOCAL) {
+				const res = await fetch(`/api/local/messages/${conversationId}`)
+				if (!res.ok) throw new Error(await res.text())
+				data = await res.json()
+			} else {
+				const supabase = createClient()
+				const { data: d, error: fetchError } = await supabase
+					.from('messages')
+					.select('*')
+					.eq('conversation_id', conversationId)
+					.order('created_at', { ascending: true })
+				if (fetchError) throw fetchError
+				data = d
+			}
 
 			// Only update state if data actually changed
 			const changed = hasArrayChanged(messagesRef.current, data || [], 'updated_at')
-			
+
 			if (changed) {
 				messagesRef.current = data || []
 				setMessages(data || [])
@@ -69,15 +77,25 @@ export function useMessages({ conversationId, enabled = true }: UseMessagesOptio
 		// Initial fetch
 		fetchMessages(true)
 
-		// Setup polling
-		intervalRef.current = setInterval(() => {
-			fetchMessages(false)
-		}, POLLING_INTERVAL)
+		const startPolling = () => {
+			if (intervalRef.current) clearInterval(intervalRef.current)
+			intervalRef.current = setInterval(() => {
+				if (!document.hidden) fetchMessages(false)
+			}, POLLING_INTERVAL)
+		}
+
+		const handleVisibilityChange = () => {
+			if (!document.hidden) {
+				fetchMessages(false)
+			}
+		}
+
+		startPolling()
+		document.addEventListener('visibilitychange', handleVisibilityChange)
 
 		return () => {
-			if (intervalRef.current) {
-				clearInterval(intervalRef.current)
-			}
+			if (intervalRef.current) clearInterval(intervalRef.current)
+			document.removeEventListener('visibilitychange', handleVisibilityChange)
 		}
 	}, [conversationId, enabled])
 

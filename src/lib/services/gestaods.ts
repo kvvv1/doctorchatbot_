@@ -226,10 +226,124 @@ export class GestaoDSService {
             return { success: false, error: String(error) }
         }
     }
+
+    /**
+     * Verifica conectividade básica com GestãoDS.
+     * Usa listagem de horários disponíveis como ping funcional.
+     */
+    async healthCheck(): Promise<GestaoDSResponse<{ ok: boolean }>> {
+        const ping = await this.getAvailableTimes()
+
+        if (!ping.success) {
+            return {
+                success: false,
+                error: ping.error || 'Falha ao validar conexão com GestãoDS'
+            }
+        }
+
+        return { success: true, data: { ok: true } }
+    }
+
+    async cancelAppointment(
+        appointmentId: GestaoDSAppointmentIdentifier,
+        reason: string = 'Cancelado via Doctor Chat Bot'
+    ): Promise<GestaoDSResponse<any>> {
+        return this.updateAppointmentStatus({
+            agendamento: appointmentId,
+            cancelado: true,
+            motivo_cancelamento: reason,
+        })
+    }
+
+    async confirmAppointment(
+        appointmentId: GestaoDSAppointmentIdentifier
+    ): Promise<GestaoDSResponse<any>> {
+        return this.updateAppointmentStatus({
+            agendamento: appointmentId,
+            confirmado: true,
+        })
+    }
+
+    async rescheduleAppointment(params: {
+        currentAppointmentId: GestaoDSAppointmentIdentifier
+        cpf: string
+        newStartDate: string
+        newEndDate: string
+        reason?: string
+        primeiroAtendimento?: boolean
+    }): Promise<GestaoDSResponse<{ newAppointmentId?: string; raw?: any }>> {
+        const cancellation = await this.cancelAppointment(
+            params.currentAppointmentId,
+            params.reason || 'Remarcado via Doctor Chat Bot'
+        )
+
+        if (!cancellation.success) {
+            return {
+                success: false,
+                error: cancellation.error || 'Falha ao cancelar agendamento anterior'
+            }
+        }
+
+        const booking = await this.bookAppointment({
+            cpf: params.cpf,
+            data_agendamento: params.newStartDate,
+            data_fim_agendamento: params.newEndDate,
+            primeiro_atendimento: params.primeiroAtendimento,
+        })
+
+        if (!booking.success) {
+            return {
+                success: false,
+                error: booking.error || 'Falha ao criar novo agendamento'
+            }
+        }
+
+        const newAppointmentId = GestaoDSServiceHelpers.extractAppointmentId(booking.data)
+
+        return {
+            success: true,
+            data: {
+                newAppointmentId: newAppointmentId || undefined,
+                raw: booking.data,
+            }
+        }
+    }
 }
 
 export interface GestaoDSResponse<T> {
     success: boolean
     data?: T
     error?: string
+}
+
+export type GestaoDSAppointmentIdentifier = string
+
+export class GestaoDSServiceHelpers {
+    static extractAppointmentId(payload: unknown): GestaoDSAppointmentIdentifier | null {
+        if (!payload || typeof payload !== 'object') {
+            return null
+        }
+
+        const source = payload as Record<string, unknown>
+        const nested = source.data && typeof source.data === 'object'
+            ? (source.data as Record<string, unknown>)
+            : null
+
+        const candidate =
+            source.agendamento ||
+            source.token ||
+            source.id ||
+            source.appointment_id ||
+            source.codigo ||
+            nested?.agendamento ||
+            nested?.token ||
+            nested?.id
+
+        if (candidate === undefined || candidate === null) {
+            return null
+        }
+
+        const output = String(candidate).trim()
+        return output.length > 0 ? output : null
+    }
 }

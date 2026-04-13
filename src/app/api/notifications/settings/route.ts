@@ -5,12 +5,9 @@
 
 import { NextResponse } from 'next/server'
 import { getSessionProfile } from '@/lib/auth/getSessionProfile'
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 /**
  * GET /api/notifications/settings
@@ -24,7 +21,7 @@ export async function GET() {
 			return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 		}
 
-		const supabase = createClient(supabaseUrl, supabaseServiceKey)
+		const supabase = createAdminClient()
 
 		// Try to get existing settings
 		let { data: settings, error } = await supabase
@@ -78,7 +75,7 @@ export async function POST(request: Request) {
 		}
 
 		const body = await request.json()
-		const supabase = createClient(supabaseUrl, supabaseServiceKey)
+		const supabase = createAdminClient()
 
 		// Check if settings exist
 		const { data: existing } = await supabase

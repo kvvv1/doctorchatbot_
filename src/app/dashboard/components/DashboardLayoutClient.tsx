@@ -45,12 +45,13 @@ export default function DashboardLayoutClient({
 	// Buscar status real do WhatsApp periodicamente
 	useEffect(() => {
 		const fetchWhatsAppStatus = async () => {
+			if (document.hidden) return
 			try {
 				const response = await fetch('/api/zapi/status', {
 					method: 'GET',
 					cache: 'no-store',
 				})
-				
+
 				if (response.ok) {
 					const data = await response.json()
 					// Se não tem instância ou está pending, considera desconectado
@@ -65,28 +66,31 @@ export default function DashboardLayoutClient({
 				}
 			} catch (error) {
 				// Em caso de erro (servidor offline, etc), mantém o status atual
-				// Não exibe erro no console pois é esperado durante inicialização
 			}
 		}
 
 		// Busca inicial
 		fetchWhatsAppStatus()
 
-		// Busca a cada 30 segundos
 		const interval = setInterval(fetchWhatsAppStatus, 30000)
+		document.addEventListener('visibilitychange', fetchWhatsAppStatus)
 
-		return () => clearInterval(interval)
+		return () => {
+			clearInterval(interval)
+			document.removeEventListener('visibilitychange', fetchWhatsAppStatus)
+		}
 	}, [])
 
 	// Buscar status real do Bot periodicamente
 	useEffect(() => {
 		const fetchBotStatus = async () => {
+			if (document.hidden) return
 			try {
 				const response = await fetch('/api/bot/status', {
 					method: 'GET',
 					cache: 'no-store',
 				})
-				
+
 				if (response.ok) {
 					const data = await response.json()
 					setBotStatus(data.status as BotStatus)
@@ -99,10 +103,13 @@ export default function DashboardLayoutClient({
 		// Busca inicial
 		fetchBotStatus()
 
-		// Busca a cada 30 segundos
 		const interval = setInterval(fetchBotStatus, 30000)
+		document.addEventListener('visibilitychange', fetchBotStatus)
 
-		return () => clearInterval(interval)
+		return () => {
+			clearInterval(interval)
+			document.removeEventListener('visibilitychange', fetchBotStatus)
+		}
 	}, [])
 
 	// Salvar preferência no localStorage

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
+import { createLocalClient } from '@/lib/db/local-client'
 
 function getEnvOrThrow(name: string, value: string | undefined): string {
 	if (!value) throw new Error(`Missing env var: ${name}`)
@@ -9,10 +10,14 @@ function getEnvOrThrow(name: string, value: string | undefined): string {
 /**
  * Creates a Supabase client for Server Components, Route Handlers and Server Actions.
  *
- * Uses NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY.
- * Reads cookies from Next.js and attempts to write back refreshed auth cookies.
+ * When LOCAL_DB=sqlite the client is backed by SQLite (no network needed).
+ * Uses NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY otherwise.
  */
 export async function createClient() {
+  if (process.env.LOCAL_DB === 'sqlite') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return createLocalClient() as any
+  }
 	const supabaseUrl = getEnvOrThrow('NEXT_PUBLIC_SUPABASE_URL', process.env.NEXT_PUBLIC_SUPABASE_URL)
 	const supabaseAnonKey = getEnvOrThrow('NEXT_PUBLIC_SUPABASE_ANON_KEY', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 

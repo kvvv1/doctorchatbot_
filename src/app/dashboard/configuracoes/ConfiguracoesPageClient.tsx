@@ -22,6 +22,52 @@ import BotAdvancedSettingsTab from './components/BotAdvancedSettingsTab'
 import type { BotSettings, PlanKey } from '@/lib/types/database'
 import WhatsAppConnectionTab from './components/WhatsAppConnectionTab'
 
+type WorkDaysState = {
+	mon: boolean
+	tue: boolean
+	wed: boolean
+	thu: boolean
+	fri: boolean
+	sat: boolean
+	sun: boolean
+}
+
+const DAY_ORDER: Array<keyof WorkDaysState> = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+
+function inferStartTime(settings: BotSettings | null): string {
+	const enabledDay = settings?.working_hours?.days?.find((day) => day.enabled)
+	return enabledDay?.start ?? '08:00'
+}
+
+function inferEndTime(settings: BotSettings | null): string {
+	const enabledDay = settings?.working_hours?.days?.find((day) => day.enabled)
+	return enabledDay?.end ?? '18:00'
+}
+
+function inferWorkDays(settings: BotSettings | null): WorkDaysState {
+	const defaults: WorkDaysState = {
+		mon: true,
+		tue: true,
+		wed: true,
+		thu: true,
+		fri: true,
+		sat: false,
+		sun: false,
+	}
+
+	const days = settings?.working_hours?.days
+	if (!days?.length) {
+		return defaults
+	}
+
+	const next = { ...defaults }
+	for (const day of days) {
+		next[day.day] = day.enabled
+	}
+
+	return next
+}
+
 type TabId = 'geral' | 'whatsapp' | 'agenda' | 'bot' | 'notificacoes' | 'assinatura' | 'conta'
 
 interface Tab {
@@ -44,12 +90,14 @@ export default function ConfiguracoesPageClient({
 	initialClinicName,
 	clinicId,
 	initialBotSettings,
+	initialDefaultDurationMinutes,
 	planKey,
 	hasCustomFlows,
 }: {
 	initialClinicName: string
 	clinicId: string
 	initialBotSettings: BotSettings | null
+	initialDefaultDurationMinutes: number
 	planKey: PlanKey | null
 	hasCustomFlows: boolean
 }) {
@@ -59,20 +107,20 @@ export default function ConfiguracoesPageClient({
 	const [clinicName, setClinicName] = useState(initialClinicName)
 	const [botActive, setBotActive] = useState(true)
 	const [isSaving, setIsSaving] = useState(false)
+	const [saveMessage, setSaveMessage] = useState<string | null>(null)
 	const [loadingBotStatus, setLoadingBotStatus] = useState(true)
+	const [defaultDurationMinutes, setDefaultDurationMinutes] = useState(initialDefaultDurationMinutes)
 
 	// Horário de funcionamento
-	const [startTime, setStartTime] = useState('08:00')
-	const [endTime, setEndTime] = useState('18:00')
-	const [workDays, setWorkDays] = useState({
-		mon: true,
-		tue: true,
-		wed: true,
-		thu: true,
-		fri: true,
-		sat: false,
-		sun: false,
-	})
+	const [startTime, setStartTime] = useState(() => inferStartTime(initialBotSettings))
+	const [endTime, setEndTime] = useState(() => inferEndTime(initialBotSettings))
+	const [workDays, setWorkDays] = useState<WorkDaysState>(() => inferWorkDays(initialBotSettings))
+	const [workingHoursEnabled, setWorkingHoursEnabled] = useState(
+		() => initialBotSettings?.working_hours_enabled ?? true
+	)
+	const [workTimezone, setWorkTimezone] = useState(
+		() => initialBotSettings?.working_hours?.timezone || 'America/Sao_Paulo'
+	)
 
 	// Sincronizar aba com URL
 	useEffect(() => {
@@ -106,10 +154,61 @@ export default function ConfiguracoesPageClient({
 	}
 
 	const handleSave = async () => {
+		if (!clinicName.trim()) {
+			setSaveMessage('Informe o nome da clínica.')
+			return
+		}
+
+		if (startTime >= endTime) {
+			setSaveMessage('Horário inválido: o fechamento precisa ser depois da abertura.')
+			return
+		}
+
+		const enabledDays = Object.values(workDays).some(Boolean)
+		if (!enabledDays) {
+			setSaveMessage('Selecione pelo menos um dia de funcionamento.')
+			return
+		}
+
 		setIsSaving(true)
-		// TODO: Implementar salvamento das configurações
-		await new Promise((resolve) => setTimeout(resolve, 1000))
-		setIsSaving(false)
+		setSaveMessage(null)
+
+		try {
+			const workingHours = {
+				timezone: workTimezone,
+				days: DAY_ORDER.map((day) => ({
+					day,
+					enabled: workDays[day],
+					start: startTime,
+					end: endTime,
+				})),
+			}
+
+			const response = await fetch('/api/settings/general', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					clinicId,
+					clinicName,
+					defaultDurationMinutes,
+					workingHoursEnabled,
+					workingHours,
+				}),
+			})
+
+			if (!response.ok) {
+				const data = await response.json().catch(() => null)
+				throw new Error(data?.error || 'Falha ao salvar horário de funcionamento')
+			}
+
+			setSaveMessage('Configurações gerais salvas com sucesso.')
+			router.refresh()
+		} catch (error) {
+			console.error('Error saving settings:', error)
+			setSaveMessage(error instanceof Error ? error.message : 'Erro ao salvar configurações')
+		} finally {
+			setIsSaving(false)
+		}
 	}
 
 	const handleToggleBot = async (newValue: boolean) => {
@@ -194,6 +293,7 @@ export default function ConfiguracoesPageClient({
 							onToggleBot={handleToggleBot}
 							clinicId={clinicId}
 							initialBotSettings={initialBotSettings}
+							initialDefaultDurationMinutes={defaultDurationMinutes}
 							planKey={planKey}
 							hasCustomFlows={hasCustomFlows}
 						/>
@@ -224,7 +324,8 @@ export default function ConfiguracoesPageClient({
 						Defina o nome da sua clínica. Esse nome aparecerá no topo do dashboard e nas comunicações
 						com pacientes.
 					</p>
-					<div>
+					<div className="space-y-4">
+						<div>
 						<label htmlFor="clinicName" className="block text-sm font-medium text-neutral-700">
 							Nome da Clínica
 						</label>
@@ -236,6 +337,28 @@ export default function ConfiguracoesPageClient({
 							placeholder="Ex: Clínica Dr. Silva"
 							className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
 						/>
+						</div>
+
+						<div>
+							<label htmlFor="defaultDuration" className="block text-sm font-medium text-neutral-700">
+								Duração padrão da consulta
+							</label>
+							<select
+								id="defaultDuration"
+								value={defaultDurationMinutes}
+								onChange={(e) => setDefaultDurationMinutes(Number(e.target.value))}
+								className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+							>
+								<option value={15}>15 minutos</option>
+								<option value={30}>30 minutos</option>
+								<option value={45}>45 minutos</option>
+								<option value={60}>60 minutos</option>
+								<option value={90}>90 minutos</option>
+							</select>
+							<p className="mt-1 text-xs text-neutral-500">
+								Esse tempo será usado pelo bot e pela agenda como padrão para novos agendamentos.
+							</p>
+						</div>
 					</div>
 				</div>
 
@@ -246,6 +369,25 @@ export default function ConfiguracoesPageClient({
 						Defina quando sua secretaria está disponível para atendimento. O sistema exibirá "Online"
 						durante esses horários e "Offline" fora deles.
 					</p>
+					<div className="mb-4 flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+						<div>
+							<p className="text-sm font-medium text-neutral-800">Restringir bot ao horário definido</p>
+							<p className="text-xs text-neutral-500">Se desativado, o bot responde em qualquer horário.</p>
+						</div>
+						<button
+							type="button"
+							onClick={() => setWorkingHoursEnabled((prev) => !prev)}
+							className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${
+								workingHoursEnabled ? 'bg-sky-600' : 'bg-neutral-300'
+							}`}
+						>
+							<span
+								className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+									workingHoursEnabled ? 'translate-x-5' : 'translate-x-1'
+								}`}
+							/>
+						</button>
+					</div>
 					<div className="space-y-4">
 						<div className="grid grid-cols-2 gap-4">
 							<div>
@@ -290,9 +432,9 @@ export default function ConfiguracoesPageClient({
 									<button
 										key={day.key}
 										type="button"
-										onClick={() =>
+										onClick={() => {
 											setWorkDays((prev) => ({ ...prev, [day.key]: !prev[day.key as keyof typeof prev] }))
-										}
+										}}
 										className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
 											workDays[day.key as keyof typeof workDays]
 												? 'bg-sky-600 text-white'
@@ -304,6 +446,11 @@ export default function ConfiguracoesPageClient({
 								))}
 							</div>
 						</div>
+						{saveMessage && (
+							<p className={`text-sm ${saveMessage.includes('sucesso') ? 'text-emerald-700' : 'text-red-600'}`}>
+								{saveMessage}
+							</p>
+						)}
 					</div>
 				</div>
 
@@ -356,6 +503,7 @@ export default function ConfiguracoesPageClient({
 		onToggleBot,
 		clinicId,
 		initialBotSettings,
+		initialDefaultDurationMinutes,
 		planKey,
 		hasCustomFlows,
 	}: {
@@ -364,6 +512,7 @@ export default function ConfiguracoesPageClient({
 		onToggleBot: (value: boolean) => void
 		clinicId: string
 		initialBotSettings: BotSettings | null
+		initialDefaultDurationMinutes: number
 		planKey: PlanKey | null
 		hasCustomFlows: boolean
 	}) {
@@ -417,6 +566,7 @@ export default function ConfiguracoesPageClient({
 					<BotAdvancedSettingsTab
 						clinicId={clinicId}
 						initialSettings={initialBotSettings}
+						initialDefaultDurationMinutes={initialDefaultDurationMinutes}
 						planKey={planKey}
 						hasCustomFlows={hasCustomFlows}
 					/>

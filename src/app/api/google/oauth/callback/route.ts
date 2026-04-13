@@ -56,35 +56,37 @@ export async function GET(request: NextRequest) {
 		// Exchange code for tokens
 		const { accessToken, refreshToken } = await getTokensFromCode(code)
 
-		// Check if integration already exists
-		const { data: existingIntegration } = await supabase
-			.from('calendar_integrations')
+		// Primary integration model: clinic_integrations (provider=google)
+		const { data: existingClinicIntegration } = await supabase
+			.from('clinic_integrations')
 			.select('id')
 			.eq('clinic_id', profile.clinic_id)
-			.single()
+			.eq('provider', 'google')
+			.maybeSingle()
 
-		if (existingIntegration) {
-			// Update existing integration
+		if (existingClinicIntegration) {
 			const { error: updateError } = await supabase
-				.from('calendar_integrations')
+				.from('clinic_integrations')
 				.update({
+					provider: 'google',
 					is_connected: true,
 					google_access_token: accessToken,
 					google_refresh_token: refreshToken,
+					google_calendar_id: 'primary',
 					updated_at: new Date().toISOString(),
 				})
-				.eq('id', existingIntegration.id)
+				.eq('id', existingClinicIntegration.id)
 
 			if (updateError) {
-				console.error('Error updating calendar integration:', updateError)
+				console.error('Error updating clinic integration:', updateError)
 				return NextResponse.redirect(
 					`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/configuracoes?tab=agenda&error=update_failed`
 				)
 			}
 		} else {
-			// Create new integration
+			// Create new clinic integration row
 			const { error: insertError } = await supabase
-				.from('calendar_integrations')
+				.from('clinic_integrations')
 				.insert({
 					clinic_id: profile.clinic_id,
 					provider: 'google',
@@ -95,11 +97,40 @@ export async function GET(request: NextRequest) {
 				})
 
 			if (insertError) {
-				console.error('Error creating calendar integration:', insertError)
+				console.error('Error creating clinic integration:', insertError)
 				return NextResponse.redirect(
 					`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/configuracoes?tab=agenda&error=insert_failed`
 				)
 			}
+		}
+
+		// Legacy compatibility: keep calendar_integrations updated while migration is in progress.
+		const { data: legacyIntegration } = await supabase
+			.from('calendar_integrations')
+			.select('id')
+			.eq('clinic_id', profile.clinic_id)
+			.maybeSingle()
+
+		if (legacyIntegration) {
+			await supabase
+				.from('calendar_integrations')
+				.update({
+					is_connected: true,
+					google_access_token: accessToken,
+					google_refresh_token: refreshToken,
+					google_calendar_id: 'primary',
+					updated_at: new Date().toISOString(),
+				})
+				.eq('id', legacyIntegration.id)
+		} else {
+			await supabase.from('calendar_integrations').insert({
+				clinic_id: profile.clinic_id,
+				provider: 'google',
+				is_connected: true,
+				google_access_token: accessToken,
+				google_refresh_token: refreshToken,
+				google_calendar_id: 'primary',
+			})
 		}
 
 		// Redirect back to settings page with success

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { updateCalendarEvent, deleteCalendarEvent } from '@/lib/calendar/googleCalendar'
 import { cancelPendingReminders } from '@/lib/services/reminderScheduler'
+import { cancelExternalAppointment, updateExternalAppointment } from '@/lib/integrations/integrationRouter'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -102,35 +102,36 @@ export async function PATCH(
       return NextResponse.json({ error: 'Erro ao atualizar agendamento' }, { status: 500 })
     }
 
-    // Atualizar no Google Calendar se conectado
-    if (
-      currentAppointment.provider === 'google' &&
-      currentAppointment.provider_reference_id
-    ) {
-      try {
-        const { data: integration } = await supabase
-          .from('calendar_integrations')
-          .select('*')
-          .eq('clinic_id', profile.clinic_id)
-          .eq('is_connected', true)
-          .single()
+    // Atualizar integração externa (Google/GestãoDS) quando necessário
+    if (currentAppointment.provider_reference_id) {
+      const externalUpdate = await updateExternalAppointment({
+        supabase,
+        clinicId: profile.clinic_id,
+        provider: currentAppointment.provider,
+        providerReferenceId: currentAppointment.provider_reference_id,
+        patientName: appointment.patient_name,
+        patientPhone: appointment.patient_phone,
+        startsAt: new Date(appointment.starts_at),
+        endsAt: new Date(appointment.ends_at),
+        description: appointment.description,
+      })
 
-        if (integration) {
-          await updateCalendarEvent({
-            accessToken: integration.google_access_token!,
-            refreshToken: integration.google_refresh_token!,
-            calendarId: integration.google_calendar_id || 'primary',
-            eventId: currentAppointment.provider_reference_id,
-            title: `Consulta - ${appointment.patient_name}`,
-            description: appointment.description,
-            startsAt: new Date(appointment.starts_at),
-            endsAt: new Date(appointment.ends_at),
-            patientPhone: appointment.patient_phone,
-          })
+      if (externalUpdate.error) {
+        console.error('Erro ao atualizar integração externa:', externalUpdate.error)
+      } else if (
+        externalUpdate.providerReferenceId &&
+        externalUpdate.providerReferenceId !== currentAppointment.provider_reference_id
+      ) {
+        const { error: providerRefError } = await supabase
+          .from('appointments')
+          .update({ provider_reference_id: externalUpdate.providerReferenceId })
+          .eq('id', id)
+
+        if (providerRefError) {
+          console.error('Erro ao atualizar provider_reference_id após remarcação externa:', providerRefError)
+        } else {
+          appointment.provider_reference_id = externalUpdate.providerReferenceId
         }
-      } catch (calendarError) {
-        console.error('Erro ao atualizar no Google Calendar:', calendarError)
-        // Não falhar a requisição se apenas o Google Calendar falhar
       }
     }
 
@@ -217,27 +218,17 @@ export async function DELETE(
       // Continue mesmo se falhar
     }
 
-    // Deletar do Google Calendar se conectado
-    if (appointment.provider === 'google' && appointment.provider_reference_id) {
-      try {
-        const { data: integration } = await supabase
-          .from('calendar_integrations')
-          .select('*')
-          .eq('clinic_id', profile.clinic_id)
-          .eq('is_connected', true)
-          .single()
+    // Cancelar integração externa (Google/GestãoDS) quando aplicável
+    if (appointment.provider_reference_id) {
+      const externalCancel = await cancelExternalAppointment({
+        supabase,
+        clinicId: profile.clinic_id,
+        provider: appointment.provider,
+        providerReferenceId: appointment.provider_reference_id,
+      })
 
-        if (integration) {
-          await deleteCalendarEvent(
-            integration.google_access_token!,
-            integration.google_refresh_token!,
-            integration.google_calendar_id || 'primary',
-            appointment.provider_reference_id
-          )
-        }
-      } catch (calendarError) {
-        console.error('Erro ao deletar do Google Calendar:', calendarError)
-        // Não falhar a requisição se apenas o Google Calendar falhar
+      if (externalCancel.error) {
+        console.error('Erro ao cancelar integração externa:', externalCancel.error)
       }
     }
 

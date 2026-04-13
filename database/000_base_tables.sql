@@ -44,25 +44,8 @@ CREATE TABLE IF NOT EXISTS clinics (
 CREATE INDEX IF NOT EXISTS idx_clinics_email ON clinics(email);
 CREATE INDEX IF NOT EXISTS idx_clinics_zapi_instance_id ON clinics(zapi_instance_id);
 
--- Enable RLS
+-- Enable RLS (policies added after profiles table is created below)
 ALTER TABLE clinics ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies
-CREATE POLICY "Users can view their clinic"
-  ON clinics FOR SELECT
-  USING (
-    id IN (
-      SELECT clinic_id FROM profiles WHERE id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can update their clinic"
-  ON clinics FOR UPDATE
-  USING (
-    id IN (
-      SELECT clinic_id FROM profiles WHERE id = auth.uid()
-    )
-  );
 
 -- Trigger for updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -118,6 +101,23 @@ CREATE POLICY "Users can view profiles from their clinic"
     )
   );
 
+-- RLS Policies for clinics (added here after profiles exists)
+CREATE POLICY "Users can view their clinic"
+  ON clinics FOR SELECT
+  USING (
+    id IN (
+      SELECT clinic_id FROM profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can update their clinic"
+  ON clinics FOR UPDATE
+  USING (
+    id IN (
+      SELECT clinic_id FROM profiles WHERE id = auth.uid()
+    )
+  );
+
 -- Trigger for updated_at
 DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at
@@ -129,38 +129,42 @@ CREATE TRIGGER update_profiles_updated_at
 -- FUNÇÃO: AUTO-CREATE PROFILE ON SIGNUP
 -- ============================================================================
 
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE
   new_clinic_id UUID;
 BEGIN
   -- Create a new clinic for the user if they don't have one
-  INSERT INTO clinics (name, email)
+  INSERT INTO public.clinics (name, email)
   VALUES (
-    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Minha Clínica'),
+    COALESCE(NEW.raw_user_meta_data->>'clinic_name', NEW.raw_user_meta_data->>'full_name', 'Minha Clínica'),
     NEW.email
   )
   RETURNING id INTO new_clinic_id;
   
   -- Create profile for the new user
-  INSERT INTO profiles (id, clinic_id, email, full_name)
+  INSERT INTO public.profiles (id, clinic_id, email, full_name)
   VALUES (
     NEW.id,
     new_clinic_id,
     NEW.email,
-    NEW.raw_user_meta_data->>'full_name'
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'clinic_name')
   );
   
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- Trigger to auto-create profile when user signs up
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW
-  EXECUTE FUNCTION handle_new_user();
+  EXECUTE FUNCTION public.handle_new_user();
 
 -- ============================================================================
 -- DADOS DE EXEMPLO (OPCIONAL - APENAS PARA TESTES)

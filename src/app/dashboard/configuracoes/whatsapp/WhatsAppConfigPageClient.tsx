@@ -17,6 +17,11 @@ interface StatusInfo {
   instanceId?: string;
 }
 
+type WhatsAppRealtimeRow = {
+  status?: string;
+  instance_id?: string | null;
+};
+
 const STATUS_LABELS: Record<WhatsAppStatus, string> = {
   connected: 'Conectado',
   disconnected: 'Desconectado',
@@ -35,7 +40,7 @@ const STATUS_TOOLTIPS: Record<WhatsAppStatus, string> = {
   connecting: 'Aguardando leitura do QR Code.',
 };
 
-const POLLING_INTERVAL = 2000; // 2 segundos (reduzido para resposta mais rápida)
+const POLLING_INTERVAL = 5000; // 5 segundos
 
 export default function WhatsAppConfigPageClient() {
   const router = useRouter();
@@ -261,7 +266,7 @@ export default function WhatsAppConfigPageClient() {
               table: 'whatsapp_instances',
               filter: `clinic_id=eq.${profile.clinic_id}`,
             },
-            (payload) => {
+            (payload: { new: WhatsAppRealtimeRow }) => {
               console.log('[Realtime] Status changed:', payload);
               const newStatus = payload.new.status as WhatsAppStatus;
               
@@ -275,7 +280,7 @@ export default function WhatsAppConfigPageClient() {
               }
             }
           )
-          .subscribe((status) => {
+          .subscribe((status: string) => {
             console.log('[Realtime] Subscription status:', status);
           });
       } catch (error) {

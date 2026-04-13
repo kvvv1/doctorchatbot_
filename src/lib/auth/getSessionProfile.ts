@@ -1,6 +1,7 @@
 import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { LOCAL_CLINIC_ID, LOCAL_USER_ID } from '@/lib/db/sqlite'
 
 export type ProfileRow = {
 	id: string
@@ -124,10 +125,32 @@ async function provisionProfile(
 	return null
 }
 
+/** Sessão hardcoded para o modo LOCAL_DB=sqlite. */
+export async function getLocalSessionProfile(): Promise<
+  { user: User; profile: ProfileRow; clinic: ClinicRow }
+> {
+  const now = new Date().toISOString()
+  const user: User = {
+    id: LOCAL_USER_ID,
+    email: 'local@local.dev',
+    user_metadata: { full_name: 'Usuário Local', clinic_name: 'Minha Clínica Local' },
+    app_metadata: {},
+    aud: 'authenticated',
+    created_at: now,
+  } as User
+  const profile: ProfileRow = { id: LOCAL_USER_ID, clinic_id: LOCAL_CLINIC_ID, role: 'admin', created_at: now }
+  const clinic: ClinicRow   = { id: LOCAL_CLINIC_ID, name: 'Minha Clínica Local', created_at: now }
+  return { user, profile, clinic }
+}
+
 export async function getSessionProfile(): Promise<
 	| { user: User; profile: ProfileRow; clinic: ClinicRow }
 	| null
 > {
+  if (process.env.LOCAL_DB === 'sqlite') {
+    return getLocalSessionProfile()
+  }
+
 	const supabase = await createClient()
 
 	const {
