@@ -56,7 +56,7 @@ export async function getBotSettingsForCurrentUser(): Promise<BotSettings | null
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('clinic_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single()
 
     if (profileError || !profile) {

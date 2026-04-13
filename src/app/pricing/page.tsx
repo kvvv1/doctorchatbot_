@@ -23,7 +23,7 @@ export default async function PricingPage() {
 		const profile = await supabase
 			.from('profiles')
 			.select('clinic_id')
-			.eq('user_id', user.id)
+			.eq('id', user.id)
 			.single()
 
 		if (profile.data?.clinic_id) {

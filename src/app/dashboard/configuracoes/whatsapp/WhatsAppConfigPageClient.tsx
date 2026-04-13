@@ -247,7 +247,7 @@ export default function WhatsAppConfigPageClient() {
         const { data: profile } = await supabase
           .from('profiles')
           .select('clinic_id')
-          .eq('user_id', user.id)
+          .eq('id', user.id)
           .single();
 
         if (!profile?.clinic_id) {
