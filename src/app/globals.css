@@ -176,8 +176,9 @@ body {
   border-top: 2px solid #e5e7eb;
 }
 
+/* step=10, timeslots=3 → grupo = 30min; 20-min consulta ≈ 40px de altura */
 .rbc-timeslot-group {
-  min-height: 64px;
+  min-height: 60px;
   border-bottom: 1px solid #f3f4f6;
 }
 

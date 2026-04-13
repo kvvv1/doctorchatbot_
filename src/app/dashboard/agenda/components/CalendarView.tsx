@@ -187,12 +187,14 @@ export default function CalendarView({
           },
         }}
         views={['month', 'week', 'day', 'agenda']}
-        step={15}
-        timeslots={4}
+        step={10}
+        timeslots={3}
         min={new Date(2024, 0, 1, 7, 0, 0)}
         max={new Date(2024, 0, 1, 20, 0, 0)}
         formats={{
-          timeGutterFormat: 'HH:mm',
+          timeGutterFormat: (date, culture, localizer) =>
+            format(date, 'mm') === '00' ? format(date, 'HH:mm') : '',
+
           eventTimeRangeFormat: ({ start, end }) =>
             `${format(start, 'HH:mm')} – ${format(end, 'HH:mm')}`,
           agendaTimeRangeFormat: ({ start, end }) =>
