@@ -487,9 +487,7 @@ export function getMissingCredentials(credentials: ZapiCredentials): string[] {
     missing.push('token');
   }
 
-  if (!credentials.clientToken || credentials.clientToken.trim() === '') {
-    missing.push('clientToken');
-  }
+  // clientToken é opcional — não bloquear se ausente
 
   return missing;
 }
