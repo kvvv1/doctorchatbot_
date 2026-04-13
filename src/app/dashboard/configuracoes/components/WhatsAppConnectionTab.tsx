@@ -58,6 +58,7 @@ export default function WhatsAppConnectionTab({ clinicId }: WhatsAppConnectionTa
   const [isPending, setIsPending] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [instanceId, setInstanceId] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -137,6 +138,7 @@ export default function WhatsAppConnectionTab({ clinicId }: WhatsAppConnectionTa
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       if (showLoading) setLoading(false);
+      setIsInitializing(false);
     }
   }, [extractErrorMessage, isPolling, normalizeStatus, stopPolling]);
 
@@ -288,6 +290,18 @@ export default function WhatsAppConnectionTab({ clinicId }: WhatsAppConnectionTa
   useEffect(() => {
     return () => { stopPolling(); };
   }, [stopPolling]);
+
+  // ─── STATE: Initializing (first fetch in progress) ─────────────────────────
+  if (isInitializing) {
+    return (
+      <div className="bg-white rounded-xl border border-neutral-200 p-5 flex items-center justify-center min-h-[180px]">
+        <div className="flex flex-col items-center gap-3 text-neutral-500">
+          <Loader2 className="w-7 h-7 animate-spin text-blue-500" />
+          <span className="text-sm">Verificando conexão WhatsApp...</span>
+        </div>
+      </div>
+    );
+  }
 
   // ─── STATE: No instance configured ───────────────────────────────────────────
   if (!hasInstance) {
