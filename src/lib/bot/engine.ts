@@ -36,6 +36,8 @@ export type BotResponse = {
   nextContext: BotContext
   conversationStatus?: string
   transferToHuman?: boolean
+  /** Optional message sent as a plain-text bubble BEFORE the interactive list */
+  preambleMessage?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -148,6 +150,7 @@ async function handleMenu(
 ): Promise<BotResponse> {
   if (isGreetingMessage(msg)) {
     return {
+      preambleMessage: botSettings?.message_welcome || undefined,
       message: botSettings?.message_menu || templates.menu,
       nextState: 'menu',
       nextContext: ctx,
@@ -639,22 +642,20 @@ export async function sendBotResponse(
   }
 
   try {
-    // 1. Send via Z-API — when interactive choices exist, send 2 separate WhatsApp messages:
-    //    a) plain-text context/greeting (cleanedMessage)
-    //    b) interactive buttons/list (choices only)
+    // 1. Send via Z-API
     if (interactive && interactive.choices.length >= 2) {
-      // Message 1: context text (greeting, question, etc.)
-      if (interactive.message.trim().length > 0) {
-        const ok = await zapiSend({ conversationId, phone, text: interactive.message, internalCall: true })
+      // Optional preamble (e.g. welcome message) sent as plain text first
+      if (response.preambleMessage?.trim()) {
+        const ok = await zapiSend({ conversationId, phone, text: response.preambleMessage.trim(), internalCall: true })
         if (!ok) return false
-        // Brief pause so WhatsApp preserves message order
         await new Promise(r => setTimeout(r, 400))
       }
-      // Message 2: interactive buttons or list
+      // Single interactive list bubble: cleanedMessage is the list context text
+      const listText = interactive.message.trim() || 'Escolha uma opção:'
       const ok = await zapiSend({
         conversationId,
         phone,
-        text: 'Escolha uma opção:',
+        text: listText,
         choices: interactive.choices,
         choicesTitle: interactive.title,
         internalCall: true,
