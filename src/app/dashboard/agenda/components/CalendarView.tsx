@@ -178,6 +178,7 @@ export default function CalendarView({
         onSelectEvent={onSelectEvent}
         onSelectSlot={onSelectSlot}
         selectable
+        toolbar={false}
         eventPropGetter={eventStyleGetter}
         components={{
           event: CustomEvent,
