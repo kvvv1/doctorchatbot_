@@ -69,12 +69,23 @@ const DAY_LABELS: Record<string, string> = {
 // ---------------------------------------------------------------------------
 
 function buildDefaultWorkingHours(settings: BotSettings | null): WorkingHoursDay[] {
-	if (settings?.working_hours?.days?.length === 7) return settings.working_hours.days
+	if (settings?.working_hours?.days?.length === 7) {
+		// Retrocompatibilidade: garante que campos de tarde existam
+		return settings.working_hours.days.map((d) => ({
+			...d,
+			has_afternoon: d.has_afternoon ?? false,
+			afternoon_start: d.afternoon_start ?? '13:00',
+			afternoon_end: d.afternoon_end ?? '18:00',
+		}))
+	}
 	return DAY_ORDER.map((day) => ({
 		day,
 		enabled: ['mon', 'tue', 'wed', 'thu', 'fri'].includes(day),
 		start: '08:00',
-		end: '18:00',
+		end: '12:00',
+		has_afternoon: true,
+		afternoon_start: '13:00',
+		afternoon_end: '18:00',
 	}))
 }
 
@@ -417,36 +428,77 @@ function ClinicaTab({
 						{days.map((day) => (
 							<div
 								key={day.day}
-								className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
+								className={`rounded-lg border p-3 transition-colors ${
 									day.enabled ? 'border-neutral-200 bg-neutral-50' : 'border-neutral-100 bg-white opacity-60'
 								}`}
 							>
-								<input
-									type="checkbox"
-									checked={day.enabled}
-									onChange={(e) => updateDay(day.day, 'enabled', e.target.checked)}
-									className="h-4 w-4 rounded text-sky-600 accent-sky-600"
-								/>
-								<span className="w-32 text-sm font-medium text-neutral-800 shrink-0">
-									{DAY_LABELS[day.day]}
-								</span>
-								<div className="flex items-center gap-2 flex-wrap">
+								{/* Linha principal: checkbox + nome do dia */}
+								<div className="flex items-center gap-3 flex-wrap">
 									<input
-										type="time"
-										value={day.start}
-										onChange={(e) => updateDay(day.day, 'start', e.target.value)}
-										disabled={!day.enabled}
-									className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm text-neutral-900 disabled:bg-neutral-100 disabled:text-neutral-400 focus:border-sky-500 focus:outline-none"
-								/>
-								<span className="text-sm text-neutral-500">até</span>
-								<input
-									type="time"
-									value={day.end}
-									onChange={(e) => updateDay(day.day, 'end', e.target.value)}
-									disabled={!day.enabled}
-									className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm text-neutral-900 disabled:bg-neutral-100 disabled:text-neutral-400 focus:border-sky-500 focus:outline-none"
+										type="checkbox"
+										checked={day.enabled}
+										onChange={(e) => updateDay(day.day, 'enabled', e.target.checked)}
+										className="h-4 w-4 rounded text-sky-600 accent-sky-600"
 									/>
+									<span className="w-32 text-sm font-semibold text-neutral-800 shrink-0">
+										{DAY_LABELS[day.day]}
+									</span>
+
+									{day.enabled && (
+										<>
+											{/* Turno da manhã */}
+											<div className="flex items-center gap-1.5">
+												<span className="text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">Manhã</span>
+												<input
+													type="time"
+													value={day.start}
+													onChange={(e) => updateDay(day.day, 'start', e.target.value)}
+													className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-sm text-neutral-900 focus:border-sky-500 focus:outline-none"
+												/>
+												<span className="text-xs text-neutral-400">até</span>
+												<input
+													type="time"
+													value={day.end}
+													onChange={(e) => updateDay(day.day, 'end', e.target.value)}
+													className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-sm text-neutral-900 focus:border-sky-500 focus:outline-none"
+												/>
+											</div>
+
+											{/* Toggle turno da tarde */}
+											<button
+												type="button"
+												onClick={() => updateDay(day.day, 'has_afternoon', !day.has_afternoon)}
+												className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${
+													day.has_afternoon
+														? 'bg-sky-50 border-sky-300 text-sky-700'
+														: 'bg-white border-neutral-300 text-neutral-500 hover:border-neutral-400'
+												}`}
+											>
+												{day.has_afternoon ? '+ Tarde ✓' : '+ Tarde'}
+											</button>
+										</>
+									)}
 								</div>
+
+								{/* Turno da tarde */}
+								{day.enabled && day.has_afternoon && (
+									<div className="mt-2 ml-7 flex items-center gap-1.5 flex-wrap">
+										<span className="text-xs font-medium text-sky-600 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5">Tarde</span>
+										<input
+											type="time"
+											value={day.afternoon_start ?? '13:00'}
+											onChange={(e) => updateDay(day.day, 'afternoon_start', e.target.value)}
+											className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-sm text-neutral-900 focus:border-sky-500 focus:outline-none"
+										/>
+										<span className="text-xs text-neutral-400">até</span>
+										<input
+											type="time"
+											value={day.afternoon_end ?? '18:00'}
+											onChange={(e) => updateDay(day.day, 'afternoon_end', e.target.value)}
+											className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-sm text-neutral-900 focus:border-sky-500 focus:outline-none"
+										/>
+									</div>
+								)}
 							</div>
 						))}
 					</div>

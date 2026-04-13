@@ -124,6 +124,10 @@ export interface WorkingHoursDay {
 	enabled: boolean
 	start: string
 	end: string
+	// Turno da tarde (opcional – retrocompatível)
+	has_afternoon?: boolean
+	afternoon_start?: string
+	afternoon_end?: string
 }
 
 export interface WorkingHours {
