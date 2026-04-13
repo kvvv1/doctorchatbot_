@@ -181,26 +181,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Verificar se a instância está conectada
-    if (instance.status !== 'connected') {
-      supabase.from('logs').insert({
-        clinic_id: clinicId,
-        level: 'warning',
-        action: 'zapi.send.failed',
-        message: 'Tentativa de envio com WhatsApp desconectado',
-        metadata: { conversationId, status: instance.status },
-      });
-
-      return NextResponse.json(
-        { 
-          ok: false, 
-          error: 'WhatsApp não está conectado. Reconecte na página de Configurações.' 
-        },
-        { status: 400 }
-      );
-    }
-
-    // 6. Enviar mensagem via Z-API
+    // 5. Enviar mensagem via Z-API
     let zapiResult;
     try {
       const normalizedChoices = Array.isArray(choices)

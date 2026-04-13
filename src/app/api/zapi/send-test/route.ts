@@ -77,13 +77,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (instance.status !== 'connected') {
-      return NextResponse.json(
-        { ok: false, error: 'WhatsApp desconectado. Conecte antes de testar envio.' },
-        { status: 400 }
-      )
-    }
-
     const credentials = {
       instanceId: instance.instance_id,
       token: instance.token,
