@@ -63,10 +63,12 @@ export async function syncGestaoDSClinic(params: {
     )
 
     // Datas no formato "dd/mm/yyyy hh:mm" — precisa converter para ISO
-    const startsAtRaw =
+    const startsAtRaw = normalizeString(
       sourceAppointment.data_agendamento || sourceAppointment.data_hora_inicio || sourceAppointment.starts_at
-    const endsAtRaw =
+    )
+    const endsAtRaw = normalizeString(
       sourceAppointment.data_fim_agendamento || sourceAppointment.data_hora_fim || sourceAppointment.ends_at
+    )
 
     if (!externalId || !startsAtRaw || !endsAtRaw) {
       summary.skipped += 1
@@ -85,7 +87,10 @@ export async function syncGestaoDSClinic(params: {
     const sourceStatus = mapGestaoDSStatus(sourceAppointment)
 
     // Paciente está aninhado em sourceAppointment.paciente.{nome,celular}
-    const paciente = sourceAppointment.paciente || {}
+    const paciente =
+      sourceAppointment.paciente && typeof sourceAppointment.paciente === 'object'
+        ? (sourceAppointment.paciente as Record<string, unknown>)
+        : {}
     let patientName = normalizeString(paciente.nome || sourceAppointment.paciente_nome) || 'Paciente GestãoDS'
     let patientPhone = normalizeString(paciente.celular || sourceAppointment.paciente_celular) || ''
     const patientCpf = normalizeString(paciente.cpf || sourceAppointment.paciente_cpf || sourceAppointment.cpf)
