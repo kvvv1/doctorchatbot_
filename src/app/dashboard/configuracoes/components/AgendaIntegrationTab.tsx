@@ -14,7 +14,7 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 
 	const [integration, setIntegration] = useState<CalendarIntegration | null>(null)
 	const [gestaoDsEnabled, setGestaoDsEnabled] = useState(false)
-	const [gestaoDsIsDev, setGestaoDsIsDev] = useState(true)
+	const [gestaoDsIsDev, setGestaoDsIsDev] = useState(false)
 	const [gestaoDsHasToken, setGestaoDsHasToken] = useState(false)
 	const [gestaoDsToken, setGestaoDsToken] = useState('')
 	const [gestaoDsLastSyncAt, setGestaoDsLastSyncAt] = useState<string | null>(null)
@@ -109,7 +109,7 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 
 			const data = await response.json()
 			setGestaoDsEnabled(!!data.enabled)
-			setGestaoDsIsDev(data.isDev ?? true)
+			setGestaoDsIsDev(data.isDev ?? false)
 			setGestaoDsHasToken(!!data.hasToken)
 			setGestaoDsLastSyncAt(data.lastSyncAt ?? null)
 			setGestaoDsSyncError(data.syncError ?? null)

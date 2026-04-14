@@ -54,7 +54,7 @@ export async function PUT(request: NextRequest) {
 
     const body = (await request.json()) as GestaoDSBody
     const enabled = !!body.enabled
-    const isDev = body.isDev ?? true
+    const isDev = body.isDev ?? false
     const inputToken = body.apiToken?.trim() || null
 
     const supabase = createAdminClient()

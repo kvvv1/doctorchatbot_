@@ -75,15 +75,30 @@ export class GestaoDSService {
         return this.isDev ? 'dev-' : ''
     }
 
+    private buildEndpoint(path: string, useDevPrefix: boolean = this.isDev): string {
+        const normalizedPath = path.startsWith('/') ? path.slice(1) : path
+        const prefix = useDevPrefix ? 'dev-' : ''
+        return `${this.baseUrl}/${prefix}${normalizedPath}`
+    }
+
+    private async fetchWithEnvironmentFallback(path: string, init: RequestInit): Promise<Response> {
+        const primaryResponse = await fetch(this.buildEndpoint(path), init)
+        if (primaryResponse.ok || !this.isDev) {
+            return primaryResponse
+        }
+
+        // Some clinics have a production token saved with gestaods_is_dev=true.
+        // Retry the production path transparently so availability/booking still work.
+        return fetch(this.buildEndpoint(path, false), init)
+    }
+
     /**
      * Busca Paciente por CPF
      */
     async getPatient(cpf: string): Promise<GestaoDSResponse<GestaoDSPatientResponse>> {
         try {
             const cleanCpf = cpf.replace(/\D/g, '')
-            const endpoint = `${this.baseUrl}/${this.getDevPrefix()}paciente/${this.apiToken}/${cleanCpf}/`
-
-            const response = await fetch(endpoint, {
+            const response = await this.fetchWithEnvironmentFallback(`paciente/${this.apiToken}/${cleanCpf}/`, {
                 method: 'GET',
                 headers: { 'Accept': 'application/json' }
             })
@@ -105,13 +120,12 @@ export class GestaoDSService {
      */
     async registerPatient(patient: Omit<GestaoDSPatientRequest, 'token'>): Promise<GestaoDSResponse<unknown>> {
         try {
-            const endpoint = `${this.baseUrl}/${this.getDevPrefix()}paciente/cadastrar/`
             const body: GestaoDSPatientRequest = {
                 ...patient,
                 token: this.apiToken
             }
 
-            const response = await fetch(endpoint, {
+            const response = await this.fetchWithEnvironmentFallback('paciente/cadastrar/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -140,9 +154,7 @@ export class GestaoDSService {
     async getAvailableTimes(date?: string): Promise<GestaoDSResponse<string[]>> {
         try {
             const query = date ? `?data=${encodeURIComponent(date)}` : ''
-            const endpoint = `${this.baseUrl}/${this.getDevPrefix()}agendamento/horarios-disponiveis/${this.apiToken}${query}`
-
-            const response = await fetch(endpoint, {
+            const response = await this.fetchWithEnvironmentFallback(`agendamento/horarios-disponiveis/${this.apiToken}${query}`, {
                 method: 'GET',
                 headers: { 'Accept': 'application/json' }
             })
@@ -166,9 +178,7 @@ export class GestaoDSService {
     async getDiasDisponiveis(fromDate?: string): Promise<GestaoDSResponse<Array<{ data: string; disponivel: boolean }>>> {
         try {
             const query = fromDate ? `?data=${encodeURIComponent(fromDate)}` : ''
-            const endpoint = `${this.baseUrl}/${this.getDevPrefix()}agendamento/dias-disponiveis/${this.apiToken}${query}`
-
-            const response = await fetch(endpoint, {
+            const response = await this.fetchWithEnvironmentFallback(`agendamento/dias-disponiveis/${this.apiToken}${query}`, {
                 method: 'GET',
                 headers: { 'Accept': 'application/json' }
             })
@@ -190,13 +200,12 @@ export class GestaoDSService {
     async listPatientAppointments(cpf: string): Promise<GestaoDSResponse<Record<string, unknown>[]>> {
         try {
             const cleanCpf = cpf.replace(/\D/g, '')
-            const endpoint = `${this.baseUrl}/${this.getDevPrefix()}paciente/agendamentos/`
             const body: GestaoDSPatientAppointmentsRequest = {
                 cpf: cleanCpf,
                 token: this.apiToken,
             }
 
-            const response = await fetch(endpoint, {
+            const response = await this.fetchWithEnvironmentFallback('paciente/agendamentos/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -224,13 +233,12 @@ export class GestaoDSService {
      */
     async bookAppointment(params: Omit<GestaoDSAppointmentRequest, 'token'>): Promise<GestaoDSResponse<unknown>> {
         try {
-            const endpoint = `${this.baseUrl}/${this.getDevPrefix()}agendamento/agendar/`
             const body: GestaoDSAppointmentRequest = {
                 ...params,
                 token: this.apiToken
             }
 
-            const response = await fetch(endpoint, {
+            const response = await this.fetchWithEnvironmentFallback('agendamento/agendar/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -257,13 +265,12 @@ export class GestaoDSService {
      */
     async updateAppointmentStatus(params: Omit<GestaoDSStatusUpdateRequest, 'token'>): Promise<GestaoDSResponse<unknown>> {
         try {
-            const endpoint = `${this.baseUrl}/${this.getDevPrefix()}paciente/agendamentos/`
             const body: GestaoDSStatusUpdateRequest = {
                 ...params,
                 token: this.apiToken
             }
 
-            const response = await fetch(endpoint, {
+            const response = await this.fetchWithEnvironmentFallback('paciente/agendamentos/', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -359,7 +366,6 @@ export class GestaoDSService {
         primeiroAtendimento?: boolean
     }): Promise<GestaoDSResponse<{ newAppointmentId?: string; raw?: unknown }>> {
         try {
-            const endpoint = `${this.baseUrl}/${this.getDevPrefix()}agendamento/reagendar/`
             const body: GestaoDSRescheduleRequest = {
                 agendamento: params.currentAppointmentId,
                 data_agendamento: params.newStartDate,
@@ -367,7 +373,7 @@ export class GestaoDSService {
                 token: this.apiToken,
             }
 
-            const response = await fetch(endpoint, {
+            const response = await this.fetchWithEnvironmentFallback('agendamento/reagendar/', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
