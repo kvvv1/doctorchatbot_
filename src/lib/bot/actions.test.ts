@@ -132,6 +132,15 @@ function hasFilter(state: QueryState, column: string, value?: unknown) {
   return state.filters.some((filter) => filter.column === column && (value === undefined || filter.value === value))
 }
 
+function hasInFilterValue(state: QueryState, column: string, value: unknown) {
+  return state.filters.some((filter) => (
+    filter.type === 'in'
+    && filter.column === column
+    && Array.isArray(filter.value)
+    && filter.value.includes(value)
+  ))
+}
+
 describe('getPatientAppointments', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -141,7 +150,13 @@ describe('getPatientAppointments', () => {
     const insertedPayloads: QueryPayload[] = []
 
     createAdminClientMock.mockReturnValue(createSupabaseMock((state, terminal) => {
-      if (state.table === 'appointments' && state.operation === 'select' && terminal === 'then' && hasFilter(state, 'patient_phone', '5511999999999')) {
+      if (
+        state.table === 'appointments'
+        && state.operation === 'select'
+        && terminal === 'then'
+        && hasInFilterValue(state, 'patient_phone', '5511999999999')
+        && hasInFilterValue(state, 'patient_phone', '11999999999')
+      ) {
         return { data: [], error: null }
       }
 
@@ -155,9 +170,9 @@ describe('getPatientAppointments', () => {
         }
       }
 
-      if (state.table === 'conversations' && terminal === 'maybeSingle') {
+      if (state.table === 'conversations' && terminal === 'then') {
         return {
-          data: { cpf: '123.456.789-01' },
+          data: [{ cpf: '123.456.789-01', bot_context: null }],
           error: null,
         }
       }
@@ -214,6 +229,48 @@ describe('getPatientAppointments', () => {
       startsAt: '2026-04-20T13:00:00.000Z',
       status: 'scheduled',
       label: formatSlotLabel(new Date('2026-04-20T13:00:00.000Z')),
+    })
+  })
+
+  it('matches mirrored appointments when GestaoDS stores the phone without country code', async () => {
+    createAdminClientMock.mockReturnValue(createSupabaseMock((state, terminal) => {
+      if (
+        state.table === 'appointments'
+        && state.operation === 'select'
+        && terminal === 'then'
+        && hasInFilterValue(state, 'patient_phone', '5511999999999')
+        && hasInFilterValue(state, 'patient_phone', '11999999999')
+      ) {
+        return {
+          data: [
+            {
+              id: 'local-apt-1',
+              starts_at: '2026-04-20T13:00:00.000Z',
+              status: 'scheduled',
+            },
+          ],
+          error: null,
+        }
+      }
+
+      if (state.table === 'conversations' && terminal === 'then') {
+        return { data: null, error: null }
+      }
+
+      if (state.table === 'clinic_integrations' && terminal === 'maybeSingle') {
+        return { data: null, error: null }
+      }
+
+      return { data: null, error: null }
+    }))
+
+    const result = await getPatientAppointments('clinic-1', '5511999999999')
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({
+      id: 'local-apt-1',
+      startsAt: '2026-04-20T13:00:00.000Z',
+      status: 'scheduled',
     })
   })
 })

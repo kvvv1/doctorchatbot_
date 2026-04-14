@@ -19,6 +19,8 @@ import {
   cancelAppointment,
   rescheduleAppointment,
   addToWaitlist,
+  getPatientAppointments,
+  hasGestaoDSIntegration,
   normalizeCpf,
 } from './actions'
 import { checkSlotAvailable, getAvailableDays, getAvailableSlots, getSlotsForDay } from './availability'
@@ -126,6 +128,9 @@ export async function handleBotTurn(
 
     case 'agendar_cpf':
       return handleAgendarCpf(userMessage, ctx, botSettings, clinicId)
+
+    case 'consultar_cpf':
+      return handleConsultarCpf(userMessage, ctx, botSettings, clinicId)
 
     case 'agendar_dia':
       return handleAgendarDia(userMessage, ctx)
@@ -235,6 +240,9 @@ async function handleMenu(
 
     case 'reschedule':
       if (ctx.appointments && ctx.appointments.length === 0) {
+        if (await shouldAskCpfForAppointmentLookup(ctx, clinicId)) {
+          return askForAppointmentCpf(ctx, 'reschedule')
+        }
         return { message: templates.cancelNoAppointments, nextState: 'menu', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
       }
       if (ctx.appointments && ctx.appointments.length > 0) {
@@ -251,6 +259,9 @@ async function handleMenu(
 
     case 'cancel':
       if (ctx.appointments && ctx.appointments.length === 0) {
+        if (await shouldAskCpfForAppointmentLookup(ctx, clinicId)) {
+          return askForAppointmentCpf(ctx, 'cancel')
+        }
         return { message: templates.cancelNoAppointments, nextState: 'menu', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
       }
       if (ctx.appointments && ctx.appointments.length > 1) {
@@ -282,17 +293,23 @@ async function handleMenu(
         }
       }
       if (ctx.appointments && ctx.appointments.length === 0) {
+        if (await shouldAskCpfForAppointmentLookup(ctx, clinicId)) {
+          return askForAppointmentCpf(ctx, 'view_appointments')
+        }
         return {
           message: templates.viewAppointmentsNotFound,
           nextState: 'menu',
-          nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
+          nextContext: baseIdentityContext(ctx),
         }
       }
       // Fallback: no pre-load (shouldn't happen with new route logic)
+      if (await shouldAskCpfForAppointmentLookup(ctx, clinicId)) {
+        return askForAppointmentCpf(ctx, 'view_appointments')
+      }
       return {
         message: templates.viewAppointmentsNotFound,
         nextState: 'menu',
-        nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
+        nextContext: baseIdentityContext(ctx),
       }
 
     case 'confirm_attendance':
@@ -324,8 +341,6 @@ function isGreetingMessage(text: string): boolean {
 async function handleAgendarNome(
   msg: string,
   ctx: BotContext,
-  botSettings?: BotSettings | null,
-  clinicId?: string,
 ): Promise<BotResponse> {
   const name = msg.trim()
   return {
@@ -361,6 +376,45 @@ async function handleAgendarCpf(
 
   return {
     ...dayListResponse,
+    patientCpf: cpf,
+  }
+}
+
+async function handleConsultarCpf(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  if (!clinicId) return technicalError(ctx)
+
+  const cpf = normalizeCpf(msg.trim())
+  if (!cpf) {
+    return {
+      message: templates.invalidCpf,
+      nextState: 'consultar_cpf',
+      nextContext: ctx,
+    }
+  }
+
+  const appointments = await getPatientAppointments(clinicId, ctx.patientPhone || '', cpf)
+  const nextContext = {
+    ...ctx,
+    patientCpf: cpf,
+    appointments,
+    appointmentId: appointments.length === 1 ? appointments[0].id : undefined,
+  }
+
+  const response = await buildAppointmentLookupResponse({
+    intent: ctx.intent,
+    ctx: nextContext,
+    appointments,
+    clinicId,
+    botSettings,
+  })
+
+  return {
+    ...response,
     patientCpf: cpf,
   }
 }
@@ -1207,7 +1261,6 @@ const MAX_RETRIES = 3
 function withRetry(
   response: BotResponse,
   ctx: BotContext,
-  botSettings?: BotSettings | null,
 ): BotResponse {
   const retries = (ctx.retryCount ?? 0) + 1
   if (retries >= MAX_RETRIES) {
@@ -1218,31 +1271,6 @@ function withRetry(
     }
   }
   return { ...response, nextContext: { ...response.nextContext, retryCount: retries } }
-}
-
-async function offerSlotSelection(params: {
-  clinicId?: string
-  botSettings?: BotSettings | null
-  ctx: BotContext
-  flow: 'agendar' | 'reagendar'
-}): Promise<BotResponse> {
-  if (!params.clinicId || !params.botSettings) {
-    return technicalError(params.ctx)
-  }
-
-  const slots = await getAvailableSlots(params.clinicId, new Date(), params.botSettings, 5)
-  if (slots.length === 0) {
-    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { ...params.ctx, patientPhone: params.ctx.patientPhone, patientName: params.ctx.patientName } }
-  }
-
-  return {
-    message:
-      params.flow === 'agendar'
-        ? templates.scheduleChooseSlot(slots)
-        : templates.rescheduleChooseSlot(slots),
-    nextState: params.flow === 'agendar' ? 'agendar_slot_escolha' : 'reagendar_slot_escolha',
-    nextContext: { ...params.ctx, availableSlots: slots },
-  }
 }
 
 function resolveChoiceIndex(message: string, options: string[]): number {
@@ -1307,6 +1335,106 @@ function extractChoiceCandidates(message: string): string[] {
   }
 
   return [...new Set(candidates)]
+}
+
+function baseIdentityContext(ctx: BotContext): BotContext {
+  return {
+    patientPhone: ctx.patientPhone,
+    patientName: ctx.patientName,
+    patientCpf: ctx.patientCpf,
+  }
+}
+
+function askForAppointmentCpf(
+  ctx: BotContext,
+  intent: 'cancel' | 'reschedule' | 'view_appointments',
+): BotResponse {
+  return {
+    message: templates.appointmentsAskCpf,
+    nextState: 'consultar_cpf',
+    nextContext: {
+      ...baseIdentityContext(ctx),
+      intent,
+    },
+  }
+}
+
+async function shouldAskCpfForAppointmentLookup(
+  ctx: BotContext,
+  clinicId?: string,
+): Promise<boolean> {
+  if (!clinicId || ctx.patientCpf) {
+    return false
+  }
+
+  return hasGestaoDSIntegration(clinicId)
+}
+
+async function buildAppointmentLookupResponse(params: {
+  intent?: string
+  ctx: BotContext
+  appointments: BotContext['appointments']
+  clinicId?: string
+  botSettings?: BotSettings | null
+}): Promise<BotResponse> {
+  const appointments = params.appointments ?? []
+  const nextContext = {
+    ...params.ctx,
+    appointments,
+    appointmentId: appointments.length === 1 ? appointments[0].id : undefined,
+  }
+
+  if (appointments.length === 0) {
+    const message = params.intent === 'view_appointments'
+      ? templates.viewAppointmentsNotFound
+      : templates.cancelNoAppointments
+
+    return {
+      message,
+      nextState: 'menu',
+      nextContext: baseIdentityContext(nextContext),
+    }
+  }
+
+  if (params.intent === 'reschedule') {
+    if (appointments.length > 1) {
+      return {
+        message: templates.whichAppointmentReschedule(appointments),
+        nextState: 'reagendar_qual',
+        nextContext: { ...nextContext, intent: 'reschedule' },
+      }
+    }
+
+    return showDayList({
+      clinicId: params.clinicId,
+      botSettings: params.botSettings,
+      ctx: { ...nextContext, intent: 'reschedule', appointmentId: appointments[0].id },
+      flow: 'reagendar',
+      offset: 0,
+    })
+  }
+
+  if (params.intent === 'cancel') {
+    if (appointments.length > 1) {
+      return {
+        message: templates.whichAppointmentCancel(appointments),
+        nextState: 'cancelar_qual',
+        nextContext: { ...nextContext, intent: 'cancel' },
+      }
+    }
+
+    return {
+      message: templates.cancelConfirmSingle(appointments[0].label),
+      nextState: 'cancelar_confirmar',
+      nextContext: { ...nextContext, intent: 'cancel', appointmentId: appointments[0].id },
+    }
+  }
+
+  return {
+    message: templates.viewAppointments(appointments),
+    nextState: 'ver_agendamentos',
+    nextContext: { ...nextContext, intent: 'view_appointments' },
+  }
 }
 
 type InteractiveChoice = {

@@ -3,12 +3,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const bookAppointmentMock = vi.fn()
 const cancelAppointmentMock = vi.fn()
 const rescheduleAppointmentMock = vi.fn()
+const formatDateForApiMock = vi.fn()
+const getAppointmentByIdMock = vi.fn()
 
 vi.mock('@/lib/services/gestaods', () => ({
   GestaoDSService: class {
     bookAppointment = bookAppointmentMock
     cancelAppointment = cancelAppointmentMock
     rescheduleAppointment = rescheduleAppointmentMock
+    formatDateForApi = formatDateForApiMock
+    getAppointmentById = getAppointmentByIdMock
   },
   GestaoDSServiceHelpers: {
     extractAppointmentId: (payload: unknown) => {
@@ -16,6 +20,24 @@ vi.mock('@/lib/services/gestaods', () => ({
       const source = payload as Record<string, unknown>
       const candidate = source.token || source.id || source.agendamento
       return candidate ? String(candidate) : null
+    },
+    extractPatientCpf: (payload: unknown) => {
+      if (!payload || typeof payload !== 'object') return null
+      const source = payload as Record<string, unknown>
+      const nested =
+        source.data && typeof source.data === 'object'
+          ? (source.data as Record<string, unknown>)
+          : null
+      const patient =
+        source.paciente && typeof source.paciente === 'object'
+          ? (source.paciente as Record<string, unknown>)
+          : nested?.paciente && typeof nested.paciente === 'object'
+            ? (nested.paciente as Record<string, unknown>)
+            : null
+      const candidate = source.cpf || source.paciente_cpf || nested?.cpf || nested?.paciente_cpf || patient?.cpf
+      if (!candidate) return null
+      const digits = String(candidate).replace(/\D/g, '')
+      return digits.length === 11 ? digits : null
     },
   },
 }))
@@ -32,7 +54,7 @@ import {
   updateExternalAppointment,
 } from '@/lib/integrations/integrationRouter'
 
-type QueryResult = { data: any; error: any }
+type QueryResult = { data: unknown; error: unknown }
 
 class QueryMock {
   private readonly result: QueryResult
@@ -46,6 +68,10 @@ class QueryMock {
   }
 
   eq() {
+    return this
+  }
+
+  in() {
     return this
   }
 
@@ -82,12 +108,15 @@ function createSupabaseMock(scenarios: Record<string, QueryResult>) {
       delete scenarios[key]
       return new QueryMock(result)
     },
-  } as any
+  } as unknown as {
+    from: (table: string) => QueryMock
+  }
 }
 
 describe('integrationRouter - GestaoDS paths', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    formatDateForApiMock.mockImplementation(async (date: Date) => date.toISOString())
   })
 
   it('creates external appointment in GestaoDS when cpf and integration are present', async () => {
@@ -196,6 +225,52 @@ describe('integrationRouter - GestaoDS paths', () => {
       description: 'Remarcação',
     })
 
+    expect(result.synced).toBe(true)
+    expect(result.providerReferenceId).toBe('gestaods-apt-2')
+  })
+
+  it('reschedules GestaoDS appointment using appointment details when cpf is not stored locally', async () => {
+    const supabase = createSupabaseMock({
+      'clinic_integrations:list': {
+        data: [
+          {
+            provider: 'gestaods',
+            is_connected: true,
+            gestaods_api_token: 'api-token',
+            gestaods_is_dev: true,
+          },
+        ],
+        error: null,
+      },
+      'conversations:cpf-by-phone': {
+        data: null,
+        error: null,
+      },
+    })
+
+    getAppointmentByIdMock.mockResolvedValue({
+      success: true,
+      data: { paciente: { cpf: '123.456.789-01' } },
+    })
+
+    rescheduleAppointmentMock.mockResolvedValue({
+      success: true,
+      data: { newAppointmentId: 'gestaods-apt-2' },
+    })
+
+    const result = await updateExternalAppointment({
+      supabase,
+      clinicId: 'clinic-1',
+      provider: 'gestaods',
+      providerReferenceId: 'gestaods-apt-1',
+      patientName: 'Paciente Teste',
+      patientPhone: '5511999999999',
+      startsAt: new Date('2026-04-06T11:00:00.000Z'),
+      endsAt: new Date('2026-04-06T11:30:00.000Z'),
+      description: 'Remarcação',
+    })
+
+    expect(getAppointmentByIdMock).toHaveBeenCalledWith('gestaods-apt-1')
     expect(result.synced).toBe(true)
     expect(result.providerReferenceId).toBe('gestaods-apt-2')
   })

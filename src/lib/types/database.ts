@@ -24,6 +24,7 @@ export interface Conversation {
 	clinic_id: string
 	patient_phone: string
 	patient_name: string | null
+	cpf: string | null
 	status: ConversationStatus
 	bot_enabled: boolean
 	bot_state: BotState

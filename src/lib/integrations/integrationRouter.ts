@@ -472,7 +472,13 @@ async function resolvePatientCpf(params: {
       .order('updated_at', { ascending: false })
       .limit(10)
 
-    for (const conversation of fallbackConversations || []) {
+    const fallbackConversationRecords = Array.isArray(fallbackConversations)
+      ? fallbackConversations
+      : fallbackConversations
+        ? [fallbackConversations]
+        : []
+
+    for (const conversation of fallbackConversationRecords) {
       const cpfFromFallbackConversation = extractCpfFromConversationRecord(conversation)
       if (cpfFromFallbackConversation) {
         return cpfFromFallbackConversation
@@ -482,7 +488,13 @@ async function resolvePatientCpf(params: {
     return null
   }
 
-  for (const conversation of latestConversations || []) {
+  const conversationRecords = Array.isArray(latestConversations)
+    ? latestConversations
+    : latestConversations
+      ? [latestConversations]
+      : []
+
+  for (const conversation of conversationRecords) {
     const cpfFromConversation = extractCpfFromConversationRecord(conversation)
     if (cpfFromConversation) {
       return cpfFromConversation

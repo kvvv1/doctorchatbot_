@@ -38,6 +38,12 @@ Por favor, me informe seu *nome completo*:`,
 Agora preciso do seu *CPF* para confirmar o agendamento:
 (ex: 123.456.789-00)`,
 
+  appointmentsAskCpf: `Para localizar seus agendamentos, preciso do seu *CPF*:
+(ex: 123.456.789-00)`,
+
+  invalidCpf: `CPF invalido. Por favor, informe um CPF valido:
+(ex: 123.456.789-00)`,
+
   scheduleChooseSlot: (slots: Slot[]) => {
     const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')
     return `Encontrei estes horários disponíveis para você:\n\n${lines}\n\nEscolha uma opção abaixo.`

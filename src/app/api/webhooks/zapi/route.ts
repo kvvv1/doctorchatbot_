@@ -265,7 +265,7 @@ async function triggerBotResponse(
     // 2. Get conversation details
     const { data: conversation, error: convError } = await supabase
       .from('conversations')
-      .select('bot_enabled, bot_state, bot_context, status, created_at, updated_at')
+      .select('bot_enabled, bot_state, bot_context, status, created_at, updated_at, cpf, patient_name')
       .eq('id', conversationId)
       .single()
 
@@ -309,7 +309,12 @@ async function triggerBotResponse(
     let currentContext = (conversation.bot_context || {}) as BotContext
 
     // Always keep patientPhone in context so all handlers have access to it
-    currentContext = { ...currentContext, patientPhone: phone }
+    currentContext = {
+      ...currentContext,
+      patientPhone: phone,
+      patientName: currentContext.patientName || conversation.patient_name || undefined,
+      patientCpf: currentContext.patientCpf || conversation.cpf || undefined,
+    }
 
     // 5b. First contact: send welcome message regardless of what the patient typed.
     // This ensures the clinic's configured greeting always reaches new patients,
@@ -342,13 +347,11 @@ async function triggerBotResponse(
         ))
 
       if (stateNeedsAppointments) {
-        const appointments = await getPatientAppointments(clinicId, phone)
-        if (appointments.length > 0) {
-          currentContext = { ...currentContext, appointments }
-          // If there's exactly one appointment, also set appointmentId for direct cancel/reschedule
-          if (appointments.length === 1) {
-            currentContext = { ...currentContext, appointmentId: appointments[0].id }
-          }
+        const appointments = await getPatientAppointments(clinicId, phone, currentContext.patientCpf)
+        currentContext = {
+          ...currentContext,
+          appointments,
+          appointmentId: appointments.length === 1 ? appointments[0].id : undefined,
         }
       }
     }

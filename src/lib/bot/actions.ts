@@ -559,7 +559,13 @@ async function resolvePatientCpf(clinicId: string, patientPhone: string): Promis
       .order('updated_at', { ascending: false })
       .limit(10)
 
-    for (const conversation of fallbackConversations || []) {
+    const fallbackConversationRecords = Array.isArray(fallbackConversations)
+      ? fallbackConversations
+      : fallbackConversations
+        ? [fallbackConversations]
+        : []
+
+    for (const conversation of fallbackConversationRecords) {
       const cpfFromContext = normalizeCpf(
         conversation?.bot_context && typeof conversation.bot_context === 'object'
           ? String((conversation.bot_context as Record<string, unknown>).patientCpf || '')
@@ -572,7 +578,13 @@ async function resolvePatientCpf(clinicId: string, patientPhone: string): Promis
     return null
   }
 
-  for (const conversation of latestConversations || []) {
+  const conversationRecords = Array.isArray(latestConversations)
+    ? latestConversations
+    : latestConversations
+      ? [latestConversations]
+      : []
+
+  for (const conversation of conversationRecords) {
     const cpfFromColumn = normalizeCpf(conversation?.cpf)
     if (cpfFromColumn) return cpfFromColumn
 
@@ -699,12 +711,13 @@ async function upsertGestaoDSAppointmentMirror(params: {
  */
 async function getPatientAppointmentsFromGestaoDSAPI(
   clinicId: string,
-  patientPhone: string
+  patientPhone: string,
+  patientCpf?: string | null,
 ): Promise<AppointmentSummary[]> {
   const supabase = createAdminClient()
-  const patientCpf = await resolvePatientCpf(clinicId, patientPhone)
+  const cpf = normalizeCpf(patientCpf) || await resolvePatientCpf(clinicId, patientPhone)
 
-  if (!patientCpf) return []
+  if (!cpf) return []
 
   const { data: integration } = await supabase
     .from('clinic_integrations')
@@ -721,7 +734,7 @@ async function getPatientAppointmentsFromGestaoDSAPI(
     integration.gestaods_is_dev ?? false
   )
 
-  const result = await service.listPatientAppointments(patientCpf)
+  const result = await service.listPatientAppointments(cpf)
 
   if (!result.success || !result.data?.length) return []
 
@@ -756,7 +769,8 @@ async function getPatientAppointmentsFromGestaoDSAPI(
  */
 export async function getPatientAppointments(
   clinicId: string,
-  patientPhone: string
+  patientPhone: string,
+  patientCpf?: string | null,
 ): Promise<AppointmentSummary[]> {
   const supabase = createAdminClient()
   const phoneCandidates = getBrazilianPhoneLookupCandidates(patientPhone)
@@ -785,7 +799,11 @@ export async function getPatientAppointments(
       }))
 
   // Supplement with GestaoDS API (covers appointments synced with missing phone)
-  const gestaoDSResults = await getPatientAppointmentsFromGestaoDSAPI(clinicId, patientPhone)
+  const gestaoDSResults = await getPatientAppointmentsFromGestaoDSAPI(
+    clinicId,
+    patientPhone,
+    patientCpf
+  )
 
   if (gestaoDSResults.length === 0) return localResults
 
@@ -801,6 +819,19 @@ export async function getPatientAppointments(
 
   merged.sort((a, b) => a.startsAt.localeCompare(b.startsAt))
   return merged.slice(0, 5)
+}
+
+export async function hasGestaoDSIntegration(clinicId: string): Promise<boolean> {
+  const supabase = createAdminClient()
+  const { data } = await supabase
+    .from('clinic_integrations')
+    .select('id')
+    .eq('clinic_id', clinicId)
+    .eq('provider', 'gestaods')
+    .eq('is_connected', true)
+    .maybeSingle()
+
+  return !!data
 }
 
 /**

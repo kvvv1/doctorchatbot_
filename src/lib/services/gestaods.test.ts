@@ -17,6 +17,18 @@ describe('GestaoDSServiceHelpers', () => {
     expect(GestaoDSServiceHelpers.extractAppointmentId({ ok: true })).toBeNull()
     expect(GestaoDSServiceHelpers.extractAppointmentId(null)).toBeNull()
   })
+
+  it('extracts patient cpf from nested appointment payloads', () => {
+    expect(
+      GestaoDSServiceHelpers.extractPatientCpf({
+        data: {
+          paciente: {
+            cpf: '123.456.789-01',
+          },
+        },
+      })
+    ).toBe('12345678901')
+  })
 })
 
 describe('GestaoDSService high-level methods', () => {

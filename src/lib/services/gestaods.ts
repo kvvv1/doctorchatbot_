@@ -609,4 +609,42 @@ export class GestaoDSServiceHelpers {
         const output = String(candidate).trim()
         return output.length > 0 ? output : null
     }
+
+    static extractPatientCpf(payload: unknown): string | null {
+        if (!payload || typeof payload !== 'object') {
+            return null
+        }
+
+        const source = payload as Record<string, unknown>
+        const nested = source.data && typeof source.data === 'object'
+            ? (source.data as Record<string, unknown>)
+            : null
+        const patient =
+            source.paciente && typeof source.paciente === 'object'
+                ? (source.paciente as Record<string, unknown>)
+                : nested?.paciente && typeof nested.paciente === 'object'
+                    ? (nested.paciente as Record<string, unknown>)
+                    : null
+
+        const candidates = [
+            source.cpf,
+            source.paciente_cpf,
+            nested?.cpf,
+            nested?.paciente_cpf,
+            patient?.cpf,
+        ]
+
+        for (const candidate of candidates) {
+            if (candidate === undefined || candidate === null) {
+                continue
+            }
+
+            const digits = String(candidate).replace(/\D/g, '')
+            if (digits.length === 11) {
+                return digits
+            }
+        }
+
+        return null
+    }
 }
