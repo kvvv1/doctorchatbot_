@@ -91,8 +91,11 @@ export function detectYesNo(text: string): 'yes' | 'no' | 'unknown' {
 
   if (
     normalized === 'sim' ||
+    normalized.startsWith('sim,') ||
+    normalized.startsWith('sim ') ||
     normalized === 's' ||
     normalized.includes('confirmo') ||
+    normalized.includes('confirmar') ||
     normalized.includes('com certeza') ||
     normalized.includes('claro') ||
     normalized === 'ok' ||
@@ -109,6 +112,10 @@ export function detectYesNo(text: string): 'yes' | 'no' | 'unknown' {
     normalized === 'nao' ||
     normalized === 'n' ||
     normalized === '2' ||
+    normalized.startsWith('não,') ||
+    normalized.startsWith('nao,') ||
+    normalized.startsWith('não ') ||
+    normalized.startsWith('nao ') ||
     normalized.includes('negativo') ||
     normalized.includes('não quero') ||
     normalized.includes('nao quero')
