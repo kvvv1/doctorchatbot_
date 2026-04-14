@@ -32,11 +32,24 @@ describe('parseWebhookPayload', () => {
     expect(parsed.normalizedText).toBe('view_appointments')
   })
 
-  it('keeps plain text messages unchanged', () => {
+  it('preserves numeric interactive ids when Z-API only sends the prompt body back', () => {
     const parsed = parseWebhookPayload({
       instanceId: 'instance-1',
       phone: '5511999999999',
       messageId: 'msg-3',
+      selectedButtonId: '2',
+      body: 'Não encontrei horários disponíveis nos próximos dias.\n\nDeseja falar com nossa equipe?',
+    })
+
+    expect(parsed.messageText).toBe('Não encontrei horários disponíveis nos próximos dias.\nDeseja falar com nossa equipe?')
+    expect(parsed.normalizedText).toBe('2')
+  })
+
+  it('keeps plain text messages unchanged', () => {
+    const parsed = parseWebhookPayload({
+      instanceId: 'instance-1',
+      phone: '5511999999999',
+      messageId: 'msg-4',
       body: 'Oi, tudo bem?',
     })
 

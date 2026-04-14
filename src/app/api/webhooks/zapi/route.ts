@@ -146,6 +146,8 @@ export async function POST(request: NextRequest) {
       clinicId,
       phone: parsed.phone,
       hasText: !!parsed.messageText,
+      textPreview: parsed.messageText.substring(0, 80),
+      normalizedPreview: (parsed.normalizedText || parsed.messageText).substring(0, 80),
     })
 
     // 7. Process incoming message
@@ -198,6 +200,7 @@ export async function POST(request: NextRequest) {
         console.log('[Z-API Webhook] Running deferred bot response:', {
           conversationId,
           phone: parsed.phone,
+          inputPreview: (parsed.normalizedText || parsed.messageText).substring(0, 80),
         })
 
         await triggerBotResponse(

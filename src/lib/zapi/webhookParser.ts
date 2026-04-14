@@ -236,7 +236,7 @@ function extractInteractiveReply(payload: ZapiWebhookPayload): {
     getString(payload.data?.selectedButtonId) ||
     getString(payload.data?.buttonId)
 
-  const candidateText =
+  const candidateLabelText =
     getString(payload.selectedDisplayText) ||
     getString(payload.selectedText) ||
     getString(payload.selectedTitle) ||
@@ -255,19 +255,25 @@ function extractInteractiveReply(payload: ZapiWebhookPayload): {
     getString(payload.data?.selectedDisplayText) ||
     getString(payload.data?.selectedText) ||
     getString(payload.data?.selectedTitle) ||
-    getString(payload.data?.buttonText?.displayText) ||
+    getString(payload.data?.buttonText?.displayText)
+
+  const candidateFallbackText =
     getString(payload.text?.message) ||
     getString(payload.body) ||
     getString(payload.message)
 
-  if (!candidateId && !candidateText) {
+  if (!candidateId && !candidateLabelText && !candidateFallbackText) {
     return null
   }
 
-  const messageText = dedupeRepeatedLines(candidateText || candidateId || '[Mensagem sem texto]')
-  const normalizedText = candidateId && !/^\d+$/.test(candidateId)
-    ? candidateId
-    : messageText
+  const messageText = dedupeRepeatedLines(candidateLabelText || candidateFallbackText || candidateId || '[Mensagem sem texto]')
+  const normalizedText = dedupeRepeatedLines(
+    candidateId
+      ? (/^\d+$/.test(candidateId)
+          ? (candidateLabelText || candidateId)
+          : candidateId)
+      : messageText
+  )
 
   return {
     messageText,
