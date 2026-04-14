@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import {
+  type AppointmentSourceFilter,
+  matchesAppointmentSourceFilter,
+  normalizeAppointmentOrigin,
+} from '@/lib/appointments/source'
 
 export async function GET(request: NextRequest) {
   try {
@@ -71,19 +76,6 @@ export async function GET(request: NextRequest) {
       query = query.eq('professional_id', professionalId)
     }
 
-    if (source === 'google') {
-      query = query.eq('provider', 'google')
-    } else if (source === 'gestaods') {
-      query = query.eq('provider', 'gestaods')
-    } else if (source === 'manual') {
-      query = query.eq('provider', 'manual').is('conversation_id', null)
-    } else if (source === 'bot') {
-      query = query
-        .eq('provider', 'manual')
-        .not('conversation_id', 'is', null)
-        .ilike('description', '%via WhatsApp%')
-    }
-
     const { data: appointments, error } = await query
 
     if (error) {
@@ -91,7 +83,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Erro ao buscar agendamentos' }, { status: 500 })
     }
 
-    return NextResponse.json({ appointments })
+    const normalizedAppointments = (appointments || []).map((appointment) =>
+      normalizeAppointmentOrigin(appointment)
+    )
+
+    const sourceFilter =
+      source === 'bot' || source === 'manual' || source === 'google' || source === 'gestaods'
+        ? (source as Exclude<AppointmentSourceFilter, 'all'>)
+        : null
+
+    const filteredAppointments = sourceFilter
+      ? normalizedAppointments.filter((appointment) =>
+          matchesAppointmentSourceFilter(appointment, sourceFilter)
+        )
+      : normalizedAppointments
+
+    return NextResponse.json({ appointments: filteredAppointments })
   } catch (error) {
     console.error('Erro no endpoint de listagem:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })

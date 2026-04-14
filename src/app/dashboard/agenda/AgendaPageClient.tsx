@@ -2,9 +2,15 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { View } from 'react-big-calendar'
-import { Plus, RefreshCw, CheckCircle, Clock, XCircle, UserX, CalendarDays, TrendingUp, AlertCircle, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, RefreshCw, CheckCircle, Clock, UserX, CalendarDays, TrendingUp, AlertCircle, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, subDays, addMonths, subMonths, addYears, subYears, format, isToday, isSameDay, isSameMonth, getDaysInMonth, getDay, startOfDay, endOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import {
+  type AppointmentOrigin,
+  type AppointmentSourceFilter,
+  isBotAppointment,
+  normalizeAppointmentOrigin,
+} from '@/lib/appointments/source'
 import CalendarView from './components/CalendarView'
 import ViewSwitcher from './components/ViewSwitcher'
 import AppointmentDetailsModal from './components/AppointmentDetailsModal'
@@ -19,6 +25,7 @@ interface Appointment {
   ends_at: string
   status: 'scheduled' | 'confirmed' | 'canceled' | 'completed' | 'no_show'
   description?: string
+  origin?: AppointmentOrigin | null
   conversation_id?: string
   provider: string
   provider_reference_id?: string
@@ -32,7 +39,7 @@ type AppointmentUpdatePayload = {
   patient_phone?: string
 }
 
-type SourceFilter = 'all' | 'bot' | 'manual' | 'google' | 'gestaods'
+type SourceFilter = AppointmentSourceFilter
 
 type ToastMessage = { id: number; type: 'success' | 'error' | 'warning'; text: string }
 
@@ -64,14 +71,6 @@ function getRangeForView(view: View, date: Date) {
   }
 }
 
-function isBotAppointment(appointment: Appointment): boolean {
-  return (
-    appointment.provider === 'manual' &&
-    !!appointment.conversation_id &&
-    (appointment.description || '').toLowerCase().includes('via whatsapp')
-  )
-}
-
 const STATUS_CONFIG = {
   scheduled:  { label: 'Agendado',   bg: 'bg-purple-100', text: 'text-purple-700', dot: 'bg-purple-500' },
   confirmed:  { label: 'Confirmado', bg: 'bg-green-100',  text: 'text-green-700',  dot: 'bg-green-500'  },
@@ -86,7 +85,9 @@ interface AgendaPageClientProps {
 }
 
 export default function AgendaPageClient({ initialAppointments, activeProvider }: AgendaPageClientProps) {
-  const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments)
+  const [appointments, setAppointments] = useState<Appointment[]>(
+    initialAppointments.map((appointment) => normalizeAppointmentOrigin(appointment))
+  )
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
   const [view, setView] = useState<View>('month')
   const [date, setDate] = useState(() => startOfDay(new Date()))
@@ -153,7 +154,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
       patient_name: apt.patient_name,
       patient_phone: apt.patient_phone,
       description: apt.description,
-      source: isBotAppointment(apt) ? 'bot' : apt.provider,
+      source: normalizeAppointmentOrigin(apt).origin,
     },
   }))
 
@@ -172,7 +173,13 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
 
       const response = await fetch(`/api/appointments/list?${params}`)
       const data = await response.json()
-      if (data.appointments) setAppointments(data.appointments)
+      if (data.appointments) {
+        setAppointments(
+          data.appointments.map((appointment: Appointment) =>
+            normalizeAppointmentOrigin(appointment)
+          )
+        )
+      }
     } catch {
       addToast('error', 'Erro ao carregar agendamentos.')
     } finally {
@@ -272,7 +279,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
     if (!response.ok) throw new Error('Erro ao editar agendamento')
     const data = await response.json()
     if (!data?.appointment) throw new Error('Resposta invalida ao editar agendamento')
-    const updated = data.appointment as Appointment
+    const updated = normalizeAppointmentOrigin(data.appointment as Appointment)
     setAppointments((prev) => prev.map((apt) => (apt.id === appointmentId ? updated : apt)))
     setSelectedAppointment(updated)
   }
@@ -538,7 +545,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
           <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1">
             {([
               { key: 'all' as const, label: 'Todos' },
-              { key: 'manual' as const, label: 'Manual' },
+              { key: 'manual' as const, label: 'DoctorChatBot' },
               ...(activeProvider === 'gestaods'
                 ? [{ key: 'gestaods' as const, label: 'GestaoDS' }]
                 : activeProvider === 'google'

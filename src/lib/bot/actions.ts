@@ -223,6 +223,7 @@ export async function createAppointment(params: {
       starts_at: startsAt.toISOString(),
       ends_at: endsAt.toISOString(),
       status: 'scheduled',
+      origin: 'bot_whatsapp',
       provider: externalResult.synced ? externalResult.provider : 'manual',
       provider_reference_id: externalResult.providerReferenceId || null,
       description: 'Agendamento via WhatsApp',
@@ -308,6 +309,7 @@ export async function createAppointmentFromSlot(params: {
       starts_at: params.slot.startsAt,
       ends_at: params.slot.endsAt,
       status: 'scheduled',
+      origin: 'bot_whatsapp',
       provider: externalResult.synced ? externalResult.provider : 'manual',
       provider_reference_id: externalResult.providerReferenceId || null,
       description: 'Agendamento via WhatsApp',
@@ -664,6 +666,7 @@ async function upsertGestaoDSAppointmentMirror(params: {
       .from('appointments')
       .insert({
         clinic_id: params.clinicId,
+        origin: 'external_import',
         provider: 'gestaods',
         provider_reference_id: externalId,
         ...payload,

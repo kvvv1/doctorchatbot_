@@ -8,6 +8,11 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
+import {
+  type AppointmentOrigin,
+  getAppointmentOriginLabel,
+  getAppointmentSyncLabel,
+} from '@/lib/appointments/source'
 
 interface AppointmentDetailsModalProps {
   appointment: {
@@ -18,6 +23,7 @@ interface AppointmentDetailsModalProps {
     ends_at: string
     status: 'scheduled' | 'confirmed' | 'canceled' | 'completed' | 'no_show'
     description?: string
+    origin?: AppointmentOrigin | null
     conversation_id?: string
     provider: string
     provider_reference_id?: string
@@ -51,12 +57,6 @@ function durationMinutes(startsAt: string, endsAt: string): number {
   )
 }
 
-const PROVIDER_LABELS: Record<string, string> = {
-  google: 'Google Calendar',
-  gestaods: 'GestaoDS',
-  manual: 'Manual',
-}
-
 const STATUS_CONFIG = {
   scheduled:  { label: 'Agendado',   bg: 'bg-purple-100', text: 'text-purple-700' },
   confirmed:  { label: 'Confirmado', bg: 'bg-green-100',  text: 'text-green-700'  },
@@ -87,15 +87,8 @@ export default function AppointmentDetailsModal({
   const [editDescription, setEditDescription] = useState(appointment.description ?? '')
 
   const config = STATUS_CONFIG[appointment.status]
-
-  const providerLabel = (() => {
-    if (
-      appointment.provider === 'manual' &&
-      appointment.conversation_id &&
-      appointment.description?.toLowerCase().includes('via whatsapp')
-    ) return 'Bot WhatsApp'
-    return PROVIDER_LABELS[appointment.provider] ?? appointment.provider
-  })()
+  const originLabel = getAppointmentOriginLabel(appointment)
+  const syncLabel = getAppointmentSyncLabel(appointment)
 
   const resetEdit = () => {
     setEditPatientName(appointment.patient_name)
@@ -304,7 +297,8 @@ export default function AppointmentDetailsModal({
 
           {/* Provider Info */}
           <div className="text-xs text-neutral-400 border-t border-neutral-200 pt-3">
-            Origem: {providerLabel}
+            Origem: {originLabel}
+            {syncLabel && <> • {syncLabel}</>}
             {appointment.provider_reference_id && (
               <> • ID externo: <span className="font-mono">{appointment.provider_reference_id.slice(0, 12)}</span></>
             )}

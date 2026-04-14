@@ -88,6 +88,7 @@ function runMigrations(db: Database.Database) {
       ends_at               TEXT NOT NULL,
       status                TEXT DEFAULT 'scheduled',
       description           TEXT,
+      origin                TEXT DEFAULT 'manual_doctorchat',
       provider              TEXT DEFAULT 'manual',
       provider_reference_id TEXT,
       professional_id       TEXT,
@@ -249,6 +250,12 @@ function runMigrations(db: Database.Database) {
       created_at TEXT NOT NULL
     );
   `)
+
+  try {
+    db.exec("ALTER TABLE appointments ADD COLUMN origin TEXT DEFAULT 'manual_doctorchat';")
+  } catch {
+    // Ignore when the column already exists in an existing local DB.
+  }
 }
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkAppointmentConflicts, checkWorkingHours, checkTimeOff } from '@/lib/services/appointmentConflictService'
 import { createExternalAppointment } from '@/lib/integrations/integrationRouter'
+import { resolveAppointmentOrigin } from '@/lib/appointments/source'
 
 interface CreateAppointmentBody {
 	conversationId?: string
@@ -114,6 +115,12 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Create appointment in database
+		const appointmentOrigin = resolveAppointmentOrigin({
+			provider: 'manual',
+			conversation_id: body.conversationId || null,
+			description: body.description || null,
+		})
+
 		const { data: appointment, error: appointmentError } = await supabase
 			.from('appointments')
 			.insert({
@@ -125,6 +132,7 @@ export async function POST(request: NextRequest) {
 				ends_at: endsAt.toISOString(),
 				status: 'scheduled',
 				description: body.description || null,
+				origin: appointmentOrigin,
 				provider: 'manual',
 				professional_id: body.professionalId || null,
 				resource_id: body.resourceId || null,

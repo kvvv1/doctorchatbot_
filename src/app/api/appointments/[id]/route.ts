@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { cancelPendingReminders } from '@/lib/services/reminderScheduler'
 import { cancelExternalAppointment, updateExternalAppointment } from '@/lib/integrations/integrationRouter'
+import { normalizeAppointmentOrigin } from '@/lib/appointments/source'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Agendamento não encontrado' }, { status: 404 })
     }
 
-    return NextResponse.json({ appointment })
+    return NextResponse.json({ appointment: normalizeAppointmentOrigin(appointment) })
   } catch (error) {
     console.error('Erro ao buscar agendamento:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
@@ -149,7 +150,7 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ appointment })
+    return NextResponse.json({ appointment: normalizeAppointmentOrigin(appointment) })
   } catch (error) {
     console.error('Erro ao atualizar agendamento:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })

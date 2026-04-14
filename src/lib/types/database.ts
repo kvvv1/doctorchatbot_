@@ -17,6 +17,7 @@ export type MessageSender = 'patient' | 'human' | 'bot'
 
 // Canonical types live in bot/context — imported locally and re-exported for consumers
 import type { BotState, BotContext } from '@/lib/bot/context'
+import type { AppointmentOrigin } from '@/lib/appointments/source'
 export type { BotState, BotContext }
 
 export interface Conversation {
@@ -100,6 +101,7 @@ export interface Appointment {
 	ends_at: string
 	status: AppointmentStatus
 	description: string | null
+	origin: AppointmentOrigin
 	provider: AppointmentProvider
 	provider_reference_id: string | null
 	created_at: string

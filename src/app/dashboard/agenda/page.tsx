@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns'
 import { checkSubscription } from '@/lib/services/subscriptionService'
 import { hasFeatureAccess, PlanFeature } from '@/lib/services/planFeatures'
+import { normalizeAppointmentOrigin } from '@/lib/appointments/source'
 import UpgradePrompt from '../components/UpgradePrompt'
 import AgendaPageClient from './AgendaPageClient'
 
@@ -123,7 +124,12 @@ export default async function AgendaPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <AgendaPageClient initialAppointments={appointments || []} activeProvider={activeProvider} />
+      <AgendaPageClient
+        initialAppointments={(appointments || []).map((appointment) =>
+          normalizeAppointmentOrigin(appointment)
+        )}
+        activeProvider={activeProvider}
+      />
     </div>
   )
 }

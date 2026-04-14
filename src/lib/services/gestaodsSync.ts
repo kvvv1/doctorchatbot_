@@ -130,6 +130,7 @@ export async function syncGestaoDSClinic(params: {
         .from('appointments')
         .insert({
           clinic_id: config.clinic_id,
+          origin: 'external_import',
           provider: 'gestaods',
           provider_reference_id: externalId,
           ...payload,
@@ -229,11 +230,3 @@ function mapGestaoDSStatus(appt: Record<string, unknown>): string {
   return 'scheduled'
 }
 
-function mapStatus(sourceStatus: string): string {
-  const status = sourceStatus.toLowerCase()
-  if (status.includes('confirm')) return 'confirmed'
-  if (status.includes('canc')) return 'canceled'
-  if (status.includes('falt') || status.includes('show')) return 'no_show'
-  if (status.includes('done') || status.includes('realiz')) return 'completed'
-  return 'scheduled'
-}
