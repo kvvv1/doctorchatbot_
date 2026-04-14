@@ -19,15 +19,17 @@ import { GestaoDSService } from '@/lib/services/gestaods'
 const JS_DAY_TO_KEY = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
 /**
- * Returns the WorkingHours config the BOT should use for scheduling.
+ * Returns the WorkingHours config the BOT should use for scheduling slots.
  * When bot_scheduling_hours_enabled is true, uses bot_scheduling_hours.
- * Otherwise falls back to working_hours (clinic schedule).
+ * Otherwise returns { enabled: false } — meaning no hours restriction on slots.
+ * working_hours is intentionally NOT used here; it only controls the
+ * "out-of-hours" message for human-attendant requests (handled in route.ts).
  */
-function getBotSchedulingHours(botSettings: BotSettings): { hours: BotSettings['working_hours']; enabled: boolean } {
+function getBotSchedulingHours(botSettings: BotSettings): { hours: BotSettings['working_hours'] | null; enabled: boolean } {
   if (botSettings.bot_scheduling_hours_enabled && botSettings.bot_scheduling_hours) {
     return { hours: botSettings.bot_scheduling_hours, enabled: true }
   }
-  return { hours: botSettings.working_hours, enabled: botSettings.working_hours_enabled }
+  return { hours: null, enabled: false }
 }
 
 /**
@@ -171,15 +173,18 @@ export async function getAvailableSlots(
   let daysChecked = 0
   let cursor = startOfDay(targetDate)
 
+  const { hours: schedHoursForGen, enabled: schedEnabledForGen } = getBotSchedulingHours(botSettings)
+
   while (slots.length < count && daysChecked < maxDaysAhead) {
     if (isDayWorking(botSettings, cursor)) {
-      // Determine start and end of working hours for this day
+      // Determine start and end of hours for this day
       let dayStart: Date
       let dayEnd: Date
 
-      if (botSettings.working_hours_enabled) {
+      if (schedEnabledForGen && schedHoursForGen) {
+        // Use explicit bot scheduling hours
         const key = JS_DAY_TO_KEY[getDay(cursor)]
-        const dayConfig = botSettings.working_hours.days.find((d) => d.day === key)
+        const dayConfig = schedHoursForGen.days.find((d) => d.day === key)
 
         if (dayConfig?.enabled) {
           const { hours: sh, minutes: sm } = parseHHMM(dayConfig.start)
@@ -192,7 +197,7 @@ export async function getAvailableSlots(
           continue
         }
       } else {
-        // Default business hours fallback
+        // No scheduling hours configured — use wide default (working_hours NOT used)
         dayStart = setMinutes(setHours(cursor, 8), 0)
         dayEnd = setMinutes(setHours(cursor, 18), 0)
       }
