@@ -10,10 +10,18 @@ interface MessageInputProps {
 	onSend: (content: string) => Promise<void>
 	disabled?: boolean
 	clinicId?: string
+	value?: string
+	onChange?: (content: string) => void
 }
 
-export default function MessageInput({ onSend, disabled = false, clinicId }: MessageInputProps) {
-	const [content, setContent] = useState('')
+export default function MessageInput({
+	onSend,
+	disabled = false,
+	clinicId,
+	value,
+	onChange,
+}: MessageInputProps) {
+	const [internalContent, setInternalContent] = useState('')
 	const [sending, setSending] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	const [showQuickReplies, setShowQuickReplies] = useState(false)
@@ -23,6 +31,17 @@ export default function MessageInput({ onSend, disabled = false, clinicId }: Mes
 	const [selectedIndex, setSelectedIndex] = useState(0)
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 	const autocompleteRef = useRef<HTMLDivElement>(null)
+	const isControlled = value !== undefined
+	const content = isControlled ? value : internalContent
+
+	const setContent = (nextContent: string) => {
+		if (isControlled) {
+			onChange?.(nextContent)
+			return
+		}
+
+		setInternalContent(nextContent)
+	}
 
 	// Load quick replies for autocomplete
 	useEffect(() => {
@@ -106,21 +125,21 @@ export default function MessageInput({ onSend, disabled = false, clinicId }: Mes
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()
-		
+		await submitCurrentContent()
+	}
+
+	const submitCurrentContent = async () => {
 		const trimmed = content.trim()
 		if (!trimmed || sending || disabled) return
 
-		// Clear any previous errors
 		setError(null)
 		setSending(true)
 
 		try {
 			await onSend(trimmed)
-			// Only clear content if successful
 			setContent('')
 		} catch (error) {
 			console.error('Error sending message:', error)
-			// Show error message and keep the content so user can try again
 			const errorMessage = error instanceof Error ? error.message : 'Falha ao enviar mensagem'
 			setError(errorMessage)
 		} finally {
@@ -169,7 +188,7 @@ export default function MessageInput({ onSend, disabled = false, clinicId }: Mes
 		// Normal enter to send
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault()
-			handleSubmit(e as any)
+			void submitCurrentContent()
 		}
 	}
 

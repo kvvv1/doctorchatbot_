@@ -25,6 +25,8 @@ interface ChatPanelProps {
 	onUpdateStatus?: (status: ConversationStatus) => void
 	onSaveNotes?: (notes: string) => Promise<void>
 	onBack?: () => void
+	draftMessage?: string
+	onDraftMessageChange?: (content: string) => void
 }
 
 const STATUS_ACTIONS: Array<{ status: ConversationStatus; label: string }> = [
@@ -39,6 +41,7 @@ const BOT_STATE_LABELS: Record<BotState, string> = {
 	menu: 'Menu principal',
 	agendar_nome: 'Coletando nome',
 	agendar_cpf: 'Coletando CPF',
+	consultar_cpf: 'Localizando por CPF',
 	agendar_dia: 'Coletando data',
 	agendar_hora: 'Coletando horário',
 	agendar_slot_escolha: 'Escolhendo horário',
@@ -69,6 +72,8 @@ export default function ChatPanel({
 	onUpdateStatus,
 	onSaveNotes,
 	onBack,
+	draftMessage,
+	onDraftMessageChange,
 }: ChatPanelProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -99,10 +104,14 @@ export default function ChatPanel({
 	if (!conversation) {
 		return (
 			<div className="flex h-full w-full items-center justify-center bg-neutral-50">
-				<div className="text-center">
-					<UserCircle className="mx-auto size-12 text-neutral-300" />
-					<p className="mt-3 text-sm text-neutral-500">Selecione uma conversa</p>
-				</div>
+				{loading ? (
+					<div className="size-6 animate-spin rounded-full border-2 border-neutral-200 border-t-sky-500" />
+				) : (
+					<div className="text-center">
+						<UserCircle className="mx-auto size-12 text-neutral-300" />
+						<p className="mt-3 text-sm text-neutral-500">Selecione uma conversa</p>
+					</div>
+				)}
 			</div>
 		)
 	}
@@ -411,7 +420,13 @@ export default function ChatPanel({
 			</div>
 
 			{/* Input */}
-			<MessageInput onSend={onSendMessage} disabled={!conversation} clinicId={conversation?.clinic_id} />
+			<MessageInput
+				onSend={onSendMessage}
+				disabled={!conversation}
+				clinicId={conversation?.clinic_id}
+				value={draftMessage}
+				onChange={onDraftMessageChange}
+			/>
 
 			{/* Modals */}
 			<NotesModal

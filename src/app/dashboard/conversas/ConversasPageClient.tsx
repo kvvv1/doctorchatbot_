@@ -1,77 +1,313 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useConversations } from '@/lib/hooks/useConversations'
 import { useMessages } from '@/lib/hooks/useMessages'
 import { createClient } from '@/lib/supabase/client'
 import ConversationList from './components/ConversationList'
 import ChatPanel from './components/ChatPanel'
-import type { Conversation, Message, ConversationStatus } from '@/lib/types/database'
+import ConversationTabs from './components/ConversationTabs'
+import type { ConversationStatus } from '@/lib/types/database'
+import {
+	buildConversationSearchParams,
+	buildInitialConversationWorkspace,
+	CONVERSATION_WORKSPACE_STORAGE_KEY,
+	type ConversationStatusFilter,
+	type ConversationWorkspace,
+	readConversationWorkspaceFromStorage,
+	sanitizeConversationWorkspace,
+} from './workspace'
 
 interface ConversasPageClientProps {
 	clinicId: string
 }
 
+function arraysMatch(left: string[], right: string[]) {
+	return left.length === right.length && left.every((value, index) => value === right[index])
+}
+
+function draftsMatch(left: Record<string, string>, right: Record<string, string>) {
+	const leftKeys = Object.keys(left)
+	const rightKeys = Object.keys(right)
+
+	if (leftKeys.length !== rightKeys.length) return false
+
+	return leftKeys.every((key) => left[key] === right[key])
+}
+
+function workspaceMatches(left: ConversationWorkspace, right: ConversationWorkspace) {
+	return (
+		left.activeConversationId === right.activeConversationId &&
+		left.searchQuery === right.searchQuery &&
+		left.statusFilter === right.statusFilter &&
+		left.showOnlyHumanNeeded === right.showOnlyHumanNeeded &&
+		arraysMatch(left.openConversationIds, right.openConversationIds) &&
+		draftsMatch(left.draftsByConversationId, right.draftsByConversationId)
+	)
+}
+
 export default function ConversasPageClient({ clinicId }: ConversasPageClientProps) {
-	const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
+	const router = useRouter()
+	const pathname = usePathname()
+	const searchParams = useSearchParams()
+	const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
+	const [openConversationIds, setOpenConversationIds] = useState<string[]>([])
 	const [searchQuery, setSearchQuery] = useState('')
-	const [statusFilter, setStatusFilter] = useState<ConversationStatus | 'all'>('all')
+	const deferredSearchQuery = useDeferredValue(searchQuery)
+	const [statusFilter, setStatusFilter] = useState<ConversationStatusFilter>('all')
 	const [showOnlyHumanNeeded, setShowOnlyHumanNeeded] = useState(false)
+	const [draftsByConversationId, setDraftsByConversationId] = useState<Record<string, string>>({})
+	const [isWorkspaceHydrated, setIsWorkspaceHydrated] = useState(false)
+	const [isMobileChatOpen, setIsMobileChatOpen] = useState(false)
+	const didHydrateWorkspaceRef = useRef(false)
+	const lastSearchParamsSnapshotRef = useRef<string | null>(null)
+
+	const workspace = useMemo<ConversationWorkspace>(
+		() => ({
+			activeConversationId,
+			openConversationIds,
+			searchQuery,
+			statusFilter,
+			showOnlyHumanNeeded,
+			draftsByConversationId,
+		}),
+		[
+			activeConversationId,
+			openConversationIds,
+			searchQuery,
+			statusFilter,
+			showOnlyHumanNeeded,
+			draftsByConversationId,
+		],
+	)
 
 	const { conversations, loading: conversationsLoading, refetch: refetchConversations } = useConversations({
 		clinicId,
-		searchQuery,
 	})
 
 	const { messages, loading: messagesLoading } = useMessages({
-		conversationId: selectedConversationId,
+		conversationId: activeConversationId,
 	})
 
 	const loading = conversationsLoading || messagesLoading
 
-	// Filter and sort conversations
+	useEffect(() => {
+		if (didHydrateWorkspaceRef.current) return
+
+		const storedWorkspace = readConversationWorkspaceFromStorage(
+			window.localStorage.getItem(CONVERSATION_WORKSPACE_STORAGE_KEY),
+		)
+		const initialWorkspace = buildInitialConversationWorkspace(searchParams, storedWorkspace)
+
+		startTransition(() => {
+			setActiveConversationId(initialWorkspace.activeConversationId)
+			setOpenConversationIds(initialWorkspace.openConversationIds)
+			setSearchQuery(initialWorkspace.searchQuery)
+			setStatusFilter(initialWorkspace.statusFilter)
+			setShowOnlyHumanNeeded(initialWorkspace.showOnlyHumanNeeded)
+			setDraftsByConversationId(initialWorkspace.draftsByConversationId)
+			setIsMobileChatOpen(Boolean(initialWorkspace.activeConversationId))
+			setIsWorkspaceHydrated(true)
+		})
+		lastSearchParamsSnapshotRef.current = searchParams.toString()
+		didHydrateWorkspaceRef.current = true
+	}, [searchParams])
+
+	useEffect(() => {
+		if (!isWorkspaceHydrated) return
+
+		const currentSearchParamsSnapshot = searchParams.toString()
+		if (lastSearchParamsSnapshotRef.current === null) {
+			lastSearchParamsSnapshotRef.current = currentSearchParamsSnapshot
+			return
+		}
+
+		if (currentSearchParamsSnapshot === lastSearchParamsSnapshotRef.current) return
+
+		lastSearchParamsSnapshotRef.current = currentSearchParamsSnapshot
+
+		const nextWorkspace = buildInitialConversationWorkspace(searchParams, workspace)
+		if (workspaceMatches(workspace, nextWorkspace)) return
+
+		startTransition(() => {
+			setActiveConversationId(nextWorkspace.activeConversationId)
+			setOpenConversationIds(nextWorkspace.openConversationIds)
+			setSearchQuery(nextWorkspace.searchQuery)
+			setStatusFilter(nextWorkspace.statusFilter)
+			setShowOnlyHumanNeeded(nextWorkspace.showOnlyHumanNeeded)
+			setDraftsByConversationId(nextWorkspace.draftsByConversationId)
+			setIsMobileChatOpen(Boolean(nextWorkspace.activeConversationId))
+		})
+	}, [isWorkspaceHydrated, searchParams, workspace])
+
+	useEffect(() => {
+		if (!isWorkspaceHydrated) return
+
+		const nextSearchParams = buildConversationSearchParams(searchParams, {
+			activeConversationId,
+			searchQuery,
+			statusFilter,
+			showOnlyHumanNeeded,
+		})
+		const nextSearchParamsSnapshot = nextSearchParams.toString()
+		const currentSearchParamsSnapshot = searchParams.toString()
+
+		if (nextSearchParamsSnapshot === currentSearchParamsSnapshot) return
+
+		lastSearchParamsSnapshotRef.current = nextSearchParamsSnapshot
+		router.replace(nextSearchParamsSnapshot ? `${pathname}?${nextSearchParamsSnapshot}` : pathname, {
+			scroll: false,
+		})
+	}, [
+		activeConversationId,
+		isWorkspaceHydrated,
+		pathname,
+		router,
+		searchParams,
+		searchQuery,
+		showOnlyHumanNeeded,
+		statusFilter,
+	])
+
+	useEffect(() => {
+		if (!isWorkspaceHydrated) return
+
+		window.localStorage.setItem(CONVERSATION_WORKSPACE_STORAGE_KEY, JSON.stringify(workspace))
+	}, [isWorkspaceHydrated, workspace])
+
+	useEffect(() => {
+		if (!isWorkspaceHydrated || conversationsLoading) return
+
+		const sanitizedWorkspace = sanitizeConversationWorkspace(
+			workspace,
+			conversations.map((conversation) => conversation.id),
+		)
+
+		if (workspaceMatches(workspace, sanitizedWorkspace)) return
+
+		startTransition(() => {
+			setActiveConversationId(sanitizedWorkspace.activeConversationId)
+			setOpenConversationIds(sanitizedWorkspace.openConversationIds)
+			setDraftsByConversationId(sanitizedWorkspace.draftsByConversationId)
+
+			if (!sanitizedWorkspace.activeConversationId) {
+				setIsMobileChatOpen(false)
+			}
+		})
+	}, [conversations, conversationsLoading, isWorkspaceHydrated, workspace])
+
 	const filteredConversations = useMemo(() => {
-		let filtered = conversations
+		let filtered = [...conversations]
+
+		const normalizedSearchQuery = deferredSearchQuery.trim().toLowerCase()
+		if (normalizedSearchQuery) {
+			filtered = filtered.filter((conversation) => {
+				const patientName = conversation.patient_name?.toLowerCase() ?? ''
+				const patientPhone = conversation.patient_phone.toLowerCase()
+				return (
+					patientName.includes(normalizedSearchQuery) ||
+					patientPhone.includes(normalizedSearchQuery)
+				)
+			})
+		}
 
 		if (statusFilter !== 'all') {
-			filtered = filtered.filter(c => c.status === statusFilter)
+			filtered = filtered.filter((conversation) => conversation.status === statusFilter)
 		}
 
 		if (showOnlyHumanNeeded) {
-			filtered = filtered.filter(c => !c.bot_enabled && c.status !== 'done')
+			filtered = filtered.filter(
+				(conversation) => !conversation.bot_enabled && conversation.status !== 'done',
+			)
 		}
 
 		return filtered.sort((a, b) => {
 			const aNeedsHuman = !a.bot_enabled && a.status !== 'done'
 			const bNeedsHuman = !b.bot_enabled && b.status !== 'done'
+
 			if (aNeedsHuman && !bNeedsHuman) return -1
 			if (!aNeedsHuman && bNeedsHuman) return 1
+
 			const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0
 			const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0
 			return bTime - aTime
 		})
-	}, [conversations, statusFilter, showOnlyHumanNeeded])
+	}, [conversations, deferredSearchQuery, showOnlyHumanNeeded, statusFilter])
 
 	const humanNeededCount = useMemo(
-		() => conversations.filter(c => !c.bot_enabled && c.status !== 'done').length,
-		[conversations]
+		() => conversations.filter((conversation) => !conversation.bot_enabled && conversation.status !== 'done').length,
+		[conversations],
 	)
 
-	const selectedConversation = conversations.find(c => c.id === selectedConversationId) ?? null
+	const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) ?? null
+	const openConversations = useMemo(
+		() =>
+			openConversationIds
+				.map((conversationId) =>
+					conversations.find((conversation) => conversation.id === conversationId) ?? null,
+				)
+				.filter((conversation): conversation is NonNullable<typeof conversation> => Boolean(conversation)),
+		[conversations, openConversationIds],
+	)
+	const activeDraft = activeConversationId ? draftsByConversationId[activeConversationId] ?? '' : ''
 
-	// ---------------------------------------------------------------------------
-	// Actions
-	// ---------------------------------------------------------------------------
+	const handleActivateConversation = (conversationId: string) => {
+		setActiveConversationId(conversationId)
+		setOpenConversationIds((currentOpenConversationIds) =>
+			currentOpenConversationIds.includes(conversationId)
+				? currentOpenConversationIds
+				: [...currentOpenConversationIds, conversationId],
+		)
+		setIsMobileChatOpen(true)
+	}
+
+	const handleCloseConversationTab = (conversationId: string) => {
+		const tabIndex = openConversationIds.indexOf(conversationId)
+		if (tabIndex === -1) return
+
+		const nextOpenConversationIds = openConversationIds.filter((openId) => openId !== conversationId)
+		setOpenConversationIds(nextOpenConversationIds)
+
+		if (activeConversationId !== conversationId) return
+
+		const nextActiveConversationId =
+			nextOpenConversationIds[tabIndex - 1] ?? nextOpenConversationIds[tabIndex] ?? null
+
+		setActiveConversationId(nextActiveConversationId)
+		if (!nextActiveConversationId) {
+			setIsMobileChatOpen(false)
+		}
+	}
+
+	const handleDraftChange = (content: string) => {
+		if (!activeConversationId) return
+
+		setDraftsByConversationId((currentDrafts) => {
+			if (content.length === 0) {
+				if (!(activeConversationId in currentDrafts)) return currentDrafts
+
+				const nextDrafts = { ...currentDrafts }
+				delete nextDrafts[activeConversationId]
+				return nextDrafts
+			}
+
+			return {
+				...currentDrafts,
+				[activeConversationId]: content,
+			}
+		})
+	}
 
 	const handleSendMessage = async (content: string) => {
-		if (!selectedConversationId || !selectedConversation) return
+		if (!activeConversationId || !activeConversation) return
 
 		const response = await fetch('/api/zapi/send-text', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
-				conversationId: selectedConversationId,
-				phone: selectedConversation.patient_phone,
+				conversationId: activeConversationId,
+				phone: activeConversation.patient_phone,
 				text: content,
 			}),
 		})
@@ -80,16 +316,21 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 		if (!response.ok || !result.ok) {
 			throw new Error(result.error || 'Falha ao enviar mensagem')
 		}
-		// Supabase realtime updates the UI automatically
+
+		setDraftsByConversationId((currentDrafts) => {
+			if (!(activeConversationId in currentDrafts)) return currentDrafts
+
+			const nextDrafts = { ...currentDrafts }
+			delete nextDrafts[activeConversationId]
+			return nextDrafts
+		})
 	}
 
-	/** Atendente assume a conversa — desliga o bot e envia mensagem de boas-vindas */
 	const handleTakeOver = async (welcomeMessage?: string) => {
-		if (!selectedConversationId || !selectedConversation) return
+		if (!activeConversationId || !activeConversation) return
 
 		const supabase = createClient()
 
-		// 1. Disable bot + update status
 		await supabase
 			.from('conversations')
 			.update({
@@ -97,17 +338,16 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 				status: 'in_progress',
 				updated_at: new Date().toISOString(),
 			})
-			.eq('id', selectedConversationId)
+			.eq('id', activeConversationId)
 
-		// 2. Send welcome message if provided
 		const msg = welcomeMessage?.trim()
 		if (msg) {
 			await fetch('/api/zapi/send-text', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					conversationId: selectedConversationId,
-					phone: selectedConversation.patient_phone,
+					conversationId: activeConversationId,
+					phone: activeConversation.patient_phone,
 					text: msg,
 				}),
 			})
@@ -116,9 +356,8 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 		refetchConversations?.()
 	}
 
-	/** Devolve a conversa ao bot — religa e reseta o estado para o menu */
 	const handleReturnToBot = async () => {
-		if (!selectedConversationId) return
+		if (!activeConversationId) return
 
 		const supabase = createClient()
 		await supabase
@@ -129,39 +368,43 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 				bot_context: {},
 				updated_at: new Date().toISOString(),
 			})
-			.eq('id', selectedConversationId)
+			.eq('id', activeConversationId)
 
 		refetchConversations?.()
 	}
 
 	const handleUpdateStatus = (status: ConversationStatus) => {
-		if (!selectedConversationId) return
+		if (!activeConversationId) return
+
 		const supabase = createClient()
 		supabase
 			.from('conversations')
 			.update({ status, updated_at: new Date().toISOString() })
-			.eq('id', selectedConversationId)
-			.then((res: { error: unknown }) => { if (res.error) console.error('Error updating status:', res.error) })
+			.eq('id', activeConversationId)
+			.then((res: { error: unknown }) => {
+				if (res.error) console.error('Error updating status:', res.error)
+			})
 	}
 
 	const handleSaveNotes = async (notes: string) => {
-		if (!selectedConversationId) return
+		if (!activeConversationId) return
+
 		const supabase = createClient()
 		const { error } = await supabase
 			.from('conversations')
 			.update({ notes, updated_at: new Date().toISOString() })
-			.eq('id', selectedConversationId)
+			.eq('id', activeConversationId)
+
 		if (error) throw error
 	}
 
 	return (
-		<div className="flex h-full">
-			{/* Sidebar */}
-			<aside className="w-full md:w-[360px] border-r border-neutral-200 h-full hidden md:flex">
+		<div className="flex h-full min-h-0">
+			<aside className="hidden h-full w-full border-r border-neutral-200 md:flex md:w-[360px]">
 				<ConversationList
 					conversations={filteredConversations}
-					selectedId={selectedConversationId}
-					onSelect={setSelectedConversationId}
+					selectedId={activeConversationId}
+					onSelect={handleActivateConversation}
 					searchQuery={searchQuery}
 					onSearchChange={setSearchQuery}
 					statusFilter={statusFilter}
@@ -173,27 +416,37 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 				/>
 			</aside>
 
-			{/* Chat Panel */}
-			<main className="flex-1 h-full hidden md:flex">
-				<ChatPanel
-					conversation={selectedConversation}
-					messages={messages}
-					loading={loading}
-					onSendMessage={handleSendMessage}
-					onTakeOver={handleTakeOver}
-					onReturnToBot={handleReturnToBot}
-					onUpdateStatus={handleUpdateStatus}
-					onSaveNotes={handleSaveNotes}
-				/>
+			<main className="hidden h-full min-h-0 flex-1 md:flex">
+				<div className="flex min-h-0 flex-1 flex-col">
+					<ConversationTabs
+						conversations={openConversations}
+						activeId={activeConversationId}
+						onSelect={handleActivateConversation}
+						onClose={handleCloseConversationTab}
+					/>
+					<div className="min-h-0 flex-1">
+						<ChatPanel
+							conversation={activeConversation}
+							messages={messages}
+							loading={loading}
+							onSendMessage={handleSendMessage}
+							onTakeOver={handleTakeOver}
+							onReturnToBot={handleReturnToBot}
+							onUpdateStatus={handleUpdateStatus}
+							onSaveNotes={handleSaveNotes}
+							draftMessage={activeDraft}
+							onDraftMessageChange={handleDraftChange}
+						/>
+					</div>
+				</div>
 			</main>
 
-			{/* Mobile */}
 			<div className="flex h-full w-full md:hidden">
-				{!selectedConversationId ? (
+				{!isMobileChatOpen ? (
 					<ConversationList
 						conversations={filteredConversations}
-						selectedId={selectedConversationId}
-						onSelect={setSelectedConversationId}
+						selectedId={activeConversationId}
+						onSelect={handleActivateConversation}
 						searchQuery={searchQuery}
 						onSearchChange={setSearchQuery}
 						statusFilter={statusFilter}
@@ -205,7 +458,7 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 					/>
 				) : (
 					<ChatPanel
-						conversation={selectedConversation}
+						conversation={activeConversation}
 						messages={messages}
 						loading={loading}
 						onSendMessage={handleSendMessage}
@@ -213,7 +466,9 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 						onReturnToBot={handleReturnToBot}
 						onUpdateStatus={handleUpdateStatus}
 						onSaveNotes={handleSaveNotes}
-						onBack={() => setSelectedConversationId(null)}
+						onBack={() => setIsMobileChatOpen(false)}
+						draftMessage={activeDraft}
+						onDraftMessageChange={handleDraftChange}
 					/>
 				)}
 			</div>

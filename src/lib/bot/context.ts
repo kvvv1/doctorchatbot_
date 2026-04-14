@@ -7,6 +7,7 @@ export type BotState =
   | 'menu'
   | 'agendar_nome'
   | 'agendar_cpf'             // collecting patient CPF for GestaoDS
+  | 'consultar_cpf'           // collecting patient CPF to find appointments in GestaoDS
   | 'agendar_dia'             // legacy free-text day input (kept as fallback)
   | 'agendar_hora'            // legacy free-text time input (kept as fallback)
   | 'agendar_slot_escolha'   // patient picks from offered slots after conflict

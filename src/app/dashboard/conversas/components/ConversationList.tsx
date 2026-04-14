@@ -1,12 +1,12 @@
 'use client'
 
 import { Search, ChevronDown, UserCircle, Bot } from 'lucide-react'
-import type { Conversation, ConversationStatus } from '@/lib/types/database'
+import type { Conversation } from '@/lib/types/database'
 import StatusBadge from './StatusBadge'
 import SLAIndicator from './SLAIndicator'
 import { format, isToday, isYesterday } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { useState } from 'react'
+import type { ConversationStatusFilter } from '../workspace'
 
 interface ConversationListProps {
 	conversations: Conversation[]
@@ -14,15 +14,15 @@ interface ConversationListProps {
 	onSelect: (id: string) => void
 	searchQuery: string
 	onSearchChange: (query: string) => void
-	statusFilter: ConversationStatus | 'all'
-	onStatusFilterChange: (status: ConversationStatus | 'all') => void
+	statusFilter: ConversationStatusFilter
+	onStatusFilterChange: (status: ConversationStatusFilter) => void
 	loading: boolean
 	showOnlyHumanNeeded: boolean
 	onToggleHumanNeeded: () => void
 	humanNeededCount: number
 }
 
-const STATUS_OPTIONS: Array<{ id: ConversationStatus | 'all'; label: string }> = [
+const STATUS_OPTIONS: Array<{ id: ConversationStatusFilter; label: string }> = [
 	{ id: 'all', label: 'Todas' },
 	{ id: 'new', label: 'Novas' },
 	{ id: 'in_progress', label: 'Em atendimento' },
@@ -66,7 +66,7 @@ export default function ConversationList({
 		} catch { return '' }
 	}
 
-	const getStatusLabel = (status: ConversationStatus | 'all') =>
+	const getStatusLabel = (status: ConversationStatusFilter) =>
 		STATUS_OPTIONS.find(opt => opt.id === status)?.label || 'Todas'
 
 	return (
