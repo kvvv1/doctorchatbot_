@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { after, NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseConnectionStatusWebhook, parseWebhookPayload, shouldProcessWebhook } from '@/lib/zapi/webhookParser'
 import { handleIncomingMessage, logWebhookActivity } from '@/lib/services/inboxService'
@@ -24,7 +24,7 @@ import { getBotSettings, isWithinWorkingHours } from '@/lib/services/botSettings
 export async function POST(request: NextRequest) {
   try {
     // 1. Parse request body
-    let payload: any
+    let payload: unknown
     try {
       payload = await request.json()
     } catch (error) {
@@ -189,16 +189,23 @@ export async function POST(request: NextRequest) {
       createdConversation: result.createdConversation,
     })
 
-    // 10. Trigger bot response if enabled (non-blocking)
-    if (result.conversationId && parsed.messageText) {
-      triggerBotResponse(
-        result.conversationId,
-        parsed.phone,
-        parsed.normalizedText || parsed.messageText,
-        clinicId,
-        result.createdConversation ?? false
-      ).catch((error) => {
-        console.error('[Z-API Webhook] Bot response failed:', error)
+    // 10. Trigger bot response after the response lifecycle so Vercel keeps the task alive.
+    const conversationId = result.conversationId
+
+    if (conversationId && parsed.messageText) {
+      after(async () => {
+        console.log('[Z-API Webhook] Running deferred bot response:', {
+          conversationId,
+          phone: parsed.phone,
+        })
+
+        await triggerBotResponse(
+          conversationId,
+          parsed.phone,
+          parsed.normalizedText || parsed.messageText,
+          clinicId,
+          result.createdConversation ?? false
+        )
       })
     }
 
