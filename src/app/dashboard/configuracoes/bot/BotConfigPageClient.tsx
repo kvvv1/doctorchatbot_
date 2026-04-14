@@ -238,29 +238,48 @@ export default function BotConfigPageClient({
 							Horário de Funcionamento da Clínica
 						</h2>
 						<p className="text-sm text-slate-500 mb-4">Usado para enviar mensagem de fora do expediente. Não afeta os slots que o bot oferece.</p>
-											value={day.start}
-											onChange={(e) =>
-												updateWorkingDay(day.day, 'start', e.target.value)
-											}
-											disabled={!day.enabled}
-											className="px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
-										/>
-										<span className="text-slate-500">até</span>
-										<input
-											type="time"
-											value={day.end}
-											onChange={(e) =>
-												updateWorkingDay(day.day, 'end', e.target.value)
-											}
-											disabled={!day.enabled}
-											className="px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
-										/>
+						<div className="space-y-3">
+							{(settings.working_hours?.days ?? []).map((day) => (
+								<div key={day.day} className="flex items-center gap-4">
+									<div className="flex items-center gap-3 w-32">
+										<button
+											type="button"
+											onClick={() => updateWorkingDay(day.day, 'enabled', !day.enabled)}
+											className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+												day.enabled ? 'bg-blue-600' : 'bg-slate-300'
+											}`}
+										>
+											<span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+												day.enabled ? 'translate-x-5' : 'translate-x-1'
+											}`} />
+										</button>
+										<span className="text-sm font-medium text-slate-700 capitalize">{day.day}</span>
 									</div>
-								))}
-							</div>
+									<input
+										type="time"
+										value={day.start}
+										onChange={(e) =>
+											updateWorkingDay(day.day, 'start', e.target.value)
+										}
+										disabled={!day.enabled}
+										className="px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
+									/>
+									<span className="text-slate-500">até</span>
+									<input
+										type="time"
+										value={day.end}
+										onChange={(e) =>
+											updateWorkingDay(day.day, 'end', e.target.value)
+										}
+										disabled={!day.enabled}
+										className="px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
+									/>
+								</div>
+							))}
 						</div>
-					)}
-					{/* Bot Scheduling Hours Section */}
+					</div>
+				)}
+				{/* Bot Scheduling Hours Section */}
 					<div className="bg-white rounded-2xl shadow-sm border border-emerald-300 p-6">
 						<div className="flex items-center justify-between mb-2">
 							<h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
