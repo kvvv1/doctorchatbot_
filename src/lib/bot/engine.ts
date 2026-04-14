@@ -463,6 +463,7 @@ async function handleSlotEscolha(
       conversationId,
       patientName: ctx.patientName || 'Paciente',
       patientPhone: ctx.patientPhone || '',
+      patientCpf: ctx.patientCpf || undefined,
       slot,
       confirmTemplate: botSettings?.message_confirm_schedule,
     })
