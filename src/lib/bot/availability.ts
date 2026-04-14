@@ -334,18 +334,18 @@ export async function getAvailableDays(
   let cursor = startOfDay(fromDate)
   let found = 0
 
-  // Check GestaoDS first
-  const hasExternal = await hasGestaoDSIntegration(clinicId)
+  // Fetch GestaoDS integration once — reuse across all day iterations
+  const gestaoDSService = await getGestaoDSService(clinicId)
+  const hasExternal = !!gestaoDSService
 
   while (days.length < limit && daysChecked < maxDaysAhead) {
     if (isDayWorking(botSettings, cursor)) {
       let hasSlot: boolean
 
-      if (hasExternal) {
-        const times = await loadGestaoDSAvailableTimesForClinic(clinicId, cursor)
+      if (hasExternal && gestaoDSService) {
+        const times = await loadGestaoDSAvailableTimesWithService(clinicId, cursor, gestaoDSService)
         hasSlot = times.length > 0
       } else {
-        // Check if there's at least 1 free slot in the internal schedule
         const slots = await getSlotsForDayInternal(clinicId, cursor, botSettings, 1)
         hasSlot = slots.length > 0
       }
@@ -378,9 +378,9 @@ export async function getSlotsForDay(
 ): Promise<Slot[]> {
   const date = startOfDay(parseISO(day))
 
-  const hasExternal = await hasGestaoDSIntegration(clinicId)
-  if (hasExternal) {
-    return getSlotsForDayExternal(clinicId, date, botSettings, limit)
+  const service = await getGestaoDSService(clinicId)
+  if (service) {
+    return getSlotsForDayExternal(clinicId, date, botSettings, limit, service)
   }
 
   return getSlotsForDayInternal(clinicId, date, botSettings, limit)
@@ -443,9 +443,10 @@ async function getSlotsForDayExternal(
   date: Date,
   botSettings: BotSettings,
   limit: number,
+  service: GestaoDSService,
 ): Promise<Slot[]> {
   const settings = await getSettings(clinicId)
-  const times = await loadGestaoDSAvailableTimesForClinic(clinicId, date)
+  const times = await loadGestaoDSAvailableTimesWithService(clinicId, date, service)
   const slots: Slot[] = []
 
   for (const time of times) {
@@ -463,6 +464,72 @@ async function getSlotsForDayExternal(
   return slots
 }
 
+// ---------------------------------------------------------------------------
+// GestaoDS in-memory cache (TTL: 5 minutes)
+// Avoids hitting the 30 req/hour rate limit when listing available days
+// ---------------------------------------------------------------------------
+
+interface CacheEntry {
+  times: string[]
+  expiresAt: number
+}
+
+const gestaoDSCache = new Map<string, CacheEntry>()
+const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
+function getCacheKey(clinicId: string, date: Date): string {
+  return `${clinicId}:${format(date, 'yyyy-MM-dd')}`
+}
+
+function getCached(clinicId: string, date: Date): string[] | null {
+  const key = getCacheKey(clinicId, date)
+  const entry = gestaoDSCache.get(key)
+  if (!entry || Date.now() > entry.expiresAt) {
+    gestaoDSCache.delete(key)
+    return null
+  }
+  return entry.times
+}
+
+function setCache(clinicId: string, date: Date, times: string[]): void {
+  const key = getCacheKey(clinicId, date)
+  gestaoDSCache.set(key, { times, expiresAt: Date.now() + CACHE_TTL_MS })
+}
+
+/**
+ * Returns an initialized GestaoDSService if the clinic has a connected integration,
+ * or null if not connected. Fetches the DB row only once per call.
+ */
+async function getGestaoDSService(clinicId: string): Promise<GestaoDSService | null> {
+  const supabase = createAdminClient()
+  const { data: integration } = await supabase
+    .from('clinic_integrations')
+    .select('gestaods_api_token, gestaods_is_dev')
+    .eq('clinic_id', clinicId)
+    .eq('provider', 'gestaods')
+    .eq('is_connected', true)
+    .maybeSingle()
+
+  if (!integration?.gestaods_api_token) return null
+  return new GestaoDSService(integration.gestaods_api_token, integration.gestaods_is_dev ?? true)
+}
+
+/**
+ * Load available times using a pre-fetched service instance and cache the result.
+ */
+async function loadGestaoDSAvailableTimesWithService(
+  clinicId: string,
+  date: Date,
+  service: GestaoDSService,
+): Promise<string[]> {
+  const cached = getCached(clinicId, date)
+  if (cached !== null) return cached
+
+  const times = await loadGestaoDSAvailableTimes(service, date)
+  setCache(clinicId, date, times)
+  return times
+}
+
 async function hasGestaoDSIntegration(clinicId: string): Promise<boolean> {
   const supabase = createAdminClient()
   const { data } = await supabase
@@ -476,6 +543,10 @@ async function hasGestaoDSIntegration(clinicId: string): Promise<boolean> {
 }
 
 async function loadGestaoDSAvailableTimesForClinic(clinicId: string, date: Date): Promise<string[]> {
+  // Check cache first
+  const cached = getCached(clinicId, date)
+  if (cached !== null) return cached
+
   const supabase = createAdminClient()
   const { data: integration } = await supabase
     .from('clinic_integrations')
@@ -492,7 +563,9 @@ async function loadGestaoDSAvailableTimesForClinic(clinicId: string, date: Date)
     integration.gestaods_is_dev ?? true,
   )
 
-  return loadGestaoDSAvailableTimes(service, date)
+  const times = await loadGestaoDSAvailableTimes(service, date)
+  setCache(clinicId, date, times)
+  return times
 }
 
 function normalizeGestaoDSTimes(payload: unknown): string[] {
