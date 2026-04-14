@@ -53,9 +53,12 @@ export async function handleIncomingMessage(
 
       if (existingMessage) {
         console.log('[InboxService] Duplicate message detected, skipping:', data.zapiMessageId)
+        // Still look up the conversationId so the webhook route skips triggerBotResponse
+        // (conversationId undefined → triggerBotResponse not called).
         return {
           success: true,
           messageId: existingMessage.id,
+          conversationId: undefined,
           createdConversation: false,
         }
       }

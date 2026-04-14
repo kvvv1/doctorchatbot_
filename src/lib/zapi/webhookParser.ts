@@ -98,11 +98,27 @@ export function parseWebhookPayload(payload: any): ParsedWebhookMessage {
   // Extract sender name
   const name = extractSenderName(payload)
 
-  // Extract message ID
-  const messageId = payload.messageId || null
-
-  // Extract timestamp
+  // Extract timestamp first (needed for synthetic message ID below)
   const timestamp = extractTimestamp(payload)
+
+  // Extract message ID
+  // For interactive replies (button/list clicks) Z-API often omits messageId.
+  // Generate a synthetic dedup key so duplicate webhook deliveries are ignored.
+  let messageId: string | null = getString(payload.messageId) || null
+  if (!messageId) {
+    const interactiveId =
+      getString(payload.selectedButtonId) ||
+      getString(payload.selectedRowId) ||
+      getString(payload.buttonsResponseMessage?.selectedButtonId) ||
+      getString(payload.listResponseMessage?.selectedRowId) ||
+      getString(payload.buttonReply?.id) ||
+      getString(payload.listReply?.id)
+    if (interactiveId && phone) {
+      // Round to 10-second buckets so late duplicate deliveries still match.
+      const bucket = Math.floor(timestamp.getTime() / 10000)
+      messageId = `interactive_${phone}_${interactiveId}_${bucket}`
+    }
+  }
 
   return {
     instanceId,
