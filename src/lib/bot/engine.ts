@@ -7,6 +7,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getInternalAppBaseUrl } from '@/lib/appUrl'
 import { detectIntent, detectYesNo } from './intent'
 import { templates } from './templates'
 import {
@@ -684,7 +685,7 @@ export async function sendBotResponse(
 ): Promise<boolean> {
   const supabase = createAdminClient()
   const interactive = extractInteractiveChoices(response.message)
-  const zapiUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/zapi/send-text`
+  const zapiUrl = `${getInternalAppBaseUrl()}/api/zapi/send-text`
   const zapiHeaders = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
