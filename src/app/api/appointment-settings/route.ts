@@ -47,22 +47,45 @@ export async function PATCH(request: NextRequest) {
     }
 
     const supabase = createAdminClient()
+    const clinicId = session.clinic.id
+    const now = new Date().toISOString()
 
-    const { error } = await supabase
+    // Check if a row already exists
+    const { data: existing, error: selectError } = await supabase
       .from('appointment_settings')
-      .upsert(
-        {
-          clinic_id: session.clinic.id,
-          default_duration_minutes: parsed,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'clinic_id' },
-      )
+      .select('id')
+      .eq('clinic_id', clinicId)
+      .maybeSingle()
 
-    if (error) {
-      console.error('[AppointmentSettings PATCH]', error)
+    if (selectError) {
+      console.error('[AppointmentSettings PATCH] select error:', JSON.stringify(selectError))
       return NextResponse.json(
-        { error: 'Falha ao salvar duração da consulta' },
+        { error: `Erro ao verificar configurações: ${selectError.message}` },
+        { status: 500 },
+      )
+    }
+
+    let saveError: { message: string; code?: string } | null = null
+
+    if (existing) {
+      // UPDATE existing row
+      const { error } = await supabase
+        .from('appointment_settings')
+        .update({ default_duration_minutes: parsed, updated_at: now })
+        .eq('clinic_id', clinicId)
+      saveError = error
+    } else {
+      // INSERT new row
+      const { error } = await supabase
+        .from('appointment_settings')
+        .insert({ clinic_id: clinicId, default_duration_minutes: parsed, created_at: now, updated_at: now })
+      saveError = error
+    }
+
+    if (saveError) {
+      console.error('[AppointmentSettings PATCH] save error:', JSON.stringify(saveError))
+      return NextResponse.json(
+        { error: `Falha ao salvar: ${saveError.message}` },
         { status: 500 },
       )
     }
