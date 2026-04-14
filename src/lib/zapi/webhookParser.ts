@@ -39,7 +39,7 @@ export interface ZapiWebhookPayload {
     message?: string
   }
   body?: string // alternative format
-  message?: string // another alternative
+  message?: any // another alternative (string or nested object, depending on Z-API webhook shape)
   [key: string]: any
 }
 
@@ -111,6 +111,11 @@ export function parseWebhookPayload(payload: any): ParsedWebhookMessage {
       getString(payload.selectedRowId) ||
       getString(payload.buttonsResponseMessage?.selectedButtonId) ||
       getString(payload.listResponseMessage?.selectedRowId) ||
+      getString(payload.listResponseMessage?.singleSelectReply?.selectedRowId) ||
+      getString(payload.message?.buttonsResponseMessage?.selectedButtonId) ||
+      getString(payload.message?.listResponseMessage?.singleSelectReply?.selectedRowId) ||
+      getString(payload.data?.buttonsResponseMessage?.selectedButtonId) ||
+      getString(payload.data?.listResponseMessage?.singleSelectReply?.selectedRowId) ||
       getString(payload.buttonReply?.id) ||
       getString(payload.listReply?.id)
     if (interactiveId && phone) {
@@ -226,6 +231,12 @@ function extractInteractiveReply(payload: ZapiWebhookPayload): {
     getString(payload.listResponse?.selectedRowId) ||
     getString(payload.listResponseMessage?.selectedRowId) ||
     getString(payload.listResponseMessage?.singleSelectReply?.selectedRowId) ||
+    getString(payload.message?.buttonsResponseMessage?.selectedButtonId) ||
+    getString(payload.message?.listResponseMessage?.selectedRowId) ||
+    getString(payload.message?.listResponseMessage?.singleSelectReply?.selectedRowId) ||
+    getString(payload.data?.buttonsResponseMessage?.selectedButtonId) ||
+    getString(payload.data?.listResponseMessage?.selectedRowId) ||
+    getString(payload.data?.listResponseMessage?.singleSelectReply?.selectedRowId) ||
     getString(payload.buttonsResponseMessage?.selectedButtonId) ||
     getString(payload.buttonReply?.id) ||
     getString(payload.listReply?.id) ||
@@ -248,9 +259,19 @@ function extractInteractiveReply(payload: ZapiWebhookPayload): {
     getString(payload.selectedButton?.title) ||
     getString(payload.selectedRow?.title) ||
     getString(payload.selectedRow?.description) ||
+    getString(payload.listResponseMessage?.singleSelectReply?.selectedRowTitle) ||
+    getString(payload.listResponseMessage?.singleSelectReply?.selectedRowDescription) ||
     getString(payload.listResponse?.title) ||
     getString(payload.listResponse?.description) ||
     getString(payload.listResponseMessage?.title) ||
+    getString(payload.message?.buttonsResponseMessage?.selectedDisplayText) ||
+    getString(payload.message?.listResponseMessage?.singleSelectReply?.selectedRowTitle) ||
+    getString(payload.message?.listResponseMessage?.singleSelectReply?.selectedRowDescription) ||
+    getString(payload.message?.listResponseMessage?.title) ||
+    getString(payload.data?.buttonsResponseMessage?.selectedDisplayText) ||
+    getString(payload.data?.listResponseMessage?.singleSelectReply?.selectedRowTitle) ||
+    getString(payload.data?.listResponseMessage?.singleSelectReply?.selectedRowDescription) ||
+    getString(payload.data?.listResponseMessage?.title) ||
     getString(payload.buttonsResponseMessage?.selectedDisplayText) ||
     getString(payload.data?.selectedDisplayText) ||
     getString(payload.data?.selectedText) ||
@@ -260,7 +281,11 @@ function extractInteractiveReply(payload: ZapiWebhookPayload): {
   const candidateFallbackText =
     getString(payload.text?.message) ||
     getString(payload.body) ||
-    getString(payload.message)
+    getString(payload.message) ||
+    getString(payload.message?.conversation) ||
+    getString(payload.message?.text?.message) ||
+    getString(payload.data?.text?.message) ||
+    getString(payload.data?.body)
 
   if (!candidateId && !candidateLabelText && !candidateFallbackText) {
     return null

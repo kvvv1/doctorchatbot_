@@ -69,4 +69,24 @@ describe('parseWebhookPayload', () => {
     expect(parsed.messageText).toBe('Oi, tudo bem?')
     expect(parsed.normalizedText).toBe('Oi, tudo bem?')
   })
+
+  it('parses nested listResponseMessage payloads and uses selected row title', () => {
+    const parsed = parseWebhookPayload({
+      instanceId: 'instance-1',
+      phone: '5531995531183',
+      message: {
+        listResponseMessage: {
+          title: 'Horarios disponiveis para Quinta-feira, 30/04:',
+          singleSelectReply: {
+            selectedRowId: 'option_1',
+            selectedRowTitle: '14h20',
+          },
+        },
+      },
+    })
+
+    expect(parsed.messageText).toBe('14h20')
+    expect(parsed.normalizedText).toBe('14h20')
+    expect(parsed.messageId).toContain('interactive_5531995531183_option_1_')
+  })
 })
