@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { BotSettings, WorkingHoursDay, PlanKey } from '@/lib/types/database'
 import { Save, Clock, MessageSquare } from 'lucide-react'
 import UpgradePrompt from '../../components/UpgradePrompt'
+import BotMenuOptionsEditor from './BotMenuOptionsEditor'
 
 interface BotConfigPageClientProps {
 	clinicId: string
@@ -45,10 +46,11 @@ export default function BotConfigPageClient({
 						bot_default_enabled: settings.bot_default_enabled,
 						working_hours_enabled: settings.working_hours_enabled,
 						working_hours: settings.working_hours,
-					bot_respond_anytime: settings.bot_respond_anytime,
-					bot_scheduling_hours_enabled: settings.bot_scheduling_hours_enabled,
-					bot_scheduling_hours: settings.bot_scheduling_hours,
+						bot_respond_anytime: settings.bot_respond_anytime,
+						bot_scheduling_hours_enabled: settings.bot_scheduling_hours_enabled,
+						bot_scheduling_hours: settings.bot_scheduling_hours,
 						message_confirm_cancel: settings.message_confirm_cancel,
+						menu_options: settings.menu_options,
 					},
 				}),
 			})
@@ -353,6 +355,10 @@ export default function BotConfigPageClient({
 							</div>
 						)}
 					</div>
+
+					{/* Menu Options Section */}
+					<BotMenuOptionsEditor settings={settings} onChange={setSettings} />
+
 					{/* Messages Section */}
 					<div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
 						<h2 className="text-xl font-semibold text-slate-800 mb-4 flex items-center gap-2">

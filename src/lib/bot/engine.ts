@@ -86,11 +86,14 @@ export async function handleBotTurn(
       .toLowerCase()
       .trim()
 
+    const menuChoiceIndex = getMenuChoiceIndex(state, ctx)
+
     // "Voltar ao menu" button or typed menu/voltar
     const isBackToMenu = /^(menu|inicio|ajuda|help|sair|cancelar tudo)$/.test(escapedMsg)
       || /\bvoltar\b/.test(escapedMsg)
       || /\bvoltar ao menu\b/.test(escapedMsg)
-      || /option[_-]?2|button[_-]?2/.test(escapedMsg)
+      || /\bmenu principal\b/.test(escapedMsg)
+      || (menuChoiceIndex !== null && matchesChoiceSelection(escapedMsg, menuChoiceIndex))
 
     // "Sim, falar com atendente" button — only outside menu/agendar_nome states
     // where "1" or "sim" would be ambiguous
@@ -219,7 +222,7 @@ async function handleMenu(
   if (isGreetingMessage(msg)) {
     return {
       preambleMessage: botSettings?.message_welcome || undefined,
-      message: botSettings?.message_menu || templates.menu,
+      message: buildMenuMessage(botSettings),
       nextState: 'menu',
       nextContext: ctx,
     }
@@ -320,7 +323,7 @@ async function handleMenu(
 
     default:
       return {
-        message: botSettings?.message_fallback || templates.notUnderstood,
+        message: buildMenuMessage(botSettings),
         nextState: 'menu',
         nextContext: ctx,
       }
@@ -838,10 +841,41 @@ function handleSemHorario(msg: string, ctx: BotContext, botSettings?: BotSetting
 
   // Unknown input — go to menu (never loop back to scheduleNoSlots)
   return {
-    message: botSettings?.message_menu || templates.menu,
+    message: buildMenuMessage(botSettings),
     nextState: 'menu',
     nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
   }
+}
+
+// ---------------------------------------------------------------------------
+// Helper: Build dynamic menu message
+// ---------------------------------------------------------------------------
+
+function buildMenuMessage(botSettings?: BotSettings | null): string {
+  // If custom message_menu is explicitly set, use it
+  if (botSettings?.message_menu && botSettings.message_menu !== templates.menu) {
+    return botSettings.message_menu
+  }
+
+  // Get menu options (default: all enabled)
+  const menuOptions = botSettings?.menu_options || {
+    schedule: true,
+    view_appointments: true,
+    reschedule: true,
+    cancel: true,
+    attendant: true,
+  }
+
+  const preamble = 'Como posso te ajudar? 😊'
+  const options: string[] = []
+
+  if (menuOptions.schedule) options.push('1️⃣ Agendar consulta')
+  if (menuOptions.view_appointments) options.push('2️⃣ Ver meus agendamentos')
+  if (menuOptions.reschedule) options.push('3️⃣ Remarcar consulta')
+  if (menuOptions.cancel) options.push('4️⃣ Cancelar consulta')
+  if (menuOptions.attendant) options.push('5️⃣ Falar com atendente')
+
+  return `${preamble}\n${options.join('\n')}`
 }
 
 // ---------------------------------------------------------------------------
@@ -1057,6 +1091,7 @@ async function showDayList(params: {
     nextContext: {
       ...params.ctx,
       availableDays: page,
+      dayListHasMore: hasMore,
       dayListOffset: params.offset,
     },
   }
@@ -1392,6 +1427,48 @@ function extractChoiceCandidates(message: string): string[] {
   }
 
   return [...new Set(candidates)]
+}
+
+function matchesChoiceSelection(message: string, choiceNumber: number): boolean {
+  if (choiceNumber <= 0) return false
+
+  const normalized = normalizeChoiceText(message)
+  if (!normalized) return false
+
+  if (normalized === String(choiceNumber)) return true
+
+  return new RegExp(`^(?:option|button)[_-]?${choiceNumber}$`).test(normalized)
+}
+
+function getMenuChoiceIndex(state: BotState, ctx: BotContext): number | null {
+  switch (state) {
+    case 'sem_horario':
+    case 'ver_agendamentos':
+    case 'agendar_confirmar':
+    case 'cancelar_confirmar':
+    case 'cancelar_encaixe':
+    case 'confirmar_presenca':
+      return state === 'sem_horario' ? 2 : 3
+
+    case 'agendar_slot_escolha':
+    case 'reagendar_slot_escolha':
+      return (ctx.availableSlots?.length ?? 0) + 1
+
+    case 'agendar_dia_lista':
+    case 'reagendar_dia_lista':
+      return (ctx.availableDays?.length ?? 0) + (ctx.dayListHasMore ? 1 : 0) + 1
+
+    case 'agendar_hora_lista':
+    case 'reagendar_hora_lista':
+      return (ctx.availableSlots?.length ?? 0) + 2
+
+    case 'cancelar_qual':
+    case 'reagendar_qual':
+      return (ctx.appointments?.length ?? 0) + 1
+
+    default:
+      return null
+  }
 }
 
 function baseIdentityContext(ctx: BotContext): BotContext {

@@ -161,6 +161,14 @@ export interface BotSettings {
 	message_confirm_schedule: string
 	message_confirm_reschedule: string
 	message_confirm_cancel: string
+	// --- Menu options ---
+	menu_options?: {
+		schedule: boolean
+		view_appointments: boolean
+		reschedule: boolean
+		cancel: boolean
+		attendant: boolean
+	}
 	created_at: string
 	updated_at: string
 }
