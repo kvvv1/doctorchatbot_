@@ -69,9 +69,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
   const [createModalDate, setCreateModalDate] = useState(new Date())
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [todayListCollapsed, setTodayListCollapsed] = useState(false)
-  const [navRange, setNavRange] = useState<number>(1)
   const [showRangePicker, setShowRangePicker] = useState(false)
-  const [customDaysInput, setCustomDaysInput] = useState('')
   const rangePickerRef = useRef<HTMLDivElement>(null)
   // Mini calendar state
   const [calPickerDate, setCalPickerDate] = useState(new Date())
@@ -363,7 +361,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
         {/* Date Navigator */}
         <div className="flex items-center gap-1" ref={rangePickerRef}>
           <button
-            onClick={() => setDate((d) => subDays(d, navRange))}
+            onClick={() => setDate((d) => subDays(d, 1))}
             className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
             title="Dia anterior"
           >
@@ -374,15 +372,9 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
             <button
               onClick={() => setShowRangePicker((v) => !v)}
               className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors min-w-[160px] text-center"
-              title="Clique para configurar o intervalo"
+              title="Clique para selecionar data"
             >
-              {navRange === 1
-                ? format(date, "dd 'de' MMMM, yyyy", { locale: ptBR })
-                : `${format(date, 'dd/MM', { locale: ptBR })} – ${format(addDays(date, navRange - 1), 'dd/MM', { locale: ptBR })}`
-              }
-              <span className="ml-1.5 text-xs text-neutral-400">
-                {navRange > 1 ? `(${navRange}d)` : ''}
-              </span>
+              {format(date, "dd 'de' MMMM, yyyy", { locale: ptBR })}
             </button>
 
             {showRangePicker && (
@@ -514,53 +506,12 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
                     )
                   })()}
                 </div>
-
-                {/* ── Range picker ── */}
-                <div className="border-t border-neutral-100 pt-2">
-                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Intervalo de dias</p>
-                  <div className="flex flex-col gap-1">
-                    {[1, 3, 5, 7].map((n) => (
-                      <button
-                        key={n}
-                        onClick={() => { setNavRange(n); setShowRangePicker(false) }}
-                        className={`rounded-lg px-3 py-1.5 text-sm text-left transition-colors ${
-                          navRange === n ? 'bg-sky-600 text-white font-medium' : 'text-neutral-700 hover:bg-neutral-100'
-                        }`}
-                      >
-                        {n === 1 ? '1 dia (padrão)' : `${n} dias`}
-                      </button>
-                    ))}
-                    <div className="mt-1 border-t border-neutral-100 pt-2">
-                      <p className="text-xs text-neutral-400 mb-1">Personalizado</p>
-                      <div className="flex gap-2">
-                        <input
-                          type="number"
-                          min={1}
-                          max={60}
-                          value={customDaysInput}
-                          onChange={(e) => setCustomDaysInput(e.target.value)}
-                          placeholder="Ex: 10"
-                          className="w-full rounded-lg border border-neutral-200 px-2 py-1 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                        />
-                        <button
-                          onClick={() => {
-                            const n = parseInt(customDaysInput, 10)
-                            if (n > 0) { setNavRange(n); setShowRangePicker(false); setCustomDaysInput('') }
-                          }}
-                          className="rounded-lg bg-sky-600 px-3 py-1 text-sm text-white hover:bg-sky-700 transition-colors"
-                        >
-                          OK
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
           </div>
 
           <button
-            onClick={() => setDate((d) => addDays(d, navRange))}
+            onClick={() => setDate((d) => addDays(d, 1))}
             className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
             title="Próximo dia"
           >
