@@ -19,6 +19,7 @@ import {
   cancelAppointment,
   rescheduleAppointment,
   addToWaitlist,
+  normalizeCpf,
 } from './actions'
 import { checkSlotAvailable, getAvailableDays, getAvailableSlots, getSlotsForDay } from './availability'
 import { setHours, setMinutes, addMinutes } from 'date-fns'
@@ -37,6 +38,8 @@ export type BotResponse = {
   nextContext: BotContext
   conversationStatus?: string
   transferToHuman?: boolean
+  /** CPF to save directly to conversation.cpf column */
+  patientCpf?: string
   /** Optional message sent as a plain-text bubble BEFORE the interactive list */
   preambleMessage?: string
 }
@@ -120,6 +123,9 @@ export async function handleBotTurn(
 
     case 'agendar_nome':
       return handleAgendarNome(userMessage, ctx, botSettings, clinicId)
+
+    case 'agendar_cpf':
+      return handleAgendarCpf(userMessage, ctx, botSettings, clinicId)
 
     case 'agendar_dia':
       return handleAgendarDia(userMessage, ctx)
@@ -322,13 +328,41 @@ async function handleAgendarNome(
   clinicId?: string,
 ): Promise<BotResponse> {
   const name = msg.trim()
-  return showDayList({
+  return {
+    message: templates.scheduleAskCpf(name),
+    nextState: 'agendar_cpf',
+    nextContext: { ...ctx, patientName: name },
+  }
+}
+
+async function handleAgendarCpf(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const cpf = normalizeCpf(msg.trim())
+  
+  if (!cpf) {
+    return {
+      message: '❌ CPF inválido. Por favor, informe um CPF válido (ex: 123.456.789-00):',
+      nextState: 'agendar_cpf',
+      nextContext: ctx,
+    }
+  }
+
+  const dayListResponse = await showDayList({
     clinicId,
     botSettings,
-    ctx: { ...ctx, patientName: name },
+    ctx: { ...ctx, patientCpf: cpf },
     flow: 'agendar',
     offset: 0,
   })
+
+  return {
+    ...dayListResponse,
+    patientCpf: cpf,
+  }
 }
 
 function handleAgendarDia(msg: string, ctx: BotContext): BotResponse {
@@ -822,6 +856,7 @@ export async function sendBotResponse(
 
     if (response.conversationStatus) update.status = response.conversationStatus
     if (response.transferToHuman) update.bot_enabled = false
+    if (response.patientCpf) update.cpf = response.patientCpf
 
     const { error: convError } = await supabase
       .from('conversations')
@@ -1022,6 +1057,7 @@ async function handleAgendarHoraLista(
     conversationId,
     patientName: ctx.patientName || 'Paciente',
     patientPhone: ctx.patientPhone || '',
+    patientCpf: ctx.patientCpf || undefined,
     slot,
     confirmTemplate: botSettings?.message_confirm_schedule,
   })

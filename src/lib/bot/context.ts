@@ -6,6 +6,7 @@
 export type BotState =
   | 'menu'
   | 'agendar_nome'
+  | 'agendar_cpf'             // collecting patient CPF for GestaoDS
   | 'agendar_dia'             // legacy free-text day input (kept as fallback)
   | 'agendar_hora'            // legacy free-text time input (kept as fallback)
   | 'agendar_slot_escolha'   // patient picks from offered slots after conflict
@@ -60,6 +61,7 @@ export type BotContext = {
   // Patient identity
   patientPhone?: string
   patientName?: string
+  patientCpf?: string           // CPF for GestaoDS scheduling
 
   // Scheduling flow — raw text from patient before parsing (legacy)
   requestedDay?: string

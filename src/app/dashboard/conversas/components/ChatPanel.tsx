@@ -38,6 +38,7 @@ const STATUS_ACTIONS: Array<{ status: ConversationStatus; label: string }> = [
 const BOT_STATE_LABELS: Record<BotState, string> = {
 	menu: 'Menu principal',
 	agendar_nome: 'Coletando nome',
+	agendar_cpf: 'Coletando CPF',
 	agendar_dia: 'Coletando data',
 	agendar_hora: 'Coletando horário',
 	agendar_slot_escolha: 'Escolhendo horário',

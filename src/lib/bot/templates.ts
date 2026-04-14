@@ -33,6 +33,11 @@ Como posso te ajudar hoje?
 
 Por favor, me informe seu *nome completo*:`,
 
+  scheduleAskCpf: (name: string) => `Obrigado, *${name}*! 👍
+
+Agora preciso do seu *CPF* para confirmar o agendamento:
+(ex: 123.456.789-00)`,
+
   scheduleChooseSlot: (slots: Slot[]) => {
     const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')
     return `Encontrei estes horários disponíveis para você:\n\n${lines}\n\nEscolha uma opção abaixo.`

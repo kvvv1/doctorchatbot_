@@ -255,6 +255,7 @@ export async function createAppointmentFromSlot(params: {
   conversationId: string
   patientName: string
   patientPhone: string
+  patientCpf?: string
   slot: Slot
   confirmTemplate?: string
 }): Promise<ActionResult> {
@@ -265,6 +266,7 @@ export async function createAppointmentFromSlot(params: {
     clinicId: params.clinicId,
     patientName: params.patientName,
     patientPhone: params.patientPhone,
+    cpf: params.patientCpf,
     startsAt: new Date(params.slot.startsAt),
     endsAt: new Date(params.slot.endsAt),
     description: 'Agendamento via WhatsApp',
@@ -480,6 +482,8 @@ function normalizeCpf(cpf: string | null | undefined): string | null {
   const digits = cpf.replace(/\D/g, '')
   return digits.length === 11 ? digits : null
 }
+
+export { normalizeCpf }
 
 function normalizeString(value: unknown): string | null {
   if (typeof value !== 'string' && typeof value !== 'number') {
