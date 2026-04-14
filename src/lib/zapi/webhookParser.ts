@@ -238,6 +238,7 @@ function extractInteractiveReply(payload: ZapiWebhookPayload): {
     getString(payload.data?.listResponseMessage?.selectedRowId) ||
     getString(payload.data?.listResponseMessage?.singleSelectReply?.selectedRowId) ||
     getString(payload.buttonsResponseMessage?.selectedButtonId) ||
+    getString(payload.buttonsResponseMessage?.buttonId) ||
     getString(payload.buttonReply?.id) ||
     getString(payload.listReply?.id) ||
     getString(payload.selectedButton?.id) ||
@@ -248,6 +249,7 @@ function extractInteractiveReply(payload: ZapiWebhookPayload): {
     getString(payload.data?.buttonId)
 
   const candidateLabelText =
+    getString(payload.buttonsResponseMessage?.message) ||
     getString(payload.selectedDisplayText) ||
     getString(payload.selectedText) ||
     getString(payload.selectedTitle) ||

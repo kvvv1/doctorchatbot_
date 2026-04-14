@@ -89,4 +89,23 @@ describe('parseWebhookPayload', () => {
     expect(parsed.normalizedText).toBe('14h20')
     expect(parsed.messageId).toContain('interactive_5531995531183_option_1_')
   })
+
+  it('parses buttonsResponseMessage with buttonId and message fields (real Z-API format)', () => {
+    const parsed = parseWebhookPayload({
+      instanceId: '3E4F7360B552F0C2DBCB9E6774402775',
+      messageId: '3EB0376AE8089A9D60B983',
+      phone: '553195531183',
+      fromMe: false,
+      senderName: 'Kaike',
+      momment: 1776188045000,
+      buttonsResponseMessage: {
+        buttonId: '2',
+        message: '14h20',
+      },
+    })
+
+    expect(parsed.messageText).toBe('14h20')
+    expect(parsed.normalizedText).toBe('14h20')
+    expect(parsed.messageId).toBe('3EB0376AE8089A9D60B983')
+  })
 })
