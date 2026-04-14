@@ -7,6 +7,7 @@ import UpgradePrompt from '../../components/UpgradePrompt'
 import FeatureGate from '../../components/FeatureGate'
 import BotConfigPageClient from './BotConfigPageClient'
 import { Metadata } from 'next'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export const metadata: Metadata = {
 	title: 'Configurações do Bot',
@@ -65,12 +66,24 @@ export default async function BotConfigPage() {
 		PlanFeature.BOT_CUSTOM_FLOWS
 	)
 
+	// Check if GestaoDS is connected
+	const supabase = createAdminClient()
+	const { data: gestaoDSIntegration } = await supabase
+		.from('clinic_integrations')
+		.select('id')
+		.eq('clinic_id', clinic.id)
+		.eq('provider', 'gestaods')
+		.eq('is_connected', true)
+		.maybeSingle()
+	const hasGestaoDS = !!gestaoDSIntegration
+
 	return (
 		<BotConfigPageClient 
 			clinicId={clinic.id} 
 			initialSettings={botSettings}
 			planKey={subscription.planKey}
 			hasCustomFlows={hasCustomFlows}
+			hasGestaoDS={hasGestaoDS}
 		/>
 	)
 }

@@ -10,6 +10,7 @@ interface BotConfigPageClientProps {
 	initialSettings: BotSettings
 	planKey: PlanKey | null
 	hasCustomFlows: boolean
+	hasGestaoDS?: boolean
 }
 
 export default function BotConfigPageClient({
@@ -17,6 +18,7 @@ export default function BotConfigPageClient({
 	initialSettings,
 	planKey,
 	hasCustomFlows,
+	hasGestaoDS = false,
 }: BotConfigPageClientProps) {
 	const [settings, setSettings] = useState<BotSettings>(initialSettings)
 	const [isSaving, setIsSaving] = useState(false)
@@ -298,6 +300,15 @@ export default function BotConfigPageClient({
 								}`} />
 							</button>
 						</div>
+						{hasGestaoDS && (
+							<div className="mb-4 flex items-start gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3">
+								<span className="text-emerald-600 mt-0.5">✅</span>
+								<p className="text-sm text-emerald-800">
+									<strong>GestaoDS conectado</strong> — os horários disponíveis vêm diretamente da agenda do GestaoDS.
+									A configuração abaixo só é usada se o GestaoDS não retornar horários.
+								</p>
+							</div>
+						)}
 						<p className="text-sm text-slate-500 mb-4">
 							{settings.bot_scheduling_hours_enabled
 								? 'Usando horários específicos do bot para oferecer slots.'
