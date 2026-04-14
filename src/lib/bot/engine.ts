@@ -85,11 +85,13 @@ export async function handleBotTurn(
     const isBackToMenu = /^(menu|inicio|ajuda|help|sair|cancelar tudo)$/.test(escapedMsg)
       || /\bvoltar\b/.test(escapedMsg)
       || /\bvoltar ao menu\b/.test(escapedMsg)
+      || /option[_-]?2|button[_-]?2/.test(escapedMsg)
 
     // "Sim, falar com atendente" button — only outside menu/agendar_nome states
     // where "1" or "sim" would be ambiguous
     const isAttendantRequest = state !== 'menu' && (
       /sim.*falar.*atendente|falar.*atendente|quero.*atendente/i.test(escapedMsg) ||
+      /option[_-]?1|button[_-]?1/.test(escapedMsg) ||
       (state === 'sem_horario' && (escapedMsg === '1' || /^sim$/.test(escapedMsg)))
     )
 
@@ -698,15 +700,19 @@ function handleConfirmarPresenca(msg: string, ctx: BotContext): BotResponse {
 }
 
 function handleSemHorario(msg: string, ctx: BotContext, botSettings?: BotSettings | null): BotResponse {
-  const normalized = msg.trim().toLowerCase()
+  const normalized = msg
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
 
   const wantsAttendant =
     normalized === '1' ||
-    /sim|atendente|falar|humano|pessoa/i.test(normalized)
+    /(?:^|\D)1(?:\D|$)|option[_-]?1|button[_-]?1|sim|atendente|falar|humano|pessoa/i.test(normalized)
 
   const wantsMenu =
     normalized === '2' ||
-    /n[aã]o|voltar|menu|início|inicio/i.test(normalized)
+    /(?:^|\D)2(?:\D|$)|option[_-]?2|button[_-]?2|nao|voltar|menu|inicio/i.test(normalized)
 
   if (wantsAttendant) {
     return {

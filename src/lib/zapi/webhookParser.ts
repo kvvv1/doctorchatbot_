@@ -267,13 +267,23 @@ function extractInteractiveReply(payload: ZapiWebhookPayload): {
   }
 
   const messageText = dedupeRepeatedLines(candidateLabelText || candidateFallbackText || candidateId || '[Mensagem sem texto]')
-  const normalizedText = dedupeRepeatedLines(
-    candidateId
-      ? (/^\d+$/.test(candidateId)
-          ? (candidateLabelText || candidateId)
-          : candidateId)
-      : messageText
-  )
+
+  // Prefer human-readable label/title when available.
+  // Some Z-API interactive payloads return technical IDs (e.g. "option_1")
+  // that do not map to bot intents; labels keep button flows stable.
+  let normalizedText = messageText
+
+  if (candidateLabelText) {
+    normalizedText = dedupeRepeatedLines(candidateLabelText)
+  } else if (candidateId) {
+    const idText = candidateId.trim()
+    // Keep pure numeric IDs as-is ("1", "2") for menu-style choices.
+    if (/^\d+$/.test(idText)) {
+      normalizedText = idText
+    } else {
+      normalizedText = idText
+    }
+  }
 
   return {
     messageText,

@@ -18,7 +18,7 @@ describe('parseWebhookPayload', () => {
     expect(parsed.normalizedText).toBe('Ver agendamentos')
   })
 
-  it('prefers semantic interactive ids for bot processing when available', () => {
+  it('prefers interactive label text over semantic ids for bot processing', () => {
     const parsed = parseWebhookPayload({
       instanceId: 'instance-1',
       phone: '5511999999999',
@@ -29,7 +29,7 @@ describe('parseWebhookPayload', () => {
     })
 
     expect(parsed.messageText).toBe('Ver agendamentos')
-    expect(parsed.normalizedText).toBe('view_appointments')
+    expect(parsed.normalizedText).toBe('Ver agendamentos')
   })
 
   it('preserves numeric interactive ids when Z-API only sends the prompt body back', () => {
@@ -43,6 +43,19 @@ describe('parseWebhookPayload', () => {
 
     expect(parsed.messageText).toBe('Não encontrei horários disponíveis nos próximos dias.\nDeseja falar com nossa equipe?')
     expect(parsed.normalizedText).toBe('2')
+  })
+
+  it('uses the selected label when button id is technical', () => {
+    const parsed = parseWebhookPayload({
+      instanceId: 'instance-1',
+      phone: '5511999999999',
+      messageId: 'msg-5',
+      selectedButtonId: 'option_1',
+      selectedDisplayText: 'Sim, falar com atendente',
+    })
+
+    expect(parsed.messageText).toBe('Sim, falar com atendente')
+    expect(parsed.normalizedText).toBe('Sim, falar com atendente')
   })
 
   it('keeps plain text messages unchanged', () => {
