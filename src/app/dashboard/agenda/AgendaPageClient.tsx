@@ -522,7 +522,6 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
           <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1">
             {([
               { key: 'all' as const, label: 'Todos' },
-              { key: 'bot' as const, label: '🤖 Bot' },
               { key: 'manual' as const, label: 'Manual' },
               ...(activeProvider === 'gestaods'
                 ? [{ key: 'gestaods' as const, label: 'GestaoDS' }]
@@ -540,6 +539,15 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
                 {option.label}
               </button>
             ))}
+            <button
+              onClick={() => setSourceFilter('bot')}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors flex items-center gap-1 ${
+                sourceFilter === 'bot' ? 'bg-sky-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'
+              }`}
+            >
+              <img src="/brand.png" alt="Bot" className="h-3 w-3 object-contain" />
+              Bot
+            </button>
           </div>
           <div className="hidden sm:block text-sm text-neutral-500">
             {appointments.length} agendamento{appointments.length !== 1 ? 's' : ''}
