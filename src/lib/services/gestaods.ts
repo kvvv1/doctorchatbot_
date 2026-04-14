@@ -136,10 +136,19 @@ export class GestaoDSService {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}))
-                return { success: false, error: errorData.detail || response.statusText }
+                        console.error('[GestaoDS] bookAppointment failed:', {
+                            status: response.status,
+                            statusText: response.statusText,
+                            error: errorData,
+                        })
+                        return { success: false, error: errorData.detail || response.statusText }
             }
 
             const data = await response.json()
+            console.log('[GestaoDS] bookAppointment success:', {
+                responseShape: data ? Object.keys(data) : null,
+                data: data,
+            })
             return { success: true, data }
         } catch (error) {
             console.error('GestaoDS registerPatient error:', error)
@@ -237,6 +246,13 @@ export class GestaoDSService {
                 ...params,
                 token: this.apiToken
             }
+            console.log('[GestaoDS] bookAppointment request:', {
+                endpoint: 'agendamento/agendar/',
+                cpf: body.cpf ? body.cpf.substring(0, 5) + '***' : undefined,
+                data_agendamento: body.data_agendamento,
+                data_fim_agendamento: body.data_fim_agendamento,
+                primeiro_atendimento: body.primeiro_atendimento,
+            })
 
             const response = await this.fetchWithEnvironmentFallback('agendamento/agendar/', {
                 method: 'POST',

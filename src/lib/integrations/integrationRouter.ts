@@ -395,7 +395,14 @@ function formatGestaoDSDate(date: Date): string {
   const pad = (value: number) => String(value).padStart(2, '0')
   // Desloca para UTC-3 (Brasília)
   const br = new Date(date.getTime() - 3 * 60 * 60 * 1000)
-  return `${pad(br.getUTCDate())}/${pad(br.getUTCMonth() + 1)}/${br.getUTCFullYear()} ${pad(br.getUTCHours())}:${pad(br.getUTCMinutes())}:${pad(br.getUTCSeconds())}`
+  const formatted = `${pad(br.getUTCDate())}/${pad(br.getUTCMonth() + 1)}/${br.getUTCFullYear()} ${pad(br.getUTCHours())}:${pad(br.getUTCMinutes())}:${pad(br.getUTCSeconds())}`
+  console.log('[formatGestaoDSDate] Converting:', {
+    input: date.toISOString(),
+    dateTime: date.getTime(),
+    adjusted: br.toISOString(),
+    output: formatted,
+  })
+  return formatted
 }
 
 function normalizeRawCpf(cpf: string | null | undefined): string | null {
