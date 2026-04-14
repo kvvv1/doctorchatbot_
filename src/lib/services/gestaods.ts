@@ -62,7 +62,7 @@ export class GestaoDSService {
     private apiToken: string
     private baseUrl: string
 
-    constructor(apiToken: string, isDev: boolean = true) {
+    constructor(apiToken: string, isDev: boolean = false) {
         this.apiToken = apiToken
         // Only one base URL exists; dev vs prod is differentiated by path prefix (dev- prefix)
         this.baseUrl = 'https://apidev.gestaods.com.br/api'
@@ -135,10 +135,11 @@ export class GestaoDSService {
 
     /**
      * Busca horários disponíveis para uma data
+     * A API retorna { tempo_intervalo, data: ["HH:MM:SS", ...], status }
      */
     async getAvailableTimes(date?: string): Promise<GestaoDSResponse<string[]>> {
         try {
-            const query = date ? `?data=${date}` : ''
+            const query = date ? `?data=${encodeURIComponent(date)}` : ''
             const endpoint = `${this.baseUrl}/${this.getDevPrefix()}agendamento/horarios-disponiveis/${this.apiToken}${query}`
 
             const response = await fetch(endpoint, {
@@ -146,12 +147,39 @@ export class GestaoDSService {
                 headers: { 'Accept': 'application/json' }
             })
 
-            if (!response.ok) return { success: false, error: response.statusText }
+            if (!response.ok) return { success: false, error: `${response.status} ${response.statusText}` }
 
-            const data = await response.json()
+            const json = await response.json()
+            // Response format: { tempo_intervalo: 20, data: ["09:00:00", ...], status: 200 }
+            const data: string[] = Array.isArray(json?.data) ? json.data : Array.isArray(json) ? json : []
             return { success: true, data }
         } catch (error) {
             console.error('GestaoDS getAvailableTimes error:', error)
+            return { success: false, error: String(error) }
+        }
+    }
+
+    /**
+     * Busca dias disponíveis (próximos ~30 dias)
+     * A API retorna { data: [{data: "dd/MM/yyyy", disponivel: bool}, ...], status }
+     */
+    async getDiasDisponiveis(fromDate?: string): Promise<GestaoDSResponse<Array<{ data: string; disponivel: boolean }>>> {
+        try {
+            const query = fromDate ? `?data=${encodeURIComponent(fromDate)}` : ''
+            const endpoint = `${this.baseUrl}/${this.getDevPrefix()}agendamento/dias-disponiveis/${this.apiToken}${query}`
+
+            const response = await fetch(endpoint, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            })
+
+            if (!response.ok) return { success: false, error: `${response.status} ${response.statusText}` }
+
+            const json = await response.json()
+            const data = Array.isArray(json?.data) ? json.data : []
+            return { success: true, data }
+        } catch (error) {
+            console.error('GestaoDS getDiasDisponiveis error:', error)
             return { success: false, error: String(error) }
         }
     }

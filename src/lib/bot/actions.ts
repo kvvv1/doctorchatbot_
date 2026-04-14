@@ -661,7 +661,7 @@ async function getPatientAppointmentsFromGestaoDSAPI(
 
   const service = new GestaoDSService(
     integration.gestaods_api_token,
-    integration.gestaods_is_dev ?? true
+    integration.gestaods_is_dev ?? false
   )
 
   const result = await service.listPatientAppointments(patientCpf)

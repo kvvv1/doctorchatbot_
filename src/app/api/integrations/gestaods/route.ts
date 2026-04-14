@@ -31,7 +31,7 @@ export async function GET() {
 
     return NextResponse.json({
       enabled: data?.is_connected ?? false,
-      isDev: data?.gestaods_is_dev ?? true,
+      isDev: data?.gestaods_is_dev ?? false,
       hasToken: !!data?.gestaods_api_token,
       updatedAt: data?.updated_at ?? null,
       lastSyncAt: data?.last_sync_at ?? null,

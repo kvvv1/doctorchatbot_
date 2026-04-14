@@ -43,7 +43,7 @@ export async function syncGestaoDSClinic(params: {
 
   const gestaoService = new GestaoDSService(
     config.gestaods_api_token,
-    config.gestaods_is_dev ?? true
+    config.gestaods_is_dev ?? false
   )
 
   const startDate = format(subDays(new Date(), daysPast), 'yyyy-MM-dd')

@@ -329,7 +329,7 @@ async function resolveClinicIntegration(
       provider: 'gestaods',
       gestaods: {
         apiToken: gestaods.gestaods_api_token,
-        isDev: gestaods.gestaods_is_dev ?? true,
+        isDev: gestaods.gestaods_is_dev ?? false,
       },
     }
   }

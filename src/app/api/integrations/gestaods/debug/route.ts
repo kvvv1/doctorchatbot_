@@ -32,7 +32,7 @@ export async function GET() {
   }
 
   const baseUrl = 'https://apidev.gestaods.com.br/api'
-  const isDev = config.gestaods_is_dev ?? true
+  const isDev = config.gestaods_is_dev ?? false
   const token = config.gestaods_api_token
 
   // O endpoint de listagem não tem versão dev — usa sempre /dados-agendamento/listagem/

@@ -105,7 +105,7 @@ async function getConflictingAppointments(
  */
 export function isDayWorking(botSettings: BotSettings, date: Date): boolean {
   const { hours, enabled } = getBotSchedulingHours(botSettings)
-  if (!enabled) return true // no restriction
+  if (!enabled || !hours) return true // no restriction
 
   const key = JS_DAY_TO_KEY[getDay(date)]
   const dayConfig = hours.days.find((d) => d.day === key)
@@ -131,7 +131,7 @@ export async function checkSlotAvailable(
 
   // 2. Working hours check (uses bot scheduling hours if configured)
   const { hours: schedHours, enabled: schedEnabled } = getBotSchedulingHours(botSettings)
-  if (schedEnabled) {
+  if (schedEnabled && schedHours) {
     const key = JS_DAY_TO_KEY[getDay(startsAt)]
     const dayConfig = schedHours.days.find((d) => d.day === key)
     if (!dayConfig?.enabled) return false
@@ -249,7 +249,7 @@ async function getExternalAvailableSlots(
   const settings = await getSettings(clinicId)
   const service = new GestaoDSService(
     integration.gestaods_api_token,
-    integration.gestaods_is_dev ?? true,
+    integration.gestaods_is_dev ?? false,
   )
 
   const slots: Slot[] = []
@@ -277,7 +277,8 @@ async function getExternalAvailableSlots(
 }
 
 async function loadGestaoDSAvailableTimes(service: GestaoDSService, date: Date): Promise<string[]> {
-  const attempts = [format(date, 'yyyy-MM-dd'), format(date, 'dd/MM/yyyy')]
+  // GestaoDS expects dd/MM/yyyy; try that first, fallback to ISO format
+  const attempts = [format(date, 'dd/MM/yyyy'), format(date, 'yyyy-MM-dd')]
 
   for (const candidate of attempts) {
     const response = await service.getAvailableTimes(candidate)
@@ -320,6 +321,9 @@ export function formatTimeLabel(date: Date): string {
  * Return up to `limit` days (starting from `fromDate`) that have at least one
  * available slot. Skips up to 60 calendar days to find enough days.
  * Supports `offset` for "Ver mais datas" pagination.
+ *
+ * When GestaoDS is connected, uses the `dias-disponiveis` endpoint (single call)
+ * instead of querying horarios for each day individually.
  */
 export async function getAvailableDays(
   clinicId: string,
@@ -328,29 +332,23 @@ export async function getAvailableDays(
   limit = 8,
   offset = 0,
 ): Promise<DayOption[]> {
+  const gestaoDSService = await getGestaoDSService(clinicId)
+
+  if (gestaoDSService) {
+    return getAvailableDaysFromGestaoDS(gestaoDSService, clinicId, fromDate, limit, offset)
+  }
+
+  // Fallback: internal slot generation (no GestaoDS)
   const days: DayOption[] = []
   let daysChecked = 0
   const maxDaysAhead = 60
   let cursor = startOfDay(fromDate)
   let found = 0
 
-  // Fetch GestaoDS integration once — reuse across all day iterations
-  const gestaoDSService = await getGestaoDSService(clinicId)
-  const hasExternal = !!gestaoDSService
-
   while (days.length < limit && daysChecked < maxDaysAhead) {
     if (isDayWorking(botSettings, cursor)) {
-      let hasSlot: boolean
-
-      if (hasExternal && gestaoDSService) {
-        const times = await loadGestaoDSAvailableTimesWithService(clinicId, cursor, gestaoDSService)
-        hasSlot = times.length > 0
-      } else {
-        const slots = await getSlotsForDayInternal(clinicId, cursor, botSettings, 1)
-        hasSlot = slots.length > 0
-      }
-
-      if (hasSlot) {
+      const slots = await getSlotsForDayInternal(clinicId, cursor, botSettings, 1)
+      if (slots.length > 0) {
         if (found >= offset) {
           const dateStr = format(cursor, 'yyyy-MM-dd')
           days.push({ date: dateStr, label: formatDayLabel(dateStr) })
@@ -361,6 +359,64 @@ export async function getAvailableDays(
 
     cursor = addDays(cursor, 1)
     daysChecked++
+  }
+
+  return days
+}
+
+/**
+ * Uses GestaoDS `dias-disponiveis` endpoint (single API call) to get available days.
+ * The endpoint returns the next ~30 days with availability status.
+ * If we need more days, we make additional calls with a later fromDate.
+ */
+async function getAvailableDaysFromGestaoDS(
+  service: GestaoDSService,
+  clinicId: string,
+  fromDate: Date,
+  limit: number,
+  offset: number,
+): Promise<DayOption[]> {
+  const days: DayOption[] = []
+  let found = 0
+  let batchFrom = startOfDay(fromDate)
+  const maxBatches = 3 // avoid infinite loop if API keeps returning empty
+
+  for (let batch = 0; batch < maxBatches && days.length < limit; batch++) {
+    // Pass fromDate as dd/MM/yyyy so GestaoDS returns days from that point
+    const fromStr = format(batchFrom, 'dd/MM/yyyy')
+    const result = await service.getDiasDisponiveis(fromStr)
+    const entries = result.data ?? []
+
+    if (!result.success || entries.length === 0) break
+
+    for (const entry of entries) {
+      if (!entry.disponivel) continue
+
+      // Parse dd/MM/yyyy → Date
+      const [d, m, y] = entry.data.split('/').map(Number)
+      const date = new Date(y, m - 1, d)
+
+      if (date < startOfDay(fromDate)) continue // skip past dates
+
+      if (found >= offset) {
+        const dateStr = format(date, 'yyyy-MM-dd')
+        days.push({ date: dateStr, label: formatDayLabel(dateStr) })
+      }
+      found++
+
+      if (days.length >= limit) break
+    }
+
+    if (days.length >= limit) break
+
+    // Advance batchFrom to the day after the last returned date
+    const last = entries[entries.length - 1]
+    if (last) {
+      const [d, m, y] = last.data.split('/').map(Number)
+      batchFrom = addDays(new Date(y, m - 1, d), 1)
+    } else {
+      break
+    }
   }
 
   return days
@@ -404,7 +460,7 @@ async function getSlotsForDayInternal(
   let dayEnd: Date
 
   const { hours: schedHours, enabled: schedEnabled } = getBotSchedulingHours(botSettings)
-  if (schedEnabled) {
+  if (schedEnabled && schedHours) {
     const key = JS_DAY_TO_KEY[getDay(date)]
     const dayConfig = schedHours.days.find((d) => d.day === key)
     if (!dayConfig?.enabled) return slots
@@ -511,7 +567,8 @@ async function getGestaoDSService(clinicId: string): Promise<GestaoDSService | n
     .maybeSingle()
 
   if (!integration?.gestaods_api_token) return null
-  return new GestaoDSService(integration.gestaods_api_token, integration.gestaods_is_dev ?? true)
+  // Default false = production endpoints (/api/agendamento/); dev- prefix returns 500 for scheduling
+  return new GestaoDSService(integration.gestaods_api_token, integration.gestaods_is_dev ?? false)
 }
 
 /**
@@ -560,7 +617,7 @@ async function loadGestaoDSAvailableTimesForClinic(clinicId: string, date: Date)
 
   const service = new GestaoDSService(
     integration.gestaods_api_token,
-    integration.gestaods_is_dev ?? true,
+    integration.gestaods_is_dev ?? false,
   )
 
   const times = await loadGestaoDSAvailableTimes(service, date)
