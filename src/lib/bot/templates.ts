@@ -4,6 +4,16 @@
 
 import type { AppointmentSummary, DayOption, Slot } from './context'
 
+const MENU_HINT = '\n\nDigite *menu* para voltar ao menu principal.'
+
+function withMenuHint(message: string): string {
+  return `${message}${MENU_HINT}`
+}
+
+function withMenuOption(message: string, optionNumber: number, label = 'Voltar ao menu principal'): string {
+  return `${message}\n${optionNumber}. ${label}`
+}
+
 export const templates = {
   // -------------------------------------------------------------------------
   // Menu principal
@@ -29,44 +39,47 @@ Como posso te ajudar hoje?
   // -------------------------------------------------------------------------
   // Agendamento
   // -------------------------------------------------------------------------
-  scheduleAskName: `Ótimo! Vou agendar sua consulta. 😊
+  scheduleAskName: withMenuHint(`Ótimo! Vou agendar sua consulta. 😊
 
-Por favor, me informe seu *nome completo*:`,
+Por favor, me informe seu *nome completo*:`),
 
-  scheduleAskCpf: (name: string) => `Obrigado, *${name}*! 👍
+  scheduleAskCpf: (name: string) => withMenuHint(`Obrigado, *${name}*! 👍
 
 Agora preciso do seu *CPF* para confirmar o agendamento:
-(ex: 123.456.789-00)`,
+(ex: 123.456.789-00)`),
 
-  appointmentsAskCpf: `Para localizar seus agendamentos, preciso do seu *CPF*:
-(ex: 123.456.789-00)`,
+  appointmentsAskCpf: withMenuHint(`Para localizar seus agendamentos, preciso do seu *CPF*:
+(ex: 123.456.789-00)`),
 
-  invalidCpf: `CPF invalido. Por favor, informe um CPF valido:
-(ex: 123.456.789-00)`,
+  invalidCpf: withMenuHint(`CPF invalido. Por favor, informe um CPF valido:
+(ex: 123.456.789-00)`),
 
   scheduleChooseSlot: (slots: Slot[]) => {
     const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')
-    return `Encontrei estes horários disponíveis para você:\n\n${lines}\n\nEscolha uma opção abaixo.`
+    return withMenuOption(`Encontrei estes horários disponíveis para você:\n\n${lines}\n\nEscolha uma opção abaixo.`, slots.length + 1)
   },
 
-  scheduleAskDay: (name: string) =>
+  scheduleAskDay: (name: string) => withMenuHint(
     `Obrigado, *${name}*! 👍
 
 Qual dia você prefere para a consulta?
-Pode digitar a data (ex: 25/04) ou o dia da semana (ex: segunda-feira).`,
+ Pode digitar a data (ex: 25/04) ou o dia da semana (ex: segunda-feira).`),
 
-  scheduleAskTime: (day: string) =>
+  scheduleAskTime: (day: string) => withMenuHint(
     `Perfeito! Anotei o dia *${day}*.
 
 Qual horário você prefere?
-(ex: 14h, 14:30, 2 da tarde)`,
+ (ex: 14h, 14:30, 2 da tarde)`),
 
   scheduleConfirmSelection: (details: { dayLabel?: string; timeLabel: string; patientName?: string }) =>
-    `Perfeito! Antes de confirmar, confira os dados:\n\n📅 Dia: ${details.dayLabel || 'Não informado'}\n🕐 Horário: ${details.timeLabel}\n👤 Paciente: ${details.patientName || 'Paciente'}\n\nEstá tudo correto?\n\n1️⃣ Sim, confirmar\n2️⃣ Não, alterar`,
+    withMenuOption(
+      `Perfeito! Antes de confirmar, confira os dados:\n\n📅 Dia: ${details.dayLabel || 'Não informado'}\n🕐 Horário: ${details.timeLabel}\n👤 Paciente: ${details.patientName || 'Paciente'}\n\nEstá tudo correto?\n\n1️⃣ Sim, confirmar\n2️⃣ Não, alterar`,
+      3,
+    ),
 
   scheduleConflict: (slots: Slot[]) => {
     const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')
-    return `⚠️ Este horário está ocupado. Escolha um horário disponível:\n\n${lines}`
+    return withMenuOption(`⚠️ Este horário está ocupado. Escolha um horário disponível:\n\n${lines}`, slots.length + 1)
   },
 
   scheduleNoSlots: `😕 Não encontrei horários disponíveis nos próximos dias.
@@ -80,49 +93,49 @@ Deseja falar com nossa equipe?
   scheduleDayList: (days: DayOption[], hasMore: boolean) => {
     const lines = days.map((d, i) => `${i + 1}️⃣ ${d.label}`).join('\n')
     const moreOption = hasMore ? `\n${days.length + 1}️⃣ 📅 Ver mais datas` : ''
-    return `📅 Escolha o dia da consulta:\n\n${lines}${moreOption}`
+    return withMenuOption(`📅 Escolha o dia da consulta:\n\n${lines}${moreOption}`, days.length + (hasMore ? 1 : 0) + 1)
   },
 
   scheduleSlotList: (dayLabel: string, slots: Slot[], showBack: boolean) => {
     const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')
     const backOption = showBack ? `\n${slots.length + 1}️⃣ ↩️ Outra data` : ''
-    return `🕐 Horários disponíveis para *${dayLabel}*:\n\n${lines}${backOption}`
+    return withMenuOption(`🕐 Horários disponíveis para *${dayLabel}*:\n\n${lines}${backOption}`, slots.length + (showBack ? 1 : 0) + 1)
   },
 
   rescheduleDayList: (days: DayOption[], hasMore: boolean) => {
     const lines = days.map((d, i) => `${i + 1}️⃣ ${d.label}`).join('\n')
     const moreOption = hasMore ? `\n${days.length + 1}️⃣ 📅 Ver mais datas` : ''
-    return `📅 Escolha o novo dia da consulta:\n\n${lines}${moreOption}`
+    return withMenuOption(`📅 Escolha o novo dia da consulta:\n\n${lines}${moreOption}`, days.length + (hasMore ? 1 : 0) + 1)
   },
 
   rescheduleSlotList: (dayLabel: string, slots: Slot[], showBack: boolean) => {
     const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')
     const backOption = showBack ? `\n${slots.length + 1}️⃣ ↩️ Outra data` : ''
-    return `🕐 Horários disponíveis para *${dayLabel}*:\n\n${lines}${backOption}`
+    return withMenuOption(`🕐 Horários disponíveis para *${dayLabel}*:\n\n${lines}${backOption}`, slots.length + (showBack ? 1 : 0) + 1)
   },
 
   // -------------------------------------------------------------------------
   // Reagendamento
   // -------------------------------------------------------------------------
-  rescheduleAskDay: `Entendido! Vou remarcar sua consulta.
+  rescheduleAskDay: withMenuHint(`Entendido! Vou remarcar sua consulta.
 
 Qual o *novo dia* desejado?
-(ex: 28/04 ou quinta-feira)`,
+(ex: 28/04 ou quinta-feira)`),
 
   rescheduleChooseSlot: (slots: Slot[]) => {
     const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')
-    return `Escolha o novo horário da sua consulta:\n\n${lines}\n\nSelecione uma opção abaixo.`
+    return withMenuOption(`Escolha o novo horário da sua consulta:\n\n${lines}\n\nSelecione uma opção abaixo.`, slots.length + 1)
   },
 
-  rescheduleAskTime: (day: string) =>
+  rescheduleAskTime: (day: string) => withMenuHint(
     `Novo dia anotado: *${day}*
 
 Qual o *novo horário*?
-(ex: 15h, 15:30)`,
+ (ex: 15h, 15:30)`),
 
   rescheduleConflict: (slots: Slot[]) => {
     const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')
-    return `⚠️ Este horário também está ocupado. Escolha um horário disponível:\n\n${lines}`
+    return withMenuOption(`⚠️ Este horário também está ocupado. Escolha um horário disponível:\n\n${lines}`, slots.length + 1)
   },
 
   // -------------------------------------------------------------------------
@@ -130,31 +143,31 @@ Qual o *novo horário*?
   // -------------------------------------------------------------------------
   whichAppointmentCancel: (appointments: AppointmentSummary[]) => {
     const lines = appointments.map((a, i) => `${i + 1}️⃣ ${a.label}`).join('\n')
-    return `Encontrei ${appointments.length} consulta(s) agendada(s). Qual deseja *cancelar*?\n\n${lines}`
+    return withMenuOption(`Encontrei ${appointments.length} consulta(s) agendada(s). Qual deseja *cancelar*?\n\n${lines}`, appointments.length + 1)
   },
 
   whichAppointmentReschedule: (appointments: AppointmentSummary[]) => {
     const lines = appointments.map((a, i) => `${i + 1}️⃣ ${a.label}`).join('\n')
-    return `Encontrei ${appointments.length} consulta(s) agendada(s). Qual deseja *remarcar*?\n\n${lines}`
+    return withMenuOption(`Encontrei ${appointments.length} consulta(s) agendada(s). Qual deseja *remarcar*?\n\n${lines}`, appointments.length + 1)
   },
 
   invalidChoice: (max: number) =>
-    `Por favor, escolha uma das opções disponíveis (1 a ${max}).`,
+    withMenuHint(`Por favor, escolha uma das opções disponíveis (1 a ${max}).`),
 
   // -------------------------------------------------------------------------
   // Cancelamento
   // -------------------------------------------------------------------------
   cancelConfirmSingle: (label: string) =>
-    `Você deseja *cancelar* a consulta do dia:\n📅 ${label}\n\n1️⃣ Sim, cancelar\n2️⃣ Não, manter`,
+    withMenuOption(`Você deseja *cancelar* a consulta do dia:\n📅 ${label}\n\n1️⃣ Sim, cancelar\n2️⃣ Não, manter`, 3),
 
-  cancelConfirmGeneric: `Você deseja *cancelar* sua consulta?\n\n1️⃣ Sim, cancelar\n2️⃣ Não, manter`,
+  cancelConfirmGeneric: withMenuOption(`Você deseja *cancelar* sua consulta?\n\n1️⃣ Sim, cancelar\n2️⃣ Não, manter`, 3),
 
-  cancelAskWaitlist: `Consulta cancelada. ✅
+  cancelAskWaitlist: withMenuOption(`Consulta cancelada. ✅
 
 Gostaria de entrar na *lista de espera* caso surja um horário mais cedo?
 
 1️⃣ Sim, entrar na lista
-2️⃣ Não, obrigado`,
+2️⃣ Não, obrigado`, 3),
 
   cancelWithWaitlist: `✅ Consulta cancelada com sucesso.
 
@@ -196,10 +209,10 @@ O que deseja fazer?
   // -------------------------------------------------------------------------
   // Confirmar presença
   // -------------------------------------------------------------------------
-  confirmAttendanceAsk: `Você tem consulta(s) agendada(s) nos próximos dias. *Confirma presença?*
+  confirmAttendanceAsk: withMenuOption(`Você tem consulta(s) agendada(s) nos próximos dias. *Confirma presença?*
 
 1️⃣ Sim, confirmo
-2️⃣ Não, preciso alterar`,
+2️⃣ Não, preciso alterar`, 3),
 
   confirmAttendanceSuccess: `✅ *Presença confirmada!*
 
@@ -228,9 +241,9 @@ Posso ajudar com alguma dessas opções:
   // -------------------------------------------------------------------------
   // Erros genéricos
   // -------------------------------------------------------------------------
-  technicalError: `Ops! Tive um problema técnico. Pode tentar novamente em instantes?
+  technicalError: withMenuHint(`Ops! Tive um problema técnico. Pode tentar novamente em instantes?
 
-Se o problema persistir, use a opção *5 — Falar com atendente*.`,
+Se o problema persistir, use a opção *5 — Falar com atendente*.`),
 }
 
 // ---------------------------------------------------------------------------

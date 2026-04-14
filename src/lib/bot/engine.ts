@@ -367,7 +367,7 @@ async function handleAgendarCpf(
   
   if (!cpf) {
     return {
-      message: '❌ CPF inválido. Por favor, informe um CPF válido (ex: 123.456.789-00):',
+      message: templates.invalidCpf,
       nextState: 'agendar_cpf',
       nextContext: ctx,
     }
@@ -482,11 +482,10 @@ async function handleAgendarHora(
 
   // Parsing errors — ask again
   if (result.error === 'invalid_date') {
-
-    return { message: result.message, nextState: 'agendar_dia', nextContext: ctx }
+    return { message: withMenuHintText(result.message), nextState: 'agendar_dia', nextContext: ctx }
   }
   if (result.error === 'invalid_time' || result.error === 'too_soon') {
-    return { message: result.message, nextState: 'agendar_hora', nextContext: { ...ctx, requestedTime } }
+    return { message: withMenuHintText(result.message), nextState: 'agendar_hora', nextContext: { ...ctx, requestedTime } }
   }
 
   // Conflict — offer real available slots
@@ -626,10 +625,10 @@ async function handleReagendarHora(
   const parsedTime = parseTimeText(requestedTime)
 
   if (!parsedDate) {
-    return { message: 'Não consegui entender a data. Pode repetir? (ex: segunda-feira, 28/04)', nextState: 'reagendar_dia', nextContext: ctx }
+    return { message: withMenuHintText('Não consegui entender a data. Pode repetir? (ex: segunda-feira, 28/04)'), nextState: 'reagendar_dia', nextContext: ctx }
   }
   if (!parsedTime) {
-    return { message: 'Não consegui entender o horário. Pode repetir? (ex: 14h, 14:30)', nextState: 'reagendar_hora', nextContext: { ...ctx, requestedTime } }
+    return { message: withMenuHintText('Não consegui entender o horário. Pode repetir? (ex: 14h, 14:30)'), nextState: 'reagendar_hora', nextContext: { ...ctx, requestedTime } }
   }
 
   const durationMinutes = 30 // will be fetched from settings in availability service
@@ -876,6 +875,12 @@ function buildMenuMessage(botSettings?: BotSettings | null): string {
   if (menuOptions.attendant) options.push('5️⃣ Falar com atendente')
 
   return `${preamble}\n${options.join('\n')}`
+}
+
+function withMenuHintText(message: string): string {
+  if (!message.trim()) return 'Digite *menu* para voltar ao menu principal.'
+  if (/voltar ao menu|menu principal|digite \*menu\*/i.test(message)) return message
+  return `${message}\n\nDigite *menu* para voltar ao menu principal.`
 }
 
 // ---------------------------------------------------------------------------
@@ -1370,14 +1375,6 @@ function resolveChoiceIndex(message: string, options: string[]): number {
   const candidates = extractChoiceCandidates(message)
 
   for (const candidate of candidates) {
-    const numericMatch = candidate.match(/(?:option|button)?[_-]?(\d+)/)
-    const numericChoice = numericMatch ? parseInt(numericMatch[1], 10) : NaN
-    if (!Number.isNaN(numericChoice) && numericChoice >= 1 && numericChoice <= options.length) {
-      return numericChoice - 1
-    }
-  }
-
-  for (const candidate of candidates) {
     const exactIndex = normalizedOptions.findIndex(option => option === candidate)
     if (exactIndex >= 0) return exactIndex
   }
@@ -1395,6 +1392,15 @@ function resolveChoiceIndex(message: string, options: string[]): number {
 
     if (containsMatches.length === 1) {
       return containsMatches[0]
+    }
+  }
+
+  for (const candidate of candidates) {
+    const numericMatch = candidate.match(/^(?:option|button)[_-]?(\d+)$|^(\d+)$/)
+    const numericValue = numericMatch?.[1] || numericMatch?.[2]
+    const numericChoice = numericValue ? parseInt(numericValue, 10) : NaN
+    if (!Number.isNaN(numericChoice) && numericChoice >= 1 && numericChoice <= options.length) {
+      return numericChoice - 1
     }
   }
 

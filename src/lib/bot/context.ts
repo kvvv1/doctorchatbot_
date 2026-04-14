@@ -78,6 +78,7 @@ export type BotContext = {
   selectedDay?: string            // "YYYY-MM-DD" of the day the patient picked
   selectedDayLabel?: string       // human label of the selected day, e.g. "Segunda-feira, 28/04"
   dayListOffset?: number          // pagination offset for "Ver mais datas"
+  dayListHasMore?: boolean        // whether the current day list page has a "Ver mais datas" option
 
   // Target appointment for cancel / reschedule flows
   appointmentId?: string
