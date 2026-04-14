@@ -26,47 +26,46 @@ export function detectIntent(text: string): Intent {
     return 'schedule';
   }
 
-  // Reschedule intent (2)
-  if (
-    normalized.includes('remarcar') ||
-    normalized.includes('reagendar') ||
-    normalized.includes('remarcar') ||
-    normalized.includes('trocar') ||
-    normalized.match(/\b(2|dois|duas)\b/)
-  ) {
-    return 'reschedule';
-  }
-
-  // Cancel intent (3)
-  if (
-    normalized.includes('cancelar') ||
-    normalized.includes('desmarcar') ||
-    normalized.match(/\b(3|tres|três)\b/)
-  ) {
-    return 'cancel';
-  }
-
-  // Attendant intent (4)
-  if (
-    normalized.includes('atendente') ||
-    normalized.includes('humano') ||
-    normalized.includes('pessoa') ||
-    normalized.includes('falar com') ||
-    normalized.match(/\b(4|quatro)\b/)
-  ) {
-    return 'attendant';
-  }
-
-  // View appointments intent (5)
+  // View appointments intent (2)
   if (
     normalized.includes('ver consulta') ||
     normalized.includes('minha consulta') ||
     normalized.includes('meu agendamento') ||
     normalized.includes('ver agendamento') ||
     normalized.includes('minhas consultas') ||
-    normalized.match(/\b(5|cinco)\b/)
+    normalized.match(/\b(2|dois|duas)\b/)
   ) {
     return 'view_appointments';
+  }
+
+  // Reschedule intent (3)
+  if (
+    normalized.includes('remarcar') ||
+    normalized.includes('reagendar') ||
+    normalized.includes('trocar') ||
+    normalized.match(/\b(3|tres|três)\b/)
+  ) {
+    return 'reschedule';
+  }
+
+  // Cancel intent (4)
+  if (
+    normalized.includes('cancelar') ||
+    normalized.includes('desmarcar') ||
+    normalized.match(/\b(4|quatro)\b/)
+  ) {
+    return 'cancel';
+  }
+
+  // Attendant intent (5)
+  if (
+    normalized.includes('atendente') ||
+    normalized.includes('humano') ||
+    normalized.includes('pessoa') ||
+    normalized.includes('falar com') ||
+    normalized.match(/\b(5|cinco)\b/)
+  ) {
+    return 'attendant';
   }
 
   // Confirm attendance intent (6)

@@ -56,7 +56,7 @@ describe('handleBotTurn - GestaoDS CPF lookup flow', () => {
 
     const response = await handleBotTurn(
       'conv-1',
-      '5',
+      '2',
       'menu',
       {
         patientPhone: '5511999999999',

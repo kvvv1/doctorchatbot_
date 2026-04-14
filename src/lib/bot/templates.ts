@@ -13,18 +13,18 @@ export const templates = {
 Como posso te ajudar hoje?
 
 1️⃣ Agendar consulta
-2️⃣ Remarcar consulta
-3️⃣ Cancelar consulta
-4️⃣ Falar com atendente
-5️⃣ Ver meus agendamentos`,
+2️⃣ Ver meus agendamentos
+3️⃣ Remarcar consulta
+4️⃣ Cancelar consulta
+5️⃣ Falar com atendente`,
 
   notUnderstood: `Não entendi sua mensagem. O que você deseja fazer?
 
 1️⃣ Agendar consulta
-2️⃣ Remarcar consulta
-3️⃣ Cancelar consulta
-4️⃣ Falar com atendente
-5️⃣ Ver meus agendamentos`,
+2️⃣ Ver meus agendamentos
+3️⃣ Remarcar consulta
+4️⃣ Cancelar consulta
+5️⃣ Falar com atendente`,
 
   // -------------------------------------------------------------------------
   // Agendamento
@@ -230,7 +230,7 @@ Posso ajudar com alguma dessas opções:
   // -------------------------------------------------------------------------
   technicalError: `Ops! Tive um problema técnico. Pode tentar novamente em instantes?
 
-Se o problema persistir, use a opção *4 — Falar com atendente*.`,
+Se o problema persistir, use a opção *5 — Falar com atendente*.`,
 }
 
 // ---------------------------------------------------------------------------
