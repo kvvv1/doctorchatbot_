@@ -428,7 +428,7 @@ async function handleAgendarHora(
         }
       }
     }
-    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
+    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { ...ctx, patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
   }
 
   return technicalError(ctx)
@@ -583,7 +583,7 @@ async function handleReagendarHora(
           nextContext: { ...ctx, requestedTime, availableSlots: slots },
         }
       }
-      return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
+      return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { ...ctx, patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
     }
   }
 
@@ -967,7 +967,7 @@ async function showDayList(params: {
   )
 
   if (days.length === 0) {
-    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { patientPhone: params.ctx.patientPhone, patientName: params.ctx.patientName } }
+    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { ...params.ctx, ...params.ctx, patientPhone: params.ctx.patientPhone, patientName: params.ctx.patientName } }
   }
 
   const hasMore = days.length > DAY_LIST_PAGE_SIZE
@@ -1019,7 +1019,7 @@ async function handleAgendarDiaLista(
   const slots = await getSlotsForDay(clinicId, selectedDay.date, botSettings)
 
   if (slots.length === 0) {
-    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
+    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { ...ctx, patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
   }
 
   return {
@@ -1119,7 +1119,7 @@ async function handleReagendarDiaLista(
   const slots = await getSlotsForDay(clinicId, selectedDay.date, botSettings)
 
   if (slots.length === 0) {
-    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
+    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { ...ctx, patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
   }
 
   return {
@@ -1219,7 +1219,7 @@ async function offerSlotSelection(params: {
 
   const slots = await getAvailableSlots(params.clinicId, new Date(), params.botSettings, 5)
   if (slots.length === 0) {
-    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { patientPhone: params.ctx.patientPhone, patientName: params.ctx.patientName } }
+    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { ...params.ctx, patientPhone: params.ctx.patientPhone, patientName: params.ctx.patientName } }
   }
 
   return {
