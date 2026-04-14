@@ -1,6 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import type { BotSettings } from '@/lib/types/database'
+import { ChevronDown } from 'lucide-react'
 
 interface BotMenuOptionsEditorProps {
 	settings: BotSettings
@@ -48,6 +50,8 @@ const MENU_OPTIONS: MenuOption[] = [
 ]
 
 export default function BotMenuOptionsEditor({ settings, onChange }: BotMenuOptionsEditorProps) {
+	const [isOpen, setIsOpen] = useState(false)
+
 	const menuOptions = settings.menu_options || {
 		schedule: true,
 		view_appointments: true,
@@ -67,59 +71,82 @@ export default function BotMenuOptionsEditor({ settings, onChange }: BotMenuOpti
 		onChange(updated)
 	}
 
+	const enabledCount = Object.values(menuOptions).filter(Boolean).length
+	const totalCount = MENU_OPTIONS.length
+
 	return (
-		<div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-			<h2 className="text-xl font-semibold text-slate-800 mb-4 flex items-center gap-2">
-				<span className="text-2xl">📋</span>
-				Opções do Menu
-			</h2>
-
-			<p className="text-sm text-slate-600 mb-6">
-				Selecione quais opções devem aparecer no menu principal do bot. O menu será gerado automaticamente com as opções ativadas.
-			</p>
-
-			<div className="space-y-3">
-				{MENU_OPTIONS.map((option) => (
-					<div
-						key={option.key}
-						className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-blue-300 transition-colors"
-					>
-						<div className="flex-1">
-							<div className="flex items-center gap-2 mb-1">
-								<span className="text-lg">{option.emoji}</span>
-								<label
-									htmlFor={`menu-option-${option.key}`}
-									className="font-medium text-slate-700 cursor-pointer"
-								>
-									{option.label}
-								</label>
-							</div>
-							<p className="text-sm text-slate-500 ml-7">{option.description}</p>
-						</div>
-
-						<button
-							id={`menu-option-${option.key}`}
-							type="button"
-							onClick={() => handleToggleOption(option.key)}
-							className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ml-4 flex-shrink-0 ${
-								menuOptions[option.key] ? 'bg-blue-600' : 'bg-slate-300'
-							}`}
-						>
-							<span
-								className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-									menuOptions[option.key] ? 'translate-x-6' : 'translate-x-1'
-								}`}
-							/>
-						</button>
+		<div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+			{/* Header (always visible) */}
+			<button
+				type="button"
+				onClick={() => setIsOpen(!isOpen)}
+				className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+			>
+				<div className="flex items-center gap-3">
+					<span className="text-xl">⚙️</span>
+					<div className="text-left">
+						<h3 className="font-semibold text-slate-800">Opções do Menu</h3>
+						<p className="text-xs text-slate-500">
+							{enabledCount} de {totalCount} opções habilitadas
+						</p>
 					</div>
-				))}
-			</div>
+				</div>
+				<ChevronDown
+					className={`h-5 w-5 text-slate-600 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+				/>
+			</button>
 
-			<div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-				<p className="text-sm text-blue-800">
-					<strong>💡 Dica:</strong> O menu será exibido no WhatsApp com apenas as opções ativadas acima. Você pode desativar opções que não deseja oferecer no momento.
-				</p>
-			</div>
+			{/* Content (collapsible) */}
+			{isOpen && (
+				<div className="border-t border-slate-200 px-6 py-4 bg-slate-50">
+					<p className="text-sm text-slate-600 mb-4">
+						Selecione quais opções devem aparecer no menu principal do bot. O menu será gerado automaticamente com as opções ativadas.
+					</p>
+
+					<div className="space-y-3">
+						{MENU_OPTIONS.map((option) => (
+							<div
+								key={option.key}
+								className="flex items-center justify-between p-4 bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-colors"
+							>
+								<div className="flex-1">
+									<div className="flex items-center gap-2 mb-1">
+										<span className="text-lg">{option.emoji}</span>
+										<label
+											htmlFor={`menu-option-${option.key}`}
+											className="font-medium text-slate-700 cursor-pointer"
+										>
+											{option.label}
+										</label>
+									</div>
+									<p className="text-sm text-slate-500 ml-7">{option.description}</p>
+								</div>
+
+								<button
+									id={`menu-option-${option.key}`}
+									type="button"
+									onClick={() => handleToggleOption(option.key)}
+									className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ml-4 flex-shrink-0 ${
+										menuOptions[option.key] ? 'bg-blue-600' : 'bg-slate-300'
+									}`}
+								>
+									<span
+										className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+											menuOptions[option.key] ? 'translate-x-6' : 'translate-x-1'
+										}`}
+									/>
+								</button>
+							</div>
+						))}
+					</div>
+
+					<div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+						<p className="text-xs text-blue-800">
+							<strong>💡 Dica:</strong> O menu será exibido no WhatsApp com apenas as opções ativadas acima.
+						</p>
+					</div>
+				</div>
+			)}
 		</div>
 	)
 }
