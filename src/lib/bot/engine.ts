@@ -7,7 +7,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getInternalAppBaseUrl } from '@/lib/appUrl'
+import { sendInternalZapiMessage } from '@/lib/zapi/internalSend'
 import { detectIntent, detectYesNo } from './intent'
 import { templates } from './templates'
 import {
@@ -685,18 +685,22 @@ export async function sendBotResponse(
 ): Promise<boolean> {
   const supabase = createAdminClient()
   const interactive = extractInteractiveChoices(response.message)
-  const zapiUrl = `${getInternalAppBaseUrl()}/api/zapi/send-text`
-  const zapiHeaders = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-  }
 
   const zapiSend = async (payload: Record<string, unknown>) => {
-    const res = await fetch(zapiUrl, { method: 'POST', headers: zapiHeaders, body: JSON.stringify(payload) })
-    if (!res.ok) {
-      console.error('[Bot] Failed to send message via Z-API:', await res.text())
+    const result = await sendInternalZapiMessage({
+      clinicId,
+      conversationId,
+      phone,
+      text: String(payload.text || ''),
+      choices: Array.isArray(payload.choices) ? payload.choices as InteractiveChoice[] : undefined,
+      choicesTitle: typeof payload.choicesTitle === 'string' ? payload.choicesTitle : undefined,
+    })
+
+    if (!result.success) {
+      console.error('[Bot] Failed to send message via Z-API:', result.error || 'Unknown error')
       return false
     }
+
     return true
   }
 

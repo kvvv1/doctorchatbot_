@@ -1,11 +1,11 @@
 import { after, NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getInternalAppBaseUrl } from '@/lib/appUrl'
 import { parseConnectionStatusWebhook, parseWebhookPayload, shouldProcessWebhook } from '@/lib/zapi/webhookParser'
 import { handleIncomingMessage, logWebhookActivity } from '@/lib/services/inboxService'
 import { handleBotTurn, sendBotResponse, type BotState, type BotContext } from '@/lib/bot/engine'
 import { getPatientAppointments } from '@/lib/bot/actions'
 import { getBotSettings, isWithinWorkingHours } from '@/lib/services/botSettingsService'
+import { sendInternalZapiMessage } from '@/lib/zapi/internalSend'
 
 /**
  * POST /api/webhooks/zapi
@@ -295,17 +295,14 @@ async function triggerBotResponse(
     // This ensures the clinic's configured greeting always reaches new patients,
     // even when they start with "agendar" instead of "oi".
     if (isFirstContact && botSettings.message_welcome?.trim()) {
-      const zapiUrl = `${getInternalAppBaseUrl()}/api/zapi/send-text`
-      const welcomeResponse = await fetch(zapiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        },
-        body: JSON.stringify({ conversationId, phone, text: botSettings.message_welcome.trim(), internalCall: true }),
+      const welcomeResult = await sendInternalZapiMessage({
+        clinicId,
+        conversationId,
+        phone,
+        text: botSettings.message_welcome.trim(),
       })
-      if (!welcomeResponse.ok) {
-        console.error('[Bot] Failed to send welcome message:', await welcomeResponse.text())
+      if (!welcomeResult.success) {
+        console.error('[Bot] Failed to send welcome message:', welcomeResult.error || 'Unknown error')
       }
       await new Promise(r => setTimeout(r, 400))
     }
