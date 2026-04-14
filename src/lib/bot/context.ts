@@ -23,6 +23,7 @@ export type BotState =
   | 'atendente'
   | 'ver_agendamentos'
   | 'confirmar_presenca'
+  | 'sem_horario'
 
 /**
  * A concrete time slot with ISO date and human-readable label.

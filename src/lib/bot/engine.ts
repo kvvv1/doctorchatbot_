@@ -154,6 +154,9 @@ export async function handleBotTurn(
     case 'confirmar_presenca':
       return handleConfirmarPresenca(userMessage, ctx)
 
+    case 'sem_horario':
+      return handleSemHorario(userMessage, ctx, botSettings)
+
     default:
       return {
         message: botSettings?.message_fallback || templates.notUnderstood,
@@ -365,7 +368,7 @@ async function handleAgendarHora(
         }
       }
     }
-    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
+    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
   }
 
   return technicalError(ctx)
@@ -510,7 +513,7 @@ async function handleReagendarHora(
           nextContext: { ...ctx, requestedTime, availableSlots: slots },
         }
       }
-      return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
+      return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
     }
   }
 
@@ -668,6 +671,42 @@ function handleConfirmarPresenca(msg: string, ctx: BotContext): BotResponse {
   }
 
   return { message: templates.confirmAttendanceAsk, nextState: 'confirmar_presenca', nextContext: ctx }
+}
+
+function handleSemHorario(msg: string, ctx: BotContext, botSettings?: BotSettings | null): BotResponse {
+  const normalized = msg.trim().toLowerCase()
+
+  const wantsAttendant =
+    normalized === '1' ||
+    /sim|atendente|falar|humano|pessoa/i.test(normalized)
+
+  const wantsMenu =
+    normalized === '2' ||
+    /n[aã]o|voltar|menu|início|inicio/i.test(normalized)
+
+  if (wantsAttendant) {
+    return {
+      message: templates.attendantTransfer,
+      nextState: 'atendente',
+      nextContext: ctx,
+      transferToHuman: true,
+    }
+  }
+
+  if (wantsMenu) {
+    return {
+      message: botSettings?.message_menu || templates.menu,
+      nextState: 'menu',
+      nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
+    }
+  }
+
+  // Repeat the question
+  return {
+    message: templates.scheduleNoSlots,
+    nextState: 'sem_horario',
+    nextContext: ctx,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -853,7 +892,7 @@ async function showDayList(params: {
   )
 
   if (days.length === 0) {
-    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: { patientPhone: params.ctx.patientPhone, patientName: params.ctx.patientName } }
+    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { patientPhone: params.ctx.patientPhone, patientName: params.ctx.patientName } }
   }
 
   const hasMore = days.length > DAY_LIST_PAGE_SIZE
@@ -905,7 +944,7 @@ async function handleAgendarDiaLista(
   const slots = await getSlotsForDay(clinicId, selectedDay.date, botSettings)
 
   if (slots.length === 0) {
-    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
+    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
   }
 
   return {
@@ -994,7 +1033,7 @@ async function handleReagendarDiaLista(
   const slots = await getSlotsForDay(clinicId, selectedDay.date, botSettings)
 
   if (slots.length === 0) {
-    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
+    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
   }
 
   return {
@@ -1094,7 +1133,7 @@ async function offerSlotSelection(params: {
 
   const slots = await getAvailableSlots(params.clinicId, new Date(), params.botSettings, 5)
   if (slots.length === 0) {
-    return { message: templates.scheduleNoSlots, nextState: 'menu', nextContext: { patientPhone: params.ctx.patientPhone, patientName: params.ctx.patientName } }
+    return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { patientPhone: params.ctx.patientPhone, patientName: params.ctx.patientName } }
   }
 
   return {
