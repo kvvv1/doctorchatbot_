@@ -282,6 +282,7 @@ function ClinicaTab({
 		buildDefaultWorkingHours(initialBotSettings)
 	)
 	const [isSaving, setIsSaving] = useState(false)
+	const [isSavingDuration, setIsSavingDuration] = useState(false)
 	const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
 	// Sync local state when server refreshes parent props (e.g. after router.refresh())
@@ -292,6 +293,27 @@ function ClinicaTab({
 	const showToast = (message: string, type: 'success' | 'error') => {
 		setToast({ message, type })
 		setTimeout(() => setToast(null), 3500)
+	}
+
+	const saveDuration = async () => {
+		if (isSavingDuration) return
+		setIsSavingDuration(true)
+		try {
+			const res = await fetch('/api/appointment-settings', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ defaultDurationMinutes }),
+			})
+			const data = await res.json().catch(() => null)
+			if (!res.ok) throw new Error(data?.error || 'Falha ao salvar')
+			if (data?.defaultDurationMinutes) setDefaultDurationMinutes(data.defaultDurationMinutes)
+			showToast('Duração salva com sucesso!', 'success')
+			router.refresh()
+		} catch (err) {
+			showToast(err instanceof Error ? err.message : 'Erro ao salvar duração.', 'error')
+		} finally {
+			setIsSavingDuration(false)
+		}
 	}
 
 	const updateDay = (day: string, field: keyof WorkingHoursDay, value: unknown) => {
@@ -411,9 +433,19 @@ function ClinicaTab({
 								<span className="text-sm text-neutral-500">min</span>
 							</div>
 						</div>
-						<p className="mt-1.5 text-xs text-neutral-500">
-							Usado pelo bot e pela agenda para novos agendamentos.
-						</p>
+						<div className="mt-3 flex items-center gap-3">
+							<button
+								type="button"
+								onClick={saveDuration}
+								disabled={isSavingDuration}
+								className="rounded-lg bg-sky-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 transition-colors"
+							>
+								{isSavingDuration ? 'Salvando...' : 'Salvar duração'}
+							</button>
+							<p className="text-xs text-neutral-500">
+								Usado pelo bot e pela agenda para novos agendamentos.
+							</p>
+						</div>
 					</div>
 				</div>
 			</div>
