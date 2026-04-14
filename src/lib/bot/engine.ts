@@ -730,8 +730,6 @@ function handleSemHorario(msg: string, ctx: BotContext, botSettings?: BotSetting
     message: botSettings?.message_menu || templates.menu,
     nextState: 'menu',
     nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
-    nextState: 'sem_horario',
-    nextContext: ctx,
   }
 }
 
