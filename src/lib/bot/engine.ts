@@ -1233,22 +1233,67 @@ async function offerSlotSelection(params: {
 }
 
 function resolveChoiceIndex(message: string, options: string[]): number {
-  const normalizedMessage = normalizeChoiceText(message)
-  const numericChoice = parseInt(normalizedMessage, 10)
+  const normalizedOptions = options.map(option => normalizeChoiceText(option))
+  const candidates = extractChoiceCandidates(message)
 
-  if (!Number.isNaN(numericChoice) && numericChoice >= 1 && numericChoice <= options.length) {
-    return numericChoice - 1
+  for (const candidate of candidates) {
+    const numericMatch = candidate.match(/(?:option|button)?[_-]?(\d+)/)
+    const numericChoice = numericMatch ? parseInt(numericMatch[1], 10) : NaN
+    if (!Number.isNaN(numericChoice) && numericChoice >= 1 && numericChoice <= options.length) {
+      return numericChoice - 1
+    }
   }
 
-  return options.findIndex(option => normalizeChoiceText(option) === normalizedMessage)
+  for (const candidate of candidates) {
+    const exactIndex = normalizedOptions.findIndex(option => option === candidate)
+    if (exactIndex >= 0) return exactIndex
+  }
+
+  // Fallback for noisy payloads (e.g. multiline replies containing prompt + selected value).
+  for (const candidate of candidates) {
+    const containsMatches: number[] = []
+
+    normalizedOptions.forEach((option, index) => {
+      if (!option) return
+      if (candidate.includes(option) || option.includes(candidate)) {
+        containsMatches.push(index)
+      }
+    })
+
+    if (containsMatches.length === 1) {
+      return containsMatches[0]
+    }
+  }
+
+  return -1
 }
 
 function normalizeChoiceText(value: string): string {
   return value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[*_`"']/g, '')
+    .replace(/\r/g, '\n')
+    .replace(/\s+/g, ' ')
     .toLowerCase()
     .trim()
+}
+
+function extractChoiceCandidates(message: string): string[] {
+  const raw = String(message || '')
+  const lines = raw
+    .split(/\r?\n/)
+    .map(line => normalizeChoiceText(line))
+    .filter(Boolean)
+
+  const normalizedFull = normalizeChoiceText(raw)
+  const candidates = [normalizedFull, ...lines]
+
+  if (lines.length > 0) {
+    candidates.push(lines[lines.length - 1])
+  }
+
+  return [...new Set(candidates)]
 }
 
 type InteractiveChoice = {

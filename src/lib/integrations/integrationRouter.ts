@@ -100,10 +100,13 @@ export async function createExternalAppointment(params: {
       resolution.gestaods.isDev
     )
 
+    const startsAtFormatted = await gestaoService.formatDateForApi(params.startsAt)
+    const endsAtFormatted = await gestaoService.formatDateForApi(params.endsAt)
+
     const bookingResult = await gestaoService.bookAppointment({
       cpf,
-      data_agendamento: formatGestaoDSDate(params.startsAt),
-      data_fim_agendamento: formatGestaoDSDate(params.endsAt),
+      data_agendamento: startsAtFormatted,
+      data_fim_agendamento: endsAtFormatted,
       primeiro_atendimento: false,
     })
 
@@ -181,11 +184,14 @@ export async function updateExternalAppointment(params: {
         resolution.gestaods.isDev
       )
 
+      const startsAtFormatted = await gestaoService.formatDateForApi(params.startsAt)
+      const endsAtFormatted = await gestaoService.formatDateForApi(params.endsAt)
+
       const reschedule = await gestaoService.rescheduleAppointment({
         currentAppointmentId: params.providerReferenceId,
         cpf,
-        newStartDate: formatGestaoDSDate(params.startsAt),
-        newEndDate: formatGestaoDSDate(params.endsAt),
+        newStartDate: startsAtFormatted,
+        newEndDate: endsAtFormatted,
         reason: 'Remarcado via Doctor Chat Bot',
         primeiroAtendimento: false,
       })
@@ -384,25 +390,6 @@ async function tryLoadClinicIntegrations(supabase: SupabaseClient, clinicId: str
   } catch {
     return []
   }
-}
-
-/**
- * Formata uma data UTC para o formato esperado pela API GestaoDS.
- * A API espera o horário no fuso de Brasília (UTC-3).
- * Vercel roda em UTC, então precisamos subtrair 3 horas antes de usar getUTC*.
- */
-function formatGestaoDSDate(date: Date): string {
-  const pad = (value: number) => String(value).padStart(2, '0')
-  // Desloca para UTC-3 (Brasília)
-  const br = new Date(date.getTime() - 3 * 60 * 60 * 1000)
-  const formatted = `${pad(br.getUTCDate())}/${pad(br.getUTCMonth() + 1)}/${br.getUTCFullYear()} ${pad(br.getUTCHours())}:${pad(br.getUTCMinutes())}:${pad(br.getUTCSeconds())}`
-  console.log('[formatGestaoDSDate] Converting:', {
-    input: date.toISOString(),
-    dateTime: date.getTime(),
-    adjusted: br.toISOString(),
-    output: formatted,
-  })
-  return formatted
 }
 
 function normalizeRawCpf(cpf: string | null | undefined): string | null {

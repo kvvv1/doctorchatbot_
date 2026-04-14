@@ -61,6 +61,7 @@ export interface GestaoDSAvailabilityParams {
 export class GestaoDSService {
     private apiToken: string
     private baseUrl: string
+    private agendaTimezoneOffsetHours?: number
 
     constructor(apiToken: string, isDev: boolean = false) {
         this.apiToken = apiToken
@@ -89,7 +90,65 @@ export class GestaoDSService {
 
         // Some clinics have a production token saved with gestaods_is_dev=true.
         // Retry the production path transparently so availability/booking still work.
-        return fetch(this.buildEndpoint(path, false), init)
+        return await fetch(this.buildEndpoint(path, false), init)
+    }
+
+    private static parseTimezoneOffsetHours(raw: unknown): number | null {
+        if (typeof raw !== 'string') {
+            return null
+        }
+
+        const text = raw.trim().toLowerCase()
+        if (!text) {
+            return null
+        }
+
+        if (text.includes('sao_paulo') || text.includes('sao paulo')) {
+            return -3
+        }
+
+        const normalized = text.replace('utc', '').replace('gmt', '').trim()
+        const match = normalized.match(/([+-]\d{1,2})(?::?(\d{2}))?/) || normalized.match(/^([+-]?\d{1,2})$/)
+
+        if (!match || !match[1]) {
+            return null
+        }
+
+        const hours = Number(match[1])
+        const minutes = match[2] ? Number(match[2]) : 0
+
+        if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+            return null
+        }
+
+        const sign = hours >= 0 ? 1 : -1
+        return hours + sign * (minutes / 60)
+    }
+
+    private static formatDateWithOffset(date: Date, offsetHours: number): string {
+        const shifted = new Date(date.getTime() + offsetHours * 60 * 60 * 1000)
+        const pad = (value: number) => String(value).padStart(2, '0')
+        return `${pad(shifted.getUTCDate())}/${pad(shifted.getUTCMonth() + 1)}/${shifted.getUTCFullYear()} ${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}:${pad(shifted.getUTCSeconds())}`
+    }
+
+    private async getAgendaTimezoneOffsetHours(): Promise<number> {
+        if (typeof this.agendaTimezoneOffsetHours === 'number') {
+            return this.agendaTimezoneOffsetHours
+        }
+
+        const timezoneResult = await this.getAgendaTimezone()
+        const parsedOffset = timezoneResult.success
+            ? GestaoDSService.parseTimezoneOffsetHours(timezoneResult.data)
+            : null
+
+        // Fallback to Brasilia timezone to preserve current behavior when API does not expose timezone.
+        this.agendaTimezoneOffsetHours = parsedOffset ?? -3
+        return this.agendaTimezoneOffsetHours
+    }
+
+    async formatDateForApi(date: Date): Promise<string> {
+        const offset = await this.getAgendaTimezoneOffsetHours()
+        return GestaoDSService.formatDateWithOffset(date, offset)
     }
 
     /**
@@ -136,16 +195,16 @@ export class GestaoDSService {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}))
-                        console.error('[GestaoDS] bookAppointment failed:', {
-                            status: response.status,
-                            statusText: response.statusText,
-                            error: errorData,
-                        })
-                        return { success: false, error: errorData.detail || response.statusText }
+                console.error('[GestaoDS] registerPatient failed:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: errorData,
+                })
+                return { success: false, error: errorData.detail || errorData.message || response.statusText }
             }
 
             const data = await response.json()
-            console.log('[GestaoDS] bookAppointment success:', {
+            console.log('[GestaoDS] registerPatient success:', {
                 responseShape: data ? Object.keys(data) : null,
                 data: data,
             })
@@ -199,6 +258,92 @@ export class GestaoDSService {
             return { success: true, data }
         } catch (error) {
             console.error('GestaoDS getDiasDisponiveis error:', error)
+            return { success: false, error: String(error) }
+        }
+    }
+
+    /**
+     * Retorna os dados da agenda para o token configurado.
+     */
+    async getAgendaData(): Promise<GestaoDSResponse<Record<string, unknown>>> {
+        try {
+            const response = await this.fetchWithEnvironmentFallback(`dados-agendamento/${this.apiToken}/`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            })
+
+            if (!response.ok) {
+                return { success: false, error: `${response.status} ${response.statusText}` }
+            }
+
+            const data = await response.json()
+            return {
+                success: true,
+                data: data && typeof data === 'object' ? data : { raw: data }
+            }
+        } catch (error) {
+            console.error('GestaoDS getAgendaData error:', error)
+            return { success: false, error: String(error) }
+        }
+    }
+
+    /**
+     * Retorna os detalhes de um agendamento específico.
+     */
+    async getAppointmentById(appointmentId: string): Promise<GestaoDSResponse<Record<string, unknown>>> {
+        try {
+            const query = `token=${encodeURIComponent(this.apiToken)}&agendamento=${encodeURIComponent(appointmentId)}`
+            const response = await this.fetchWithEnvironmentFallback(`agendamento/retornar-agendamento/?${query}`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            })
+
+            if (!response.ok) {
+                return { success: false, error: `${response.status} ${response.statusText}` }
+            }
+
+            const data = await response.json()
+            return {
+                success: true,
+                data: data && typeof data === 'object' ? data : { raw: data }
+            }
+        } catch (error) {
+            console.error('GestaoDS getAppointmentById error:', error)
+            return { success: false, error: String(error) }
+        }
+    }
+
+    /**
+     * Retorna o fuso configurado da agenda.
+     */
+    async getAgendaTimezone(): Promise<GestaoDSResponse<string>> {
+        try {
+            const response = await this.fetchWithEnvironmentFallback(`agendamento/retornar-fuso-horario/${this.apiToken}`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            })
+
+            if (!response.ok) {
+                return { success: false, error: `${response.status} ${response.statusText}` }
+            }
+
+            const data = await response.json()
+
+            if (typeof data === 'string') {
+                return { success: true, data }
+            }
+
+            if (data && typeof data === 'object') {
+                const node = data as Record<string, unknown>
+                const timezone = node.fuso_horario || node.timezone || node.data
+                if (typeof timezone === 'string') {
+                    return { success: true, data: timezone }
+                }
+            }
+
+            return { success: false, error: 'GestãoDS não retornou o fuso horário em formato esperado.' }
+        } catch (error) {
+            console.error('GestaoDS getAgendaTimezone error:', error)
             return { success: false, error: String(error) }
         }
     }
