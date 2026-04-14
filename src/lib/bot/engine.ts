@@ -124,7 +124,7 @@ export async function handleBotTurn(
       return handleMenu(userMessage, ctx, botSettings, clinicId)
 
     case 'agendar_nome':
-      return handleAgendarNome(userMessage, ctx, botSettings, clinicId)
+      return handleAgendarNome(userMessage, ctx)
 
     case 'agendar_cpf':
       return handleAgendarCpf(userMessage, ctx, botSettings, clinicId)
