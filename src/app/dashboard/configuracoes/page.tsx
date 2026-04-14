@@ -5,7 +5,7 @@ import { Metadata } from 'next'
 import { checkSubscription } from '@/lib/services/subscriptionService'
 import { hasFeatureAccess, PlanFeature } from '@/lib/services/planFeatures'
 import { getBotSettings } from '@/lib/services/botSettingsService'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export const metadata: Metadata = {
 	title: 'Configurações',
@@ -22,7 +22,7 @@ export default async function ConfiguracoesPage() {
 
 	const subscription = await checkSubscription(clinic.id)
 	const botSettings = await getBotSettings(clinic.id)
-	const supabase = await createClient()
+	const supabase = createAdminClient()
 	const { data: appointmentSettings } = await supabase
 		.from('appointment_settings')
 		.select('default_duration_minutes')
