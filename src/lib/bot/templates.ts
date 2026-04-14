@@ -61,6 +61,9 @@ Pode digitar a data (ex: 25/04) ou o dia da semana (ex: segunda-feira).`,
 Qual horário você prefere?
 (ex: 14h, 14:30, 2 da tarde)`,
 
+  scheduleConfirmSelection: (details: { dayLabel?: string; timeLabel: string; patientName?: string }) =>
+    `Perfeito! Antes de confirmar, confira os dados:\n\n📅 Dia: ${details.dayLabel || 'Não informado'}\n🕐 Horário: ${details.timeLabel}\n👤 Paciente: ${details.patientName || 'Paciente'}\n\nEstá tudo correto?\n\n1️⃣ Sim, confirmar\n2️⃣ Não, alterar`,
+
   scheduleConflict: (slots: Slot[]) => {
     const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')
     return `⚠️ Este horário está ocupado. Escolha um horário disponível:\n\n${lines}`

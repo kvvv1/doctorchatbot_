@@ -147,6 +147,9 @@ export async function handleBotTurn(
     case 'agendar_hora_lista':
       return handleAgendarHoraLista(conversationId, userMessage, ctx, botSettings, clinicId)
 
+    case 'agendar_confirmar':
+      return handleAgendarConfirmar(conversationId, userMessage, ctx, botSettings, clinicId)
+
     case 'reagendar_qual':
       return handleQualAppointment(userMessage, ctx, 'reagendar', botSettings, clinicId)
 
@@ -367,24 +370,14 @@ async function handleAgendarCpf(
     }
   }
 
-  if (ctx.pendingScheduleSlot && clinicId) {
-    const result = await createAppointmentFromSlot({
-      clinicId,
-      conversationId,
-      patientName: ctx.patientName || 'Paciente',
-      patientPhone: ctx.patientPhone || '',
-      patientCpf: cpf,
-      slot: ctx.pendingScheduleSlot,
-      confirmTemplate: botSettings?.message_confirm_schedule,
-    })
-
+  if (ctx.pendingScheduleSlot) {
     return {
-      message: result.message,
-      nextState: result.success ? 'menu' : 'agendar_hora_lista',
-      nextContext: result.success
-        ? {}
-        : { ...ctx, patientCpf: cpf },
-      conversationStatus: result.success ? 'scheduled' : undefined,
+      message: buildScheduleConfirmationMessage({
+        ctx: { ...ctx, patientCpf: cpf },
+        slot: ctx.pendingScheduleSlot,
+      }),
+      nextState: 'agendar_confirmar',
+      nextContext: { ...ctx, patientCpf: cpf, pendingScheduleSlot: ctx.pendingScheduleSlot },
       patientCpf: cpf,
     }
   }
@@ -545,20 +538,10 @@ async function handleSlotEscolha(
   }
 
   if (flow === 'agendar') {
-    const result = await createAppointmentFromSlot({
-      clinicId,
-      conversationId,
-      patientName: ctx.patientName || 'Paciente',
-      patientPhone: ctx.patientPhone || '',
-      patientCpf: ctx.patientCpf || undefined,
-      slot,
-      confirmTemplate: botSettings?.message_confirm_schedule,
-    })
     return {
-      message: result.message,
-      nextState: result.success ? 'menu' : 'agendar_slot_escolha',
-      nextContext: result.success ? {} : ctx,
-      conversationStatus: result.success ? 'scheduled' : undefined,
+      message: buildScheduleConfirmationMessage({ ctx, slot }),
+      nextState: 'agendar_confirmar',
+      nextContext: { ...ctx, pendingScheduleSlot: slot },
     }
   }
 
@@ -1163,6 +1146,56 @@ async function handleAgendarHoraLista(
     }
   }
 
+  return {
+    message: buildScheduleConfirmationMessage({ ctx, slot }),
+    nextState: 'agendar_confirmar',
+    nextContext: { ...ctx, pendingScheduleSlot: slot },
+  }
+}
+
+async function handleAgendarConfirmar(
+  conversationId: string,
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  if (!clinicId) return technicalError(ctx)
+
+  const slot = ctx.pendingScheduleSlot
+  if (!slot) {
+    return showDayList({
+      clinicId,
+      botSettings,
+      ctx,
+      flow: 'agendar',
+      offset: 0,
+    })
+  }
+
+  const answer = detectYesNo(msg)
+
+  if (answer === 'unknown') {
+    return {
+      message: buildScheduleConfirmationMessage({ ctx, slot }),
+      nextState: 'agendar_confirmar',
+      nextContext: ctx,
+    }
+  }
+
+  if (answer === 'no') {
+    return showDayList({
+      clinicId,
+      botSettings,
+      ctx: {
+        ...ctx,
+        pendingScheduleSlot: undefined,
+      },
+      flow: 'agendar',
+      offset: 0,
+    })
+  }
+
   const result = await createAppointmentFromSlot({
     clinicId,
     conversationId,
@@ -1175,7 +1208,7 @@ async function handleAgendarHoraLista(
 
   return {
     message: result.message,
-    nextState: result.success ? 'menu' : 'agendar_hora_lista',
+    nextState: result.success ? 'menu' : 'agendar_confirmar',
     nextContext: result.success ? {} : ctx,
     conversationStatus: result.success ? 'scheduled' : undefined,
   }
@@ -1367,6 +1400,23 @@ function baseIdentityContext(ctx: BotContext): BotContext {
     patientName: ctx.patientName,
     patientCpf: ctx.patientCpf,
   }
+}
+
+function buildScheduleConfirmationMessage(params: {
+  ctx: BotContext
+  slot: Slot
+}): string {
+  const { ctx, slot } = params
+
+  const slotLabel = slot.label || formatSlotLabel(new Date(slot.startsAt))
+  const dayLabel = ctx.selectedDayLabel
+    || (slotLabel.includes('às') ? slotLabel.split('às')[0].trim() : undefined)
+
+  return templates.scheduleConfirmSelection({
+    dayLabel,
+    timeLabel: slot.label,
+    patientName: ctx.patientName,
+  })
 }
 
 function askForAppointmentCpf(

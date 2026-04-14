@@ -107,11 +107,6 @@ describe('handleBotTurn - GestaoDS CPF lookup flow', () => {
   })
 
   it('resumes scheduling with the previously selected slot after receiving CPF', async () => {
-    createAppointmentFromSlotMock.mockResolvedValue({
-      success: true,
-      message: '✅ Agendamento confirmado!',
-    })
-
     const response = await handleBotTurn(
       'conv-1',
       '178.311.876-85',
@@ -139,20 +134,73 @@ describe('handleBotTurn - GestaoDS CPF lookup flow', () => {
       'clinic-1',
     )
 
-    expect(createAppointmentFromSlotMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        clinicId: 'clinic-1',
-        conversationId: 'conv-1',
+    expect(createAppointmentFromSlotMock).not.toHaveBeenCalled()
+    expect(response.nextState).toBe('agendar_confirmar')
+    expect(response.patientCpf).toBe('17831187685')
+    expect(response.message).toContain('Está tudo correto?')
+    expect(response.message).toContain('1️⃣ Sim, confirmar')
+  })
+
+  it('asks for explicit confirmation after selecting slot from list', async () => {
+    const response = await handleBotTurn(
+      'conv-1',
+      '14h20',
+      'agendar_hora_lista',
+      {
         patientPhone: '553195531183',
         patientName: 'Kaike',
         patientCpf: '17831187685',
-        slot: expect.objectContaining({
-          label: '15h40',
-        }),
-      })
+        selectedDayLabel: 'Sexta-feira, 08/05',
+        availableSlots: [
+          {
+            startsAt: '2026-05-08T17:20:00.000Z',
+            endsAt: '2026-05-08T17:40:00.000Z',
+            label: '14h20',
+          },
+        ],
+      },
+      {
+        message_confirm_schedule: 'ok',
+      } as any,
+      '553195531183',
+      'clinic-1',
     )
+
+    expect(response.nextState).toBe('agendar_confirmar')
+    expect(response.message).toContain('Sexta-feira, 08/05')
+    expect(response.message).toContain('14h20')
+    expect(createAppointmentFromSlotMock).not.toHaveBeenCalled()
+  })
+
+  it('creates appointment only after yes in agendar_confirmar', async () => {
+    createAppointmentFromSlotMock.mockResolvedValue({
+      success: true,
+      message: '✅ Agendamento confirmado!',
+    })
+
+    const response = await handleBotTurn(
+      'conv-1',
+      '1',
+      'agendar_confirmar',
+      {
+        patientPhone: '553195531183',
+        patientName: 'Kaike',
+        patientCpf: '17831187685',
+        pendingScheduleSlot: {
+          startsAt: '2026-05-08T17:20:00.000Z',
+          endsAt: '2026-05-08T17:40:00.000Z',
+          label: '14h20',
+        },
+      },
+      {
+        message_confirm_schedule: 'ok',
+      } as any,
+      '553195531183',
+      'clinic-1',
+    )
+
+    expect(createAppointmentFromSlotMock).toHaveBeenCalledTimes(1)
     expect(response.nextState).toBe('menu')
-    expect(response.patientCpf).toBe('17831187685')
     expect(response.message).toContain('Agendamento confirmado')
   })
 })
