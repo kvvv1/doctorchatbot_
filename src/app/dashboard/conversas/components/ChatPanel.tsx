@@ -55,6 +55,7 @@ const BOT_STATE_LABELS: Record<BotState, string> = {
 	atendente: 'Transferido p/ atendente',
 	ver_agendamentos: 'Visualizando consultas',
 	confirmar_presenca: 'Confirmando presença',
+	sem_horario: 'Sem horarios disponiveis',
 }
 
 export default function ChatPanel({
