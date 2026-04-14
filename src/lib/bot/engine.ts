@@ -444,6 +444,15 @@ async function handleSlotEscolha(
 ): Promise<BotResponse> {
   if (!clinicId) return technicalError(ctx)
 
+  // CRITICAL: If agendar flow and missing CPF, request it now
+  if (flow === 'agendar' && !ctx.patientCpf) {
+    return {
+      message: templates.scheduleAskCpf(ctx.patientName || 'Paciente'),
+      nextState: 'agendar_cpf',
+      nextContext: ctx,
+    }
+  }
+
   const slots = ctx.availableSlots ?? []
   const choice = resolveChoiceIndex(msg, slots.map(slot => slot.label))
 
@@ -1033,6 +1042,16 @@ async function handleAgendarHoraLista(
   clinicId?: string,
 ): Promise<BotResponse> {
   if (!clinicId || !botSettings) return technicalError(ctx)
+
+  // CRITICAL: If we somehow reached here without a CPF (old session that pre-dates CPF collection),
+  // request it now before booking
+  if (!ctx.patientCpf) {
+    return {
+      message: templates.scheduleAskCpf(ctx.patientName || 'Paciente'),
+      nextState: 'agendar_cpf',
+      nextContext: ctx,
+    }
+  }
 
   const slots = ctx.availableSlots ?? []
   const normalizedMsg = normalizeChoiceText(msg)
