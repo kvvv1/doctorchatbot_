@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSessionProfile } from '@/lib/auth/getSessionProfile'
 import { Metadata } from 'next'
+import type { ComponentProps } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns'
@@ -9,6 +10,9 @@ import { hasFeatureAccess, PlanFeature } from '@/lib/services/planFeatures'
 import { normalizeAppointmentOrigin } from '@/lib/appointments/source'
 import UpgradePrompt from '../components/UpgradePrompt'
 import AgendaPageClient from './AgendaPageClient'
+
+type AgendaInitialAppointment =
+  ComponentProps<typeof AgendaPageClient>['initialAppointments'][number]
 
 export const metadata: Metadata = {
   title: 'Agenda',
@@ -125,7 +129,7 @@ export default async function AgendaPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <AgendaPageClient
-        initialAppointments={(appointments || []).map((appointment) =>
+        initialAppointments={(appointments || []).map((appointment: AgendaInitialAppointment) =>
           normalizeAppointmentOrigin(appointment)
         )}
         activeProvider={activeProvider}
