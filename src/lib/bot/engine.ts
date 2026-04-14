@@ -100,12 +100,12 @@ export async function handleBotTurn(
       (state === 'sem_horario' && (escapedMsg === '1' || /^sim$/.test(escapedMsg)))
     )
 
-    if (isBackToMenu && state !== 'menu') {
+    if (isBackToMenu) {
       return {
         preambleMessage: undefined,
         message: botSettings?.message_menu || templates.menu,
         nextState: 'menu',
-        nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
+        nextContext: baseIdentityContext(ctx),
       }
     }
 

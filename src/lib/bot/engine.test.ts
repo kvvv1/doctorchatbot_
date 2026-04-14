@@ -32,6 +32,24 @@ describe('handleBotTurn - GestaoDS CPF lookup flow', () => {
     vi.clearAllMocks()
   })
 
+  it('reopens the main menu when the user types menu while already in menu state', async () => {
+    const response = await handleBotTurn(
+      'conv-1',
+      'menu',
+      'menu',
+      {
+        patientPhone: '5511999999999',
+        patientName: 'Paciente Teste',
+      },
+      null,
+      '5511999999999',
+      'clinic-1',
+    )
+
+    expect(response.nextState).toBe('menu')
+    expect(response.message).toContain('Como posso te ajudar')
+  })
+
   it('asks for CPF when no appointments were found and GestaoDS is connected', async () => {
     hasGestaoDSIntegrationMock.mockResolvedValue(true)
 

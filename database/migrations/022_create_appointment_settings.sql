@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS public.appointment_settings (
 -- RLS
 ALTER TABLE public.appointment_settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "clinic_members_can_read_appointment_settings" ON public.appointment_settings;
 CREATE POLICY "clinic_members_can_read_appointment_settings"
   ON public.appointment_settings
   FOR SELECT
@@ -22,6 +23,7 @@ CREATE POLICY "clinic_members_can_read_appointment_settings"
     )
   );
 
+DROP POLICY IF EXISTS "clinic_members_can_upsert_appointment_settings" ON public.appointment_settings;
 CREATE POLICY "clinic_members_can_upsert_appointment_settings"
   ON public.appointment_settings
   FOR ALL
