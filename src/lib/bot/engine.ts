@@ -725,9 +725,11 @@ function handleSemHorario(msg: string, ctx: BotContext, botSettings?: BotSetting
     }
   }
 
-  // Repeat the question
+  // Unknown input — go to menu (never loop back to scheduleNoSlots)
   return {
-    message: templates.scheduleNoSlots,
+    message: botSettings?.message_menu || templates.menu,
+    nextState: 'menu',
+    nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
     nextState: 'sem_horario',
     nextContext: ctx,
   }

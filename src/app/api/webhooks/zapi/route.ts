@@ -195,18 +195,27 @@ export async function POST(request: NextRequest) {
     // 10. Trigger bot response after the response lifecycle so Vercel keeps the task alive.
     const conversationId = result.conversationId
 
-    if (conversationId && parsed.messageText) {
+    // Only trigger bot when there is real user text.
+    // '[Mensagem sem texto]' is a Z-API delivery/status notification — not a patient message.
+    const botInput = parsed.normalizedText || parsed.messageText
+    const shouldTriggerBot =
+      !!conversationId &&
+      !!botInput &&
+      botInput !== '[Mensagem sem texto]' &&
+      !botInput.startsWith('[')
+
+    if (shouldTriggerBot) {
       after(async () => {
         console.log('[Z-API Webhook] Running deferred bot response:', {
           conversationId,
           phone: parsed.phone,
-          inputPreview: (parsed.normalizedText || parsed.messageText).substring(0, 80),
+          inputPreview: botInput.substring(0, 80),
         })
 
         await triggerBotResponse(
-          conversationId,
+          conversationId!,
           parsed.phone,
-          parsed.normalizedText || parsed.messageText,
+          botInput,
           clinicId,
           result.createdConversation ?? false
         )
@@ -290,24 +299,6 @@ async function triggerBotResponse(
     // 5. Get current state and context
     const currentState = (conversation.bot_state || 'menu') as BotState
     let currentContext = (conversation.bot_context || {}) as BotContext
-
-    // Optimistic lock: atomically stamp bot_context with a processing marker.
-    // If two webhook deliveries race here, only one will advance — the second
-    // will see the state already changed by sendBotResponse and bail out via
-    // the dedup check above. As a belt-and-suspenders guard, we also compare
-    // updated_at after the bot run in sendBotResponse.
-    const processingStamp = Date.now()
-    const { data: lockData } = await supabase
-      .from('conversations')
-      .update({ bot_context: { ...(conversation.bot_context as object || {}), _bot_processing: processingStamp } })
-      .eq('id', conversationId)
-      .eq('bot_state', currentState)
-      .select('id')
-
-    if (!lockData || lockData.length === 0) {
-      console.log('[Bot] Could not acquire processing lock — another instance is handling this turn:', conversationId)
-      return
-    }
 
     // Always keep patientPhone in context so all handlers have access to it
     currentContext = { ...currentContext, patientPhone: phone }
