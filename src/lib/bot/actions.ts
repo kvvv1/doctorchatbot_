@@ -9,6 +9,10 @@ import { ptBR } from 'date-fns/locale'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { interpolate } from './interpolate'
 import {
+  getBrazilianPhoneLookupCandidates,
+  normalizeBrazilianPhone,
+} from '@/lib/utils/phone'
+import {
   cancelExternalAppointment,
   createExternalAppointment,
   updateExternalAppointment,
@@ -150,6 +154,7 @@ export async function createAppointment(params: {
   conversationId: string
   patientName: string
   patientPhone: string
+  patientCpf?: string
   dayText: string
   timeText: string
   confirmTemplate?: string
@@ -183,6 +188,7 @@ export async function createAppointment(params: {
     clinicId: params.clinicId,
     patientName: params.patientName,
     patientPhone: params.patientPhone,
+    cpf: params.patientCpf,
     startsAt,
     endsAt,
     description: 'Agendamento via WhatsApp',
@@ -485,9 +491,7 @@ export async function rescheduleAppointment(params: {
  * e.g. "5511987654321" → "11987654321", "(11) 9 8765-4321" → "11987654321"
  */
 function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '')
-  if (digits.startsWith('55') && digits.length >= 12) return digits.slice(2)
-  return digits
+  return normalizeBrazilianPhone(phone) || ''
 }
 
 function normalizeCpf(cpf: string | null | undefined): string | null {
@@ -534,18 +538,54 @@ function mapGestaoDSStatus(appt: Record<string, unknown>): string {
 
 async function resolvePatientCpf(clinicId: string, patientPhone: string): Promise<string | null> {
   const supabase = createAdminClient()
+  const phoneCandidates = getBrazilianPhoneLookupCandidates(patientPhone)
 
-  const { data: latestConversation } = await supabase
+  if (phoneCandidates.length === 0) return null
+
+  const { data: latestConversations, error } = await supabase
     .from('conversations')
-    .select('cpf')
+    .select('cpf, bot_context')
     .eq('clinic_id', clinicId)
-    .eq('patient_phone', patientPhone)
-    .not('cpf', 'is', null)
+    .in('patient_phone', phoneCandidates)
     .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+    .limit(10)
 
-  return normalizeCpf(latestConversation?.cpf)
+  if (error?.code === 'PGRST204' && error.message?.includes("'cpf' column")) {
+    const { data: fallbackConversations } = await supabase
+      .from('conversations')
+      .select('bot_context')
+      .eq('clinic_id', clinicId)
+      .in('patient_phone', phoneCandidates)
+      .order('updated_at', { ascending: false })
+      .limit(10)
+
+    for (const conversation of fallbackConversations || []) {
+      const cpfFromContext = normalizeCpf(
+        conversation?.bot_context && typeof conversation.bot_context === 'object'
+          ? String((conversation.bot_context as Record<string, unknown>).patientCpf || '')
+          : null
+      )
+
+      if (cpfFromContext) return cpfFromContext
+    }
+
+    return null
+  }
+
+  for (const conversation of latestConversations || []) {
+    const cpfFromColumn = normalizeCpf(conversation?.cpf)
+    if (cpfFromColumn) return cpfFromColumn
+
+    const cpfFromContext = normalizeCpf(
+      conversation?.bot_context && typeof conversation.bot_context === 'object'
+        ? String((conversation.bot_context as Record<string, unknown>).patientCpf || '')
+        : null
+    )
+
+    if (cpfFromContext) return cpfFromContext
+  }
+
+  return null
 }
 
 async function upsertGestaoDSAppointmentMirror(params: {
@@ -719,12 +759,17 @@ export async function getPatientAppointments(
   patientPhone: string
 ): Promise<AppointmentSummary[]> {
   const supabase = createAdminClient()
+  const phoneCandidates = getBrazilianPhoneLookupCandidates(patientPhone)
+
+  if (phoneCandidates.length === 0) {
+    return []
+  }
 
   const { data, error } = await supabase
     .from('appointments')
     .select('id, starts_at, status')
     .eq('clinic_id', clinicId)
-    .eq('patient_phone', patientPhone)
+    .in('patient_phone', phoneCandidates)
     .in('status', ['scheduled', 'confirmed'])
     .gte('starts_at', new Date().toISOString())
     .order('starts_at', { ascending: true })

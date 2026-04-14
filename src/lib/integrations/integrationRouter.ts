@@ -1,5 +1,6 @@
 import { createCalendarEvent, deleteCalendarEvent, updateCalendarEvent } from '@/lib/calendar/googleCalendar'
 import { GestaoDSService, GestaoDSServiceHelpers } from '@/lib/services/gestaods'
+import { getBrazilianPhoneLookupCandidates } from '@/lib/utils/phone'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 type IntegrationProvider = 'none' | 'google' | 'gestaods'
@@ -165,11 +166,19 @@ export async function updateExternalAppointment(params: {
       }
     }
 
-    const cpf = await resolvePatientCpf({
+    let cpf = await resolvePatientCpf({
       supabase: params.supabase,
       clinicId: params.clinicId,
       patientPhone: params.patientPhone,
     })
+
+    if (!cpf) {
+      cpf = await resolveGestaoDSPatientCpfFromAppointment(
+        params.providerReferenceId,
+        resolution.gestaods.apiToken,
+        resolution.gestaods.isDev
+      )
+    }
 
     if (!cpf) {
       return {
@@ -398,6 +407,17 @@ function normalizeRawCpf(cpf: string | null | undefined): string | null {
   return clean.length === 11 ? clean : null
 }
 
+function extractCpfFromConversationRecord(record: { cpf?: string | null; bot_context?: unknown } | null | undefined): string | null {
+  const cpfFromColumn = normalizeRawCpf(record?.cpf)
+  if (cpfFromColumn) return cpfFromColumn
+
+  if (record?.bot_context && typeof record.bot_context === 'object') {
+    return normalizeRawCpf(String((record.bot_context as Record<string, unknown>).patientCpf || ''))
+  }
+
+  return null
+}
+
 async function resolvePatientCpf(params: {
   supabase: SupabaseClient
   clinicId: string
@@ -405,30 +425,84 @@ async function resolvePatientCpf(params: {
   conversationId?: string | null
 }): Promise<string | null> {
   const normalizeCpf = normalizeRawCpf
+  const phoneCandidates = getBrazilianPhoneLookupCandidates(params.patientPhone)
 
   if (params.conversationId) {
-    const { data: conversation } = await params.supabase
+    const { data: conversation, error: conversationError } = await params.supabase
       .from('conversations')
-      .select('cpf')
+      .select('cpf, bot_context')
       .eq('id', params.conversationId)
       .eq('clinic_id', params.clinicId)
       .maybeSingle()
 
-    const cpfFromConversation = normalizeCpf(conversation?.cpf)
+    if (conversationError?.code === 'PGRST204' && conversationError.message?.includes("'cpf' column")) {
+      const { data: fallbackConversation } = await params.supabase
+        .from('conversations')
+        .select('bot_context')
+        .eq('id', params.conversationId)
+        .eq('clinic_id', params.clinicId)
+        .maybeSingle()
+
+      const cpfFromFallbackConversation = extractCpfFromConversationRecord(fallbackConversation)
+      if (cpfFromFallbackConversation) {
+        return cpfFromFallbackConversation
+      }
+    }
+
+    const cpfFromConversation = extractCpfFromConversationRecord(conversation)
     if (cpfFromConversation) {
       return cpfFromConversation
     }
   }
 
-  const { data: latestConversation } = await params.supabase
+  const { data: latestConversations, error: latestConversationError } = await params.supabase
     .from('conversations')
-    .select('cpf')
+    .select('cpf, bot_context')
     .eq('clinic_id', params.clinicId)
-    .eq('patient_phone', params.patientPhone)
-    .not('cpf', 'is', null)
+    .in('patient_phone', phoneCandidates)
     .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+    .limit(10)
 
-  return normalizeCpf(latestConversation?.cpf)
+  if (latestConversationError?.code === 'PGRST204' && latestConversationError.message?.includes("'cpf' column")) {
+    const { data: fallbackConversations } = await params.supabase
+      .from('conversations')
+      .select('bot_context')
+      .eq('clinic_id', params.clinicId)
+      .in('patient_phone', phoneCandidates)
+      .order('updated_at', { ascending: false })
+      .limit(10)
+
+    for (const conversation of fallbackConversations || []) {
+      const cpfFromFallbackConversation = extractCpfFromConversationRecord(conversation)
+      if (cpfFromFallbackConversation) {
+        return cpfFromFallbackConversation
+      }
+    }
+
+    return null
+  }
+
+  for (const conversation of latestConversations || []) {
+    const cpfFromConversation = extractCpfFromConversationRecord(conversation)
+    if (cpfFromConversation) {
+      return cpfFromConversation
+    }
+  }
+
+  return null
+}
+
+async function resolveGestaoDSPatientCpfFromAppointment(
+  providerReferenceId: string,
+  apiToken: string,
+  isDev: boolean
+): Promise<string | null> {
+  const gestaoService = new GestaoDSService(apiToken, isDev)
+  const appointmentResult = await gestaoService.getAppointmentById(providerReferenceId)
+
+  if (!appointmentResult.success) {
+    return null
+  }
+
+  return GestaoDSServiceHelpers.extractPatientCpf(appointmentResult.data)
 }

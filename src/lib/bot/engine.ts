@@ -391,6 +391,7 @@ async function handleAgendarHora(
     conversationId,
     patientName: ctx.patientName || 'Paciente',
     patientPhone: ctx.patientPhone || '',
+    patientCpf: ctx.patientCpf || undefined,
     dayText: requestedDay,
     timeText: requestedTime,
     confirmTemplate: botSettings?.message_confirm_schedule,
@@ -868,10 +869,22 @@ export async function sendBotResponse(
     if (response.transferToHuman) update.bot_enabled = false
     if (response.patientCpf) update.cpf = response.patientCpf
 
-    const { error: convError } = await supabase
+    let { error: convError } = await supabase
       .from('conversations')
       .update(update)
       .eq('id', conversationId)
+
+    if (convError && update.cpf && convError.code === 'PGRST204' && convError.message?.includes("'cpf' column")) {
+      const retryUpdate = { ...update }
+      delete retryUpdate.cpf
+
+      const retryResult = await supabase
+        .from('conversations')
+        .update(retryUpdate)
+        .eq('id', conversationId)
+
+      convError = retryResult.error
+    }
 
     if (convError) {
       console.error('[Bot] Failed to update conversation:', convError)
