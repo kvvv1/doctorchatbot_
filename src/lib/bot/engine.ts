@@ -68,22 +68,46 @@ export async function handleBotTurn(
   const state = currentState || 'menu'
   const ctx: BotContext = { ...currentContext, patientPhone: patientPhone ?? currentContext.patientPhone }
 
-  // Universal escape hatch: any message matching reset keywords returns to menu.
-  // Only applies when already in a non-menu state (so we don't interfere with the
-  // normal menu flow). Preserves patientName so the patient doesn't need to re-enter it.
-  if (state !== 'menu' && state !== 'atendente') {
+  // Universal escape hatch — runs in ANY non-terminal state.
+  // Handles two cases:
+  //   a) "Voltar ao menu" / "menu" / "voltar" → go to menu
+  //   b) "Sim, falar com atendente" / "atendente" / "1" (when in sem_horario) → transfer
+  // This catches timing races where the patient clicked a scheduleNoSlots button
+  // BEFORE the DB had persisted 'sem_horario' as the new state.
+  if (state !== 'atendente') {
     const escapedMsg = userMessage
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
       .trim()
-    const RESET_KEYWORDS = ['menu', 'inicio', 'inicio', 'ajuda', 'help', 'voltar', 'sair', 'cancelar tudo']
-    if (RESET_KEYWORDS.includes(escapedMsg)) {
+
+    // "Voltar ao menu" button or typed menu/voltar
+    const isBackToMenu = /^(menu|inicio|ajuda|help|sair|cancelar tudo)$/.test(escapedMsg)
+      || /\bvoltar\b/.test(escapedMsg)
+      || /\bvoltar ao menu\b/.test(escapedMsg)
+
+    // "Sim, falar com atendente" button — only outside menu/agendar_nome states
+    // where "1" or "sim" would be ambiguous
+    const isAttendantRequest = state !== 'menu' && (
+      /sim.*falar.*atendente|falar.*atendente|quero.*atendente/i.test(escapedMsg) ||
+      (state === 'sem_horario' && (escapedMsg === '1' || /^sim$/.test(escapedMsg)))
+    )
+
+    if (isBackToMenu && state !== 'menu') {
       return {
         preambleMessage: undefined,
         message: botSettings?.message_menu || templates.menu,
         nextState: 'menu',
         nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
+      }
+    }
+
+    if (isAttendantRequest) {
+      return {
+        message: templates.attendantTransfer,
+        nextState: 'atendente',
+        nextContext: ctx,
+        transferToHuman: true,
       }
     }
   }
