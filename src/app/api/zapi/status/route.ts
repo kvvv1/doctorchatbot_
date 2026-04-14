@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getMissingCredentials, zapiGetStatus, validateCredentials, ZapiStatus } from '@/lib/zapi/client';
@@ -9,7 +9,7 @@ import { getMissingCredentials, zapiGetStatus, validateCredentials, ZapiStatus }
  * Consulta o status atual da instância WhatsApp na Z-API.
  * Atualiza o status no banco e retorna para o cliente.
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // 1. Autenticar usuário
     const supabase = await createClient();
@@ -98,9 +98,10 @@ export async function GET(request: NextRequest) {
     }
 
     // 6. Atualizar status no banco (se mudou)
+    // Usa admin para evitar policies recursivas em ambientes com RLS complexo.
     if (status !== instance.status) {
       console.log(`[Z-API Status] Status changed from '${instance.status}' to '${status}'. Updating database...`);
-      const { error: updateError } = await supabase
+      const { error: updateError } = await admin
         .from('whatsapp_instances')
         .update({
           status,

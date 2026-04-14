@@ -33,12 +33,24 @@ export interface GestaoDSAppointmentRequest {
     primeiro_atendimento?: boolean
 }
 
+export interface GestaoDSPatientAppointmentsRequest {
+    cpf: string
+    token: string
+}
+
 export interface GestaoDSStatusUpdateRequest {
     token: string
     agendamento: string // Token/ID do agendamento
     confirmado?: boolean
     cancelado?: boolean
     motivo_cancelamento?: string
+}
+
+export interface GestaoDSRescheduleRequest {
+    data_agendamento: string // dd/mm/yyyy hh:mm:ss
+    data_fim_agendamento: string // dd/mm/yyyy hh:mm:ss
+    token: string
+    agendamento: string
 }
 
 export interface GestaoDSAvailabilityParams {
@@ -91,7 +103,7 @@ export class GestaoDSService {
     /**
      * Cadastra um novo paciente
      */
-    async registerPatient(patient: Omit<GestaoDSPatientRequest, 'token'>): Promise<GestaoDSResponse<any>> {
+    async registerPatient(patient: Omit<GestaoDSPatientRequest, 'token'>): Promise<GestaoDSResponse<unknown>> {
         try {
             const endpoint = `${this.baseUrl}/${this.getDevPrefix()}paciente/cadastrar/`
             const body: GestaoDSPatientRequest = {
@@ -145,9 +157,44 @@ export class GestaoDSService {
     }
 
     /**
+     * Busca os agendamentos de um paciente via CPF.
+     */
+    async listPatientAppointments(cpf: string): Promise<GestaoDSResponse<Record<string, unknown>[]>> {
+        try {
+            const cleanCpf = cpf.replace(/\D/g, '')
+            const endpoint = `${this.baseUrl}/${this.getDevPrefix()}paciente/agendamentos/`
+            const body: GestaoDSPatientAppointmentsRequest = {
+                cpf: cleanCpf,
+                token: this.apiToken,
+            }
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(body)
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}))
+                return { success: false, error: errorData.detail || response.statusText }
+            }
+
+            const data = await response.json()
+            const records = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []
+            return { success: true, data: records }
+        } catch (error) {
+            console.error('GestaoDS listPatientAppointments error:', error)
+            return { success: false, error: String(error) }
+        }
+    }
+
+    /**
      * Realiza um agendamento
      */
-    async bookAppointment(params: Omit<GestaoDSAppointmentRequest, 'token'>): Promise<GestaoDSResponse<any>> {
+    async bookAppointment(params: Omit<GestaoDSAppointmentRequest, 'token'>): Promise<GestaoDSResponse<unknown>> {
         try {
             const endpoint = `${this.baseUrl}/${this.getDevPrefix()}agendamento/agendar/`
             const body: GestaoDSAppointmentRequest = {
@@ -180,7 +227,7 @@ export class GestaoDSService {
     /**
      * Altera status de um agendamento (Confirmar/Cancelar)
      */
-    async updateAppointmentStatus(params: Omit<GestaoDSStatusUpdateRequest, 'token'>): Promise<GestaoDSResponse<any>> {
+    async updateAppointmentStatus(params: Omit<GestaoDSStatusUpdateRequest, 'token'>): Promise<GestaoDSResponse<unknown>> {
         try {
             const endpoint = `${this.baseUrl}/${this.getDevPrefix()}paciente/agendamentos/`
             const body: GestaoDSStatusUpdateRequest = {
@@ -212,7 +259,7 @@ export class GestaoDSService {
      * Nota: o endpoint de listagem só existe na rota /dados-agendamento/listagem/ (sem prefixo dev-).
      * O isDev diferencia apenas outras operações (criar/cancelar agendamentos de teste).
      */
-    async listAppointments(startDate: string, endDate: string): Promise<GestaoDSResponse<any[]>> {
+    async listAppointments(startDate: string, endDate: string): Promise<GestaoDSResponse<Record<string, unknown>[]>> {
         try {
             // Converte datas de yyyy-MM-dd para dd/mm/yyyy (formato da API brasileira)
             const toApiDate = (d: string) => {
@@ -258,7 +305,7 @@ export class GestaoDSService {
     async cancelAppointment(
         appointmentId: GestaoDSAppointmentIdentifier,
         reason: string = 'Cancelado via Doctor Chat Bot'
-    ): Promise<GestaoDSResponse<any>> {
+    ): Promise<GestaoDSResponse<unknown>> {
         return this.updateAppointmentStatus({
             agendamento: appointmentId,
             cancelado: true,
@@ -268,7 +315,7 @@ export class GestaoDSService {
 
     async confirmAppointment(
         appointmentId: GestaoDSAppointmentIdentifier
-    ): Promise<GestaoDSResponse<any>> {
+    ): Promise<GestaoDSResponse<unknown>> {
         return this.updateAppointmentStatus({
             agendamento: appointmentId,
             confirmado: true,
@@ -282,40 +329,50 @@ export class GestaoDSService {
         newEndDate: string
         reason?: string
         primeiroAtendimento?: boolean
-    }): Promise<GestaoDSResponse<{ newAppointmentId?: string; raw?: any }>> {
-        const cancellation = await this.cancelAppointment(
-            params.currentAppointmentId,
-            params.reason || 'Remarcado via Doctor Chat Bot'
-        )
+    }): Promise<GestaoDSResponse<{ newAppointmentId?: string; raw?: unknown }>> {
+        try {
+            const endpoint = `${this.baseUrl}/${this.getDevPrefix()}agendamento/reagendar/`
+            const body: GestaoDSRescheduleRequest = {
+                agendamento: params.currentAppointmentId,
+                data_agendamento: params.newStartDate,
+                data_fim_agendamento: params.newEndDate,
+                token: this.apiToken,
+            }
 
-        if (!cancellation.success) {
+            const response = await fetch(endpoint, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(body)
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}))
+                return {
+                    success: false,
+                    error: errorData.detail || response.statusText || 'Falha ao reagendar agendamento'
+                }
+            }
+
+            const data = await response.json()
+            const newAppointmentId =
+                GestaoDSServiceHelpers.extractAppointmentId(data) ||
+                params.currentAppointmentId
+
+            return {
+                success: true,
+                data: {
+                    newAppointmentId: newAppointmentId || undefined,
+                    raw: data,
+                }
+            }
+        } catch (error) {
+            console.error('GestaoDS rescheduleAppointment error:', error)
             return {
                 success: false,
-                error: cancellation.error || 'Falha ao cancelar agendamento anterior'
-            }
-        }
-
-        const booking = await this.bookAppointment({
-            cpf: params.cpf,
-            data_agendamento: params.newStartDate,
-            data_fim_agendamento: params.newEndDate,
-            primeiro_atendimento: params.primeiroAtendimento,
-        })
-
-        if (!booking.success) {
-            return {
-                success: false,
-                error: booking.error || 'Falha ao criar novo agendamento'
-            }
-        }
-
-        const newAppointmentId = GestaoDSServiceHelpers.extractAppointmentId(booking.data)
-
-        return {
-            success: true,
-            data: {
-                newAppointmentId: newAppointmentId || undefined,
-                raw: booking.data,
+                error: String(error)
             }
         }
     }

@@ -13,6 +13,7 @@ import {
   createExternalAppointment,
   updateExternalAppointment,
 } from '@/lib/integrations/integrationRouter'
+import { GestaoDSService, GestaoDSServiceHelpers } from '@/lib/services/gestaods'
 import type { AppointmentSummary, Slot } from './context'
 
 // ---------------------------------------------------------------------------
@@ -465,7 +466,236 @@ export async function rescheduleAppointment(params: {
 }
 
 /**
+ * Normalize a Brazilian phone number to digits only, stripping country code 55.
+ * e.g. "5511987654321" → "11987654321", "(11) 9 8765-4321" → "11987654321"
+ */
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.startsWith('55') && digits.length >= 12) return digits.slice(2)
+  return digits
+}
+
+function normalizeCpf(cpf: string | null | undefined): string | null {
+  if (!cpf) return null
+  const digits = cpf.replace(/\D/g, '')
+  return digits.length === 11 ? digits : null
+}
+
+function normalizeString(value: unknown): string | null {
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    return null
+  }
+
+  const output = String(value).trim()
+  return output.length > 0 ? output : null
+}
+
+function parseGestaoDSDate(raw: string): Date | null {
+  if (!raw) return null
+
+  if (raw.includes('-') && !raw.startsWith('0')) {
+    const iso = new Date(raw)
+    if (!Number.isNaN(iso.getTime())) return iso
+  }
+
+  const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:[\s T](\d{2}):(\d{2})(?::(\d{2}))?)?/)
+  if (!match) return null
+
+  const [, day, month, year, hours = '00', minutes = '00', seconds = '00'] = match
+  const isoWithOffset = `${year}-${month}-${day}T${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:${seconds.padStart(2, '0')}-03:00`
+  const parsed = new Date(isoWithOffset)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function mapGestaoDSStatus(appt: Record<string, unknown>): string {
+  if (appt.cancelado) return 'canceled'
+  if (appt.faltou) return 'no_show'
+  if (appt.finalizado) return 'completed'
+  if (appt.confirmado) return 'confirmed'
+  return 'scheduled'
+}
+
+async function resolvePatientCpf(clinicId: string, patientPhone: string): Promise<string | null> {
+  const supabase = createAdminClient()
+
+  const { data: latestConversation } = await supabase
+    .from('conversations')
+    .select('cpf')
+    .eq('clinic_id', clinicId)
+    .eq('patient_phone', patientPhone)
+    .not('cpf', 'is', null)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  return normalizeCpf(latestConversation?.cpf)
+}
+
+async function upsertGestaoDSAppointmentMirror(params: {
+  clinicId: string
+  patientPhoneFallback: string
+  sourceAppointment: Record<string, unknown>
+}): Promise<AppointmentSummary | null> {
+  const supabase = createAdminClient()
+  const externalId = GestaoDSServiceHelpers.extractAppointmentId(params.sourceAppointment)
+
+  if (!externalId) return null
+
+  const startsAtRaw = normalizeString(
+    params.sourceAppointment.data_agendamento ||
+      params.sourceAppointment.data_hora_inicio ||
+      params.sourceAppointment.starts_at
+  )
+  const endsAtRaw = normalizeString(
+    params.sourceAppointment.data_fim_agendamento ||
+      params.sourceAppointment.data_hora_fim ||
+      params.sourceAppointment.ends_at
+  )
+
+  if (!startsAtRaw || !endsAtRaw) return null
+
+  const startsAt = parseGestaoDSDate(startsAtRaw)
+  const endsAt = parseGestaoDSDate(endsAtRaw)
+
+  if (!startsAt || !endsAt || Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+    return null
+  }
+
+  const patientNode =
+    params.sourceAppointment.paciente && typeof params.sourceAppointment.paciente === 'object'
+      ? (params.sourceAppointment.paciente as Record<string, unknown>)
+      : {}
+
+  const patientPhone =
+    normalizeString(patientNode.celular || params.sourceAppointment.paciente_celular) ||
+    normalizePhone(params.patientPhoneFallback)
+  const payload = {
+    patient_name:
+      normalizeString(patientNode.nome || params.sourceAppointment.paciente_nome) ||
+      'Paciente GestaoDS',
+    patient_phone: patientPhone || params.patientPhoneFallback,
+    starts_at: startsAt.toISOString(),
+    ends_at: endsAt.toISOString(),
+    status: mapGestaoDSStatus(params.sourceAppointment),
+    updated_at: new Date().toISOString(),
+  }
+
+  const { data: existing, error: fetchExistingError } = await supabase
+    .from('appointments')
+    .select('id, starts_at, ends_at, status, patient_name, patient_phone')
+    .eq('clinic_id', params.clinicId)
+    .eq('provider', 'gestaods')
+    .eq('provider_reference_id', externalId)
+    .maybeSingle()
+
+  if (fetchExistingError) return null
+
+  if (!existing) {
+    const { data: inserted, error: insertError } = await supabase
+      .from('appointments')
+      .insert({
+        clinic_id: params.clinicId,
+        provider: 'gestaods',
+        provider_reference_id: externalId,
+        ...payload,
+      })
+      .select('id')
+      .single()
+
+    if (insertError || !inserted?.id) return null
+
+    return {
+      id: inserted.id,
+      startsAt: payload.starts_at,
+      label: formatSlotLabel(startsAt),
+      status: payload.status,
+    }
+  }
+
+  const hasChanged =
+    existing.starts_at !== payload.starts_at ||
+    existing.ends_at !== payload.ends_at ||
+    existing.status !== payload.status ||
+    existing.patient_name !== payload.patient_name ||
+    existing.patient_phone !== payload.patient_phone
+
+  if (hasChanged) {
+    const { error: updateError } = await supabase
+      .from('appointments')
+      .update(payload)
+      .eq('id', existing.id)
+
+    if (updateError) return null
+  }
+
+  return {
+    id: existing.id,
+    startsAt: payload.starts_at,
+    label: formatSlotLabel(startsAt),
+    status: payload.status,
+  }
+}
+
+/**
+ * Query the GestaoDS API for upcoming appointments matching the patient's CPF.
+ * Missing appointments are mirrored locally so cancel/reschedule can reuse the DB flow.
+ */
+async function getPatientAppointmentsFromGestaoDSAPI(
+  clinicId: string,
+  patientPhone: string
+): Promise<AppointmentSummary[]> {
+  const supabase = createAdminClient()
+  const patientCpf = await resolvePatientCpf(clinicId, patientPhone)
+
+  if (!patientCpf) return []
+
+  const { data: integration } = await supabase
+    .from('clinic_integrations')
+    .select('gestaods_api_token, gestaods_is_dev')
+    .eq('clinic_id', clinicId)
+    .eq('provider', 'gestaods')
+    .eq('is_connected', true)
+    .maybeSingle()
+
+  if (!integration?.gestaods_api_token) return []
+
+  const service = new GestaoDSService(
+    integration.gestaods_api_token,
+    integration.gestaods_is_dev ?? true
+  )
+
+  const result = await service.listPatientAppointments(patientCpf)
+
+  if (!result.success || !result.data?.length) return []
+
+  const appointments: AppointmentSummary[] = []
+  const seen = new Set<string>()
+  const now = Date.now()
+
+  for (const appt of result.data) {
+    if (!appt || typeof appt !== 'object') continue
+
+    const summary = await upsertGestaoDSAppointmentMirror({
+      clinicId,
+      patientPhoneFallback: patientPhone,
+      sourceAppointment: appt as Record<string, unknown>,
+    })
+
+    if (!summary || seen.has(summary.id)) continue
+    if (!['scheduled', 'confirmed'].includes(summary.status)) continue
+    if (new Date(summary.startsAt).getTime() < now) continue
+
+    appointments.push(summary)
+    seen.add(summary.id)
+  }
+
+  appointments.sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+  return appointments
+}
+
+/**
  * Fetch upcoming (active) appointments for a patient in a clinic.
+ * Merges local DB results with GestaoDS API results when integration is active.
  */
 export async function getPatientAppointments(
   clinicId: string,
@@ -483,14 +713,32 @@ export async function getPatientAppointments(
     .order('starts_at', { ascending: true })
     .limit(5)
 
-  if (error || !data) return []
+  const localResults: AppointmentSummary[] = (error || !data)
+    ? []
+    : data.map((a) => ({
+        id: a.id,
+        startsAt: a.starts_at,
+        label: formatSlotLabel(new Date(a.starts_at)),
+        status: a.status,
+      }))
 
-  return data.map((a) => ({
-    id: a.id,
-    startsAt: a.starts_at,
-    label: formatSlotLabel(new Date(a.starts_at)),
-    status: a.status,
-  }))
+  // Supplement with GestaoDS API (covers appointments synced with missing phone)
+  const gestaoDSResults = await getPatientAppointmentsFromGestaoDSAPI(clinicId, patientPhone)
+
+  if (gestaoDSResults.length === 0) return localResults
+
+  // Merge — deduplicate by DB UUID
+  const seen = new Set(localResults.map((a) => a.id))
+  const merged = [...localResults]
+  for (const a of gestaoDSResults) {
+    if (!seen.has(a.id)) {
+      merged.push(a)
+      seen.add(a.id)
+    }
+  }
+
+  merged.sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+  return merged.slice(0, 5)
 }
 
 /**
