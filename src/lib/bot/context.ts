@@ -70,6 +70,7 @@ export type BotContext = {
 
   // Available slots offered to the patient (conflict resolution)
   availableSlots?: Slot[]
+  pendingScheduleSlot?: Slot
 
   // List-based scheduling flow
   availableDays?: DayOption[]     // days shown in the interactive day list

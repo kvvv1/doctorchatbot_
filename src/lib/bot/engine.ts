@@ -127,7 +127,7 @@ export async function handleBotTurn(
       return handleAgendarNome(userMessage, ctx)
 
     case 'agendar_cpf':
-      return handleAgendarCpf(userMessage, ctx, botSettings, clinicId)
+      return handleAgendarCpf(conversationId, userMessage, ctx, botSettings, clinicId)
 
     case 'consultar_cpf':
       return handleConsultarCpf(userMessage, ctx, botSettings, clinicId)
@@ -351,6 +351,7 @@ async function handleAgendarNome(
 }
 
 async function handleAgendarCpf(
+  conversationId: string,
   msg: string,
   ctx: BotContext,
   botSettings?: BotSettings | null,
@@ -363,6 +364,28 @@ async function handleAgendarCpf(
       message: '❌ CPF inválido. Por favor, informe um CPF válido (ex: 123.456.789-00):',
       nextState: 'agendar_cpf',
       nextContext: ctx,
+    }
+  }
+
+  if (ctx.pendingScheduleSlot && clinicId) {
+    const result = await createAppointmentFromSlot({
+      clinicId,
+      conversationId,
+      patientName: ctx.patientName || 'Paciente',
+      patientPhone: ctx.patientPhone || '',
+      patientCpf: cpf,
+      slot: ctx.pendingScheduleSlot,
+      confirmTemplate: botSettings?.message_confirm_schedule,
+    })
+
+    return {
+      message: result.message,
+      nextState: result.success ? 'menu' : 'agendar_hora_lista',
+      nextContext: result.success
+        ? {}
+        : { ...ctx, patientCpf: cpf },
+      conversationStatus: result.success ? 'scheduled' : undefined,
+      patientCpf: cpf,
     }
   }
 
@@ -499,15 +522,6 @@ async function handleSlotEscolha(
 ): Promise<BotResponse> {
   if (!clinicId) return technicalError(ctx)
 
-  // CRITICAL: If agendar flow and missing CPF, request it now
-  if (flow === 'agendar' && !ctx.patientCpf) {
-    return {
-      message: templates.scheduleAskCpf(ctx.patientName || 'Paciente'),
-      nextState: 'agendar_cpf',
-      nextContext: ctx,
-    }
-  }
-
   const slots = ctx.availableSlots ?? []
   const choice = resolveChoiceIndex(msg, slots.map(slot => slot.label))
 
@@ -520,6 +534,15 @@ async function handleSlotEscolha(
   }
 
   const slot = slots[choice]
+
+  // CRITICAL: If agendar flow and missing CPF, request it now but preserve the chosen slot
+  if (flow === 'agendar' && !ctx.patientCpf) {
+    return {
+      message: templates.scheduleAskCpf(ctx.patientName || 'Paciente'),
+      nextState: 'agendar_cpf',
+      nextContext: { ...ctx, pendingScheduleSlot: slot },
+    }
+  }
 
   if (flow === 'agendar') {
     const result = await createAppointmentFromSlot({
@@ -1110,16 +1133,6 @@ async function handleAgendarHoraLista(
 ): Promise<BotResponse> {
   if (!clinicId || !botSettings) return technicalError(ctx)
 
-  // CRITICAL: If we somehow reached here without a CPF (old session that pre-dates CPF collection),
-  // request it now before booking
-  if (!ctx.patientCpf) {
-    return {
-      message: templates.scheduleAskCpf(ctx.patientName || 'Paciente'),
-      nextState: 'agendar_cpf',
-      nextContext: ctx,
-    }
-  }
-
   const slots = ctx.availableSlots ?? []
   const normalizedMsg = normalizeChoiceText(msg)
 
@@ -1139,6 +1152,17 @@ async function handleAgendarHoraLista(
   }
 
   const slot = slots[choice]
+
+  // CRITICAL: If we somehow reached here without a CPF (old session that pre-dates CPF collection),
+  // request it now but keep the chosen slot so the flow resumes after CPF.
+  if (!ctx.patientCpf) {
+    return {
+      message: templates.scheduleAskCpf(ctx.patientName || 'Paciente'),
+      nextState: 'agendar_cpf',
+      nextContext: { ...ctx, pendingScheduleSlot: slot },
+    }
+  }
+
   const result = await createAppointmentFromSlot({
     clinicId,
     conversationId,

@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getPatientAppointmentsMock, hasGestaoDSIntegrationMock } = vi.hoisted(() => ({
+const { getPatientAppointmentsMock, hasGestaoDSIntegrationMock, createAppointmentFromSlotMock } = vi.hoisted(() => ({
   getPatientAppointmentsMock: vi.fn(),
   hasGestaoDSIntegrationMock: vi.fn(),
+  createAppointmentFromSlotMock: vi.fn(),
 }))
 
 vi.mock('./actions', async () => {
@@ -11,7 +12,7 @@ vi.mock('./actions', async () => {
     parseTimeText: vi.fn(),
     formatSlotLabel: vi.fn(),
     createAppointment: vi.fn(),
-    createAppointmentFromSlot: vi.fn(),
+    createAppointmentFromSlot: createAppointmentFromSlotMock,
     cancelAppointment: vi.fn(),
     rescheduleAppointment: vi.fn(),
     addToWaitlist: vi.fn(),
@@ -103,5 +104,55 @@ describe('handleBotTurn - GestaoDS CPF lookup flow', () => {
     expect(response.nextState).toBe('ver_agendamentos')
     expect(response.patientCpf).toBe('12345678901')
     expect(response.message).toContain('agendamentos')
+  })
+
+  it('resumes scheduling with the previously selected slot after receiving CPF', async () => {
+    createAppointmentFromSlotMock.mockResolvedValue({
+      success: true,
+      message: '✅ Agendamento confirmado!',
+    })
+
+    const response = await handleBotTurn(
+      'conv-1',
+      '178.311.876-85',
+      'agendar_cpf',
+      {
+        patientPhone: '553195531183',
+        patientName: 'Kaike',
+        selectedDay: '2026-05-07',
+        selectedDayLabel: 'Quinta-feira, 07/05',
+        availableSlots: [
+          {
+            startsAt: '2026-05-07T18:40:00.000Z',
+            endsAt: '2026-05-07T19:00:00.000Z',
+            label: '15h40',
+          },
+        ],
+        pendingScheduleSlot: {
+          startsAt: '2026-05-07T18:40:00.000Z',
+          endsAt: '2026-05-07T19:00:00.000Z',
+          label: '15h40',
+        },
+      },
+      null,
+      '553195531183',
+      'clinic-1',
+    )
+
+    expect(createAppointmentFromSlotMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clinicId: 'clinic-1',
+        conversationId: 'conv-1',
+        patientPhone: '553195531183',
+        patientName: 'Kaike',
+        patientCpf: '17831187685',
+        slot: expect.objectContaining({
+          label: '15h40',
+        }),
+      })
+    )
+    expect(response.nextState).toBe('menu')
+    expect(response.patientCpf).toBe('17831187685')
+    expect(response.message).toContain('Agendamento confirmado')
   })
 })
