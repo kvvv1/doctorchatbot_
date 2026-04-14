@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Menu, Circle, Bot, PanelLeft, User } from 'lucide-react'
+import { Menu, Circle, PanelLeft, User } from 'lucide-react'
 import { FaWhatsapp } from 'react-icons/fa'
 import { formatDatePTBR, isWithinWorkHours, type WorkSchedule } from '@/lib/utils/dateHelpers'
 import type { WhatsAppStatus, BotStatus } from './DashboardLayoutClient'
@@ -162,7 +162,7 @@ export default function Topbar({
 									: 'Bot pausado - Clique para ativar'
 							}
 						>
-							<Bot className="size-3.5 text-neutral-600" />
+							<img src="/brand.png" alt="DoctorChatBot" className="size-3.5 object-contain" />
 							<span className="hidden md:inline text-xs font-medium text-neutral-700">
 								{botStatus === 'active' ? 'Ativo' : 'Pausado'}
 							</span>

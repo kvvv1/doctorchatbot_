@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { View } from 'react-big-calendar'
-import { Bot, Plus, RefreshCw, CheckCircle, Clock, XCircle, UserX, CalendarDays, TrendingUp, AlertCircle, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, RefreshCw, CheckCircle, Clock, XCircle, UserX, CalendarDays, TrendingUp, AlertCircle, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, subDays, addMonths, subMonths, addYears, subYears, format, isToday, isSameDay, isSameMonth, getDaysInMonth, getDay, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import CalendarView from './components/CalendarView'
@@ -550,7 +550,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
 
       {botAppointmentsCount > 0 && (
         <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 flex items-center gap-2">
-          <Bot className="h-4 w-4 text-sky-600 flex-shrink-0" />
+          <img src="/brand.png" alt="DoctorChatBot" className="h-4 w-4 object-contain flex-shrink-0" />
           {botAppointmentsCount} agendamento{botAppointmentsCount !== 1 ? 's' : ''} criado{botAppointmentsCount !== 1 ? 's' : ''} pelo bot neste periodo.
         </div>
       )}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { BotSettings, WorkingHoursDay, PlanKey } from '@/lib/types/database'
-import { Save, Bot, Clock, MessageSquare } from 'lucide-react'
+import { Save, Clock, MessageSquare } from 'lucide-react'
 import UpgradePrompt from '../../components/UpgradePrompt'
 
 interface BotConfigPageClientProps {
@@ -98,7 +98,7 @@ export default function BotConfigPageClient({
 				<div className="mb-8">
 					<div className="flex items-center gap-3 mb-2">
 						<div className="p-2 bg-blue-100 rounded-lg">
-							<Bot className="h-6 w-6 text-blue-600" />
+						<img src="/brand.png" alt="DoctorChatBot" className="h-6 w-6 object-contain" />
 						</div>
 						<h1 className="text-3xl font-bold text-slate-800">
 							Configurações do Bot
@@ -113,7 +113,7 @@ export default function BotConfigPageClient({
 					{/* Bot Behavior Section */}
 					<div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
 						<h2 className="text-xl font-semibold text-slate-800 mb-4 flex items-center gap-2">
-							<Bot className="h-5 w-5 text-blue-600" />
+					<img src="/brand.png" alt="DoctorChatBot" className="h-5 w-5 object-contain" />
 							Comportamento do Bot
 						</h2>
 

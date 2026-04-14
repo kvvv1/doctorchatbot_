@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { LayoutGrid, Bot, CalendarCheck2, Sparkles } from 'lucide-react'
+import { LayoutGrid, CalendarCheck2, Sparkles } from 'lucide-react'
 import BrandMark from '@/components/BrandMark'
 import LoginForm from '@/app/login/ui/LoginForm'
 import SignupForm from '@/app/signup/ui/SignupForm'
@@ -185,7 +185,7 @@ export default function AuthPanel({ mode }: { mode: Mode }) {
                     <div className="relative">
                       <div className="flex items-center gap-1 sm:gap-1.5">
                         <div className="flex size-5 sm:size-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-md shadow-indigo-500/30">
-                          <Bot className="size-2.5 sm:size-3 text-white" strokeWidth={2.5} />
+                          <img src="/brand.png" alt="DoctorChatBot" className="size-2.5 sm:size-3 object-contain" />
                         </div>
                         <p className="font-bold text-neutral-900 text-[10px] sm:text-xs">Chatbot 24/7</p>
                       </div>

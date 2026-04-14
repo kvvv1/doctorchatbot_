@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { BotSettings, PlanKey } from '@/lib/types/database'
-import { Save, Bot, MessageSquare, Eye, EyeOff } from 'lucide-react'
+import { Save, MessageSquare, Eye, EyeOff } from 'lucide-react'
 import UpgradePrompt from '../../components/UpgradePrompt'
 import BotWhatsAppPreview from './BotWhatsAppPreview'
 import { TEMPLATE_VARIABLES } from '@/lib/bot/interpolate'
@@ -107,7 +107,7 @@ export default function BotAdvancedSettingsTab({
 			{/* Comportamento do Bot */}
 			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
 				<h3 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
-					<Bot className="h-4 w-4 text-sky-600" />
+					<img src="/brand.png" alt="DoctorChatBot" className="h-4 w-4 object-contain" />
 					Comportamento do Bot
 				</h3>
 
