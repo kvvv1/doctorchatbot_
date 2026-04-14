@@ -261,6 +261,13 @@ export async function createAppointmentFromSlot(params: {
 }): Promise<ActionResult> {
   const supabase = createAdminClient()
 
+  console.log('[bot/actions] createAppointmentFromSlot started:', {
+    patientName: params.patientName,
+    patientPhone: params.patientPhone,
+    hasCpf: !!params.patientCpf,
+    cpfValue: params.patientCpf ? params.patientCpf.substring(0, 5) + '***' : undefined,
+  })
+
   const externalResult = await createExternalAppointment({
     supabase,
     clinicId: params.clinicId,
@@ -274,6 +281,10 @@ export async function createAppointmentFromSlot(params: {
   })
 
   if (externalResult.provider !== 'none' && !externalResult.synced) {
+    console.error('[bot/actions] External appointment failed:', {
+      provider: externalResult.provider,
+      error: externalResult.error,
+    })
     return {
       success: false,
       message: externalResult.error || 'Não consegui confirmar o agendamento na agenda integrada.',
@@ -299,13 +310,15 @@ export async function createAppointmentFromSlot(params: {
     .single()
 
   if (error) {
-    console.error('[bot/actions] createAppointmentFromSlot error:', error)
+    console.error('[bot/actions] createAppointmentFromSlot DB insert error:', error)
     return {
       success: false,
       message: 'Não consegui confirmar o agendamento. Pode tentar novamente?',
       error: error.message,
     }
   }
+
+  console.log('[bot/actions] Appointment created successfully:', { appointmentId: data?.id })
 
   const slotDate = new Date(params.slot.startsAt)
   const dataStr = format(slotDate, "EEE, dd/MM", { locale: ptBR })
