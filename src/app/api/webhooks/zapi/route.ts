@@ -141,6 +141,11 @@ export async function POST(request: NextRequest) {
 
     const clinicId = instance.clinic_id
 
+    // Temporary debug: log raw payload when text extraction fails
+    if (parsed.messageText === '[Mensagem sem texto]') {
+      console.log('[Z-API Webhook] DEBUG raw payload (no text extracted):', JSON.stringify(payload, null, 2).substring(0, 2000))
+    }
+
     console.log('[Z-API Webhook] Processing message:', {
       instanceId: parsed.instanceId,
       clinicId,
