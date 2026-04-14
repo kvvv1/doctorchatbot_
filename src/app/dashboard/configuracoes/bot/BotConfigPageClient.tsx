@@ -43,12 +43,9 @@ export default function BotConfigPageClient({
 						bot_default_enabled: settings.bot_default_enabled,
 						working_hours_enabled: settings.working_hours_enabled,
 						working_hours: settings.working_hours,
-						message_welcome: settings.message_welcome,
-						message_menu: settings.message_menu,
-						message_out_of_hours: settings.message_out_of_hours,
-						message_fallback: settings.message_fallback,
-						message_confirm_schedule: settings.message_confirm_schedule,
-						message_confirm_reschedule: settings.message_confirm_reschedule,
+					bot_respond_anytime: settings.bot_respond_anytime,
+					bot_scheduling_hours_enabled: settings.bot_scheduling_hours_enabled,
+					bot_scheduling_hours: settings.bot_scheduling_hours,
 						message_confirm_cancel: settings.message_confirm_cancel,
 					},
 				}),
@@ -75,6 +72,19 @@ export default function BotConfigPageClient({
 			working_hours: {
 				...settings.working_hours,
 				days: settings.working_hours.days.map((d) =>
+					d.day === day ? { ...d, [field]: value } : d
+				),
+			},
+		})
+	}
+
+	const updateBotSchedulingDay = (day: string, field: keyof WorkingHoursDay, value: any) => {
+		const current = settings.bot_scheduling_hours ?? settings.working_hours
+		setSettings({
+			...settings,
+			bot_scheduling_hours: {
+				...current,
+				days: current.days.map((d) =>
 					d.day === day ? { ...d, [field]: value } : d
 				),
 			},
@@ -193,36 +203,41 @@ export default function BotConfigPageClient({
 									/>
 								</button>
 							</div>
+
+						{/* Bot Respond Anytime Toggle */}
+						<div className="flex items-center justify-between p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+							<div className="flex-1">
+								<label htmlFor="bot-respond-anytime" className="font-medium text-slate-700 block mb-1">
+									🌙 Bot responde fora do expediente
+								</label>
+								<p className="text-sm text-slate-500">
+									Quando ativo, o bot responde 24h — sem enviar mensagem de fora do expediente
+								</p>
+							</div>
+							<button
+								id="bot-respond-anytime"
+								type="button"
+								onClick={() => setSettings({ ...settings, bot_respond_anytime: !settings.bot_respond_anytime })}
+								className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+									settings.bot_respond_anytime ? 'bg-emerald-500' : 'bg-slate-300'
+								}`}
+							>
+								<span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+									settings.bot_respond_anytime ? 'translate-x-6' : 'translate-x-1'
+								}`} />
+							</button>
 						</div>
 					</div>
+				</div>
 
-					{/* Working Hours Section */}
-					{settings.working_hours_enabled && (
-						<div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-							<h2 className="text-xl font-semibold text-slate-800 mb-4 flex items-center gap-2">
-								<Clock className="h-5 w-5 text-blue-600" />
-								Horário de Funcionamento
-							</h2>
-
-							<div className="space-y-3">
-								{settings.working_hours.days.map((day) => (
-									<div
-										key={day.day}
-										className="flex items-center gap-4 p-3 bg-slate-50 rounded-lg"
-									>
-										<input
-											type="checkbox"
-											checked={day.enabled}
-											onChange={(e) =>
-												updateWorkingDay(day.day, 'enabled', e.target.checked)
-											}
-											className="h-4 w-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-										/>
-										<span className="w-32 font-medium text-slate-700">
-											{dayLabels[day.day]}
-										</span>
-										<input
-											type="time"
+				{/* Working Hours Section — Clinic */}
+				{settings.working_hours_enabled && (
+					<div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+						<h2 className="text-xl font-semibold text-slate-800 mb-1 flex items-center gap-2">
+							<Clock className="h-5 w-5 text-blue-600" />
+							Horário de Funcionamento da Clínica
+						</h2>
+						<p className="text-sm text-slate-500 mb-4">Usado para enviar mensagem de fora do expediente. Não afeta os slots que o bot oferece.</p>
 											value={day.start}
 											onChange={(e) =>
 												updateWorkingDay(day.day, 'start', e.target.value)
@@ -245,7 +260,69 @@ export default function BotConfigPageClient({
 							</div>
 						</div>
 					)}
+					{/* Bot Scheduling Hours Section */}
+					<div className="bg-white rounded-2xl shadow-sm border border-emerald-300 p-6">
+						<div className="flex items-center justify-between mb-2">
+							<h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+								<Clock className="h-5 w-5 text-emerald-600" />
+								Disponibilidade para Agendamento (Bot)
+							</h2>
+							<button
+								type="button"
+								onClick={() => setSettings({ ...settings, bot_scheduling_hours_enabled: !settings.bot_scheduling_hours_enabled })}
+								className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+									settings.bot_scheduling_hours_enabled ? 'bg-emerald-500' : 'bg-slate-300'
+								}`}
+							>
+								<span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+									settings.bot_scheduling_hours_enabled ? 'translate-x-6' : 'translate-x-1'
+								}`} />
+							</button>
+						</div>
+						<p className="text-sm text-slate-500 mb-4">
+							{settings.bot_scheduling_hours_enabled
+								? 'Usando horários específicos do bot para oferecer slots.'
+								: 'Usando os mesmos horários da clínica para oferecer slots. Ative para configurar separadamente.'}
+						</p>
 
+						{settings.bot_scheduling_hours_enabled && (
+							<div className="space-y-3">
+								{(settings.bot_scheduling_hours?.days ?? []).map((day) => (
+									<div key={day.day} className="flex items-center gap-4">
+										<div className="flex items-center gap-3 w-32">
+											<button
+												type="button"
+												onClick={() => updateBotSchedulingDay(day.day, 'enabled', !day.enabled)}
+												className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+													day.enabled ? 'bg-emerald-500' : 'bg-slate-300'
+												}`}
+											>
+												<span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+													day.enabled ? 'translate-x-5' : 'translate-x-1'
+												}`} />
+											</button>
+											<span className="text-sm font-medium text-slate-700 capitalize">{day.day}</span>
+										</div>
+										<input
+											type="time"
+											value={day.start}
+											onChange={(e) => updateBotSchedulingDay(day.day, 'start', e.target.value)}
+											disabled={!day.enabled}
+											className="px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-100 disabled:text-slate-400"
+										/>
+										<span className="text-slate-500">até</span>
+										<input
+											type="time"
+											value={day.end}
+											onChange={(e) => updateBotSchedulingDay(day.day, 'end', e.target.value)}
+											disabled={!day.enabled}
+											className="px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-100 disabled:text-slate-400"
+										/>
+									</div>
+								))}
+							</div>
+						)}
+					</div>
 					{/* Messages Section */}
 					<div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
 						<h2 className="text-xl font-semibold text-slate-800 mb-4 flex items-center gap-2">

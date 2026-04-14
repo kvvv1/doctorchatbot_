@@ -139,8 +139,18 @@ export interface BotSettings {
 	id: string
 	clinic_id: string
 	bot_default_enabled: boolean
+	// --- Clinic working hours (used by Agenda / calendar display) ---
 	working_hours_enabled: boolean
 	working_hours: WorkingHours
+	// --- Bot response behaviour ---
+	/** When true the bot replies 24/7, ignoring working_hours for the out-of-hours check */
+	bot_respond_anytime: boolean
+	// --- Bot scheduling availability (independent from clinic working hours) ---
+	/** When true, use bot_scheduling_hours for slot availability instead of working_hours */
+	bot_scheduling_hours_enabled: boolean
+	/** Schedule the bot uses to determine available appointment slots */
+	bot_scheduling_hours: WorkingHours
+	// --- Messages ---
 	message_welcome: string
 	message_menu: string
 	message_out_of_hours: string

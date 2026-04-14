@@ -126,6 +126,10 @@ function normalizeBotSettingsUpdate(
     payload.working_hours = normalizeWorkingHours(updates.working_hours)
   }
 
+  if (updates.bot_scheduling_hours) {
+    payload.bot_scheduling_hours = normalizeWorkingHours(updates.bot_scheduling_hours)
+  }
+
   return payload
 }
 

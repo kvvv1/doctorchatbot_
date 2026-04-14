@@ -19,6 +19,18 @@ import { GestaoDSService } from '@/lib/services/gestaods'
 const JS_DAY_TO_KEY = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
 /**
+ * Returns the WorkingHours config the BOT should use for scheduling.
+ * When bot_scheduling_hours_enabled is true, uses bot_scheduling_hours.
+ * Otherwise falls back to working_hours (clinic schedule).
+ */
+function getBotSchedulingHours(botSettings: BotSettings): { hours: BotSettings['working_hours']; enabled: boolean } {
+  if (botSettings.bot_scheduling_hours_enabled && botSettings.bot_scheduling_hours) {
+    return { hours: botSettings.bot_scheduling_hours, enabled: true }
+  }
+  return { hours: botSettings.working_hours, enabled: botSettings.working_hours_enabled }
+}
+
+/**
  * Parse a "HH:MM" string into { hours, minutes }.
  */
 function parseHHMM(value: string): { hours: number; minutes: number } {
@@ -90,10 +102,11 @@ async function getConflictingAppointments(
  * Uses the working_hours JSON stored in bot_settings.
  */
 export function isDayWorking(botSettings: BotSettings, date: Date): boolean {
-  if (!botSettings.working_hours_enabled) return true // no restriction
+  const { hours, enabled } = getBotSchedulingHours(botSettings)
+  if (!enabled) return true // no restriction
 
   const key = JS_DAY_TO_KEY[getDay(date)]
-  const dayConfig = botSettings.working_hours.days.find((d) => d.day === key)
+  const dayConfig = hours.days.find((d) => d.day === key)
   return !!dayConfig?.enabled
 }
 
@@ -114,10 +127,11 @@ export async function checkSlotAvailable(
   const earliest = new Date(Date.now() + settings.minAdvanceHours * 3_600_000)
   if (startsAt < earliest) return false
 
-  // 2. Working hours check
-  if (botSettings.working_hours_enabled) {
+  // 2. Working hours check (uses bot scheduling hours if configured)
+  const { hours: schedHours, enabled: schedEnabled } = getBotSchedulingHours(botSettings)
+  if (schedEnabled) {
     const key = JS_DAY_TO_KEY[getDay(startsAt)]
-    const dayConfig = botSettings.working_hours.days.find((d) => d.day === key)
+    const dayConfig = schedHours.days.find((d) => d.day === key)
     if (!dayConfig?.enabled) return false
 
     const { hours: sh, minutes: sm } = parseHHMM(dayConfig.start)
@@ -384,9 +398,10 @@ async function getSlotsForDayInternal(
   let dayStart: Date
   let dayEnd: Date
 
-  if (botSettings.working_hours_enabled) {
+  const { hours: schedHours, enabled: schedEnabled } = getBotSchedulingHours(botSettings)
+  if (schedEnabled) {
     const key = JS_DAY_TO_KEY[getDay(date)]
-    const dayConfig = botSettings.working_hours.days.find((d) => d.day === key)
+    const dayConfig = schedHours.days.find((d) => d.day === key)
     if (!dayConfig?.enabled) return slots
 
     const { hours: sh, minutes: sm } = parseHHMM(dayConfig.start)

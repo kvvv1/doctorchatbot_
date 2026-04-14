@@ -282,16 +282,19 @@ async function triggerBotResponse(
     }
 
     // 4. Check working hours if enabled
-    if (botSettings.working_hours_enabled && !isWithinWorkingHours(botSettings)) {
+    // bot_respond_anytime = true → skip the out-of-hours check entirely (bot works 24/7).
+    // Otherwise respect working_hours_enabled + isWithinWorkingHours as before.
+    const outsideHours = !botSettings.bot_respond_anytime
+      && botSettings.working_hours_enabled
+      && !isWithinWorkingHours(botSettings)
+
+    if (outsideHours) {
       console.log('[Bot] Outside working hours, sending out-of-hours message')
-      
-      // Send out-of-hours message but don't advance state
       const outOfHoursResponse = {
         message: botSettings.message_out_of_hours,
         nextState: conversation.bot_state as BotState || 'menu',
         nextContext: conversation.bot_context as BotContext || {},
       }
-      
       await sendBotResponse(conversationId, phone, outOfHoursResponse, clinicId)
       return
     }
