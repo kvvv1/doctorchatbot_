@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { View } from 'react-big-calendar'
 import { Plus, RefreshCw, CheckCircle, Clock, XCircle, UserX, CalendarDays, TrendingUp, AlertCircle, X, ChevronLeft, ChevronRight } from 'lucide-react'
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, subDays, addMonths, subMonths, addYears, subYears, format, isToday, isSameDay, isSameMonth, getDaysInMonth, getDay, startOfDay } from 'date-fns'
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, subDays, addMonths, subMonths, addYears, subYears, format, isToday, isSameDay, isSameMonth, getDaysInMonth, getDay, startOfDay, endOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import CalendarView from './components/CalendarView'
 import ViewSwitcher from './components/ViewSwitcher'
@@ -36,6 +36,34 @@ type SourceFilter = 'all' | 'bot' | 'manual' | 'google' | 'gestaods'
 
 type ToastMessage = { id: number; type: 'success' | 'error' | 'warning'; text: string }
 
+function getRangeForView(view: View, date: Date) {
+  if (view === 'month') {
+    return {
+      startDate: startOfWeek(startOfMonth(date)),
+      endDate: endOfWeek(endOfMonth(date)),
+    }
+  }
+
+  if (view === 'week') {
+    return {
+      startDate: startOfWeek(date),
+      endDate: endOfWeek(date),
+    }
+  }
+
+  if (view === 'agenda') {
+    return {
+      startDate: startOfDay(date),
+      endDate: endOfDay(addDays(date, 29)),
+    }
+  }
+
+  return {
+    startDate: startOfDay(date),
+    endDate: endOfDay(date),
+  }
+}
+
 function isBotAppointment(appointment: Appointment): boolean {
   return (
     appointment.provider === 'manual' &&
@@ -61,7 +89,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
   const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments)
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
   const [view, setView] = useState<View>('month')
-  const [date, setDate] = useState(new Date())
+  const [date, setDate] = useState(() => startOfDay(new Date()))
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
@@ -132,21 +160,9 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
   const botAppointmentsCount = appointments.filter(isBotAppointment).length
 
   const loadAppointments = useCallback(async () => {
-    setLoading(true)
-    try {
-      let startDate: Date
-      let endDate: Date
-
-      if (view === 'month') {
-        startDate = startOfWeek(startOfMonth(date))
-        endDate = endOfWeek(endOfMonth(date))
-      } else if (view === 'week') {
-        startDate = startOfWeek(date)
-        endDate = endOfWeek(date)
-      } else {
-        startDate = date
-        endDate = addDays(date, 1)
-      }
+      setLoading(true)
+      try {
+        const { startDate, endDate } = getRangeForView(view, date)
 
       const params = new URLSearchParams({
         start_date: startDate.toISOString(),

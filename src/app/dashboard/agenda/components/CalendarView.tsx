@@ -132,7 +132,23 @@ export default function CalendarView({
   date,
   onNavigate,
 }: CalendarViewProps) {
+  const isAgendaView = view === 'agenda'
+
   const eventStyleGetter = (event: CalendarEvent) => {
+    if (isAgendaView) {
+      return {
+        style: {
+          backgroundColor: 'transparent',
+          border: 'none',
+          borderLeft: 'none',
+          borderRadius: '0',
+          padding: '0',
+          color: '#111827',
+          boxShadow: 'none',
+        },
+      }
+    }
+
     const colors = STATUS_COLORS[event.resource.status]
 
     return {

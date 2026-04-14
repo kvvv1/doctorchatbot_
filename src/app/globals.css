@@ -246,6 +246,20 @@ body {
   background-color: #f9fafb;
 }
 
+.rbc-agenda-view .rbc-event {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #111827 !important;
+  padding: 0 !important;
+}
+
+.rbc-agenda-view .rbc-event:hover {
+  filter: none;
+  box-shadow: none !important;
+  transform: none;
+}
+
 .rbc-agenda-date-cell {
   font-weight: 700;
   color: #111827;
