@@ -6,6 +6,7 @@ import { Save, MessageSquare, Eye, EyeOff } from 'lucide-react'
 import UpgradePrompt from '../../components/UpgradePrompt'
 import BotWhatsAppPreview from './BotWhatsAppPreview'
 import { TEMPLATE_VARIABLES } from '@/lib/bot/interpolate'
+import BotMenuOptionsEditor from '../bot/BotMenuOptionsEditor'
 
 interface BotAdvancedSettingsTabProps {
 	clinicId: string
@@ -82,8 +83,8 @@ export default function BotAdvancedSettingsTab({
 						message_fallback: settings.message_fallback,
 						message_confirm_schedule: settings.message_confirm_schedule,
 						message_confirm_reschedule: settings.message_confirm_reschedule,
-						message_confirm_cancel: settings.message_confirm_cancel,
-					},
+						message_confirm_cancel: settings.message_confirm_cancel,					menu_options: settings.menu_options,
+					menu_order: settings.menu_order,					},
 				}),
 			})
 
@@ -201,20 +202,13 @@ export default function BotAdvancedSettingsTab({
 						</div>
 
 						<div>
-							<label htmlFor="message-menu" className="block font-medium text-neutral-800 mb-1">
-								Menu principal
-							</label>
-							<p className="text-xs text-neutral-400 mb-1">
-								As linhas numeradas (1. Agendar, 2. Remarcar…) viram botões/lista interativa automaticamente.
-							</p>
-							<textarea
-								id="message-menu"
-								value={settings.message_menu}
-								onChange={(e) => setSettings({ ...settings, message_menu: e.target.value })}
-								rows={7}
-							className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 font-mono focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-							/>
-						</div>
+						<label className="block font-medium text-neutral-800 mb-1">
+							Menu principal
+						</label>
+						<p className="text-xs text-neutral-400 mb-2">
+							Arraste para reordenar. As opções ativadas viram botões/lista interativa automaticamente.
+						</p>
+						<BotMenuOptionsEditor settings={settings} onChange={setSettings} />
 
 						<div>
 							<div className="flex items-center justify-between mb-1">
