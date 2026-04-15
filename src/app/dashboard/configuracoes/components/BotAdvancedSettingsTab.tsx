@@ -8,6 +8,31 @@ import BotWhatsAppPreview from './BotWhatsAppPreview'
 import { TEMPLATE_VARIABLES } from '@/lib/bot/interpolate'
 import BotMenuOptionsEditor from '../bot/BotMenuOptionsEditor'
 
+const MENU_OPTION_LABELS: Record<string, string> = {
+	schedule: 'Agendar consulta',
+	view_appointments: 'Ver meus agendamentos',
+	reschedule: 'Remarcar consulta',
+	cancel: 'Cancelar consulta',
+	attendant: 'Falar com atendente',
+}
+const DEFAULT_MENU_ORDER = ['schedule', 'view_appointments', 'reschedule', 'cancel', 'attendant']
+const NUMBER_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣']
+
+function buildPreviewMenuMessage(settings: BotSettings): string {
+	const options = settings.menu_options ?? {
+		schedule: true, view_appointments: true, reschedule: true, cancel: true, attendant: true,
+	}
+	const order: string[] = settings.menu_order ?? DEFAULT_MENU_ORDER
+	const lines: string[] = []
+	for (const key of order) {
+		if (options[key as keyof typeof options] && MENU_OPTION_LABELS[key]) {
+			const emoji = NUMBER_EMOJIS[lines.length] ?? `${lines.length + 1}.`
+			lines.push(`${emoji} ${MENU_OPTION_LABELS[key]}`)
+		}
+	}
+	return `Como posso te ajudar? 😊\n${lines.join('\n')}`
+}
+
 interface BotAdvancedSettingsTabProps {
 	clinicId: string
 	initialSettings: BotSettings | null
@@ -349,7 +374,7 @@ export default function BotAdvancedSettingsTab({
 						<div className="mt-6 lg:mt-0 lg:sticky lg:top-4 lg:self-start">
 							<BotWhatsAppPreview
 								welcomeMessage={settings.message_welcome}
-								menuMessage={settings.message_menu}
+								menuMessage={buildPreviewMenuMessage(settings)}
 								outOfHoursMessage={settings.message_out_of_hours}
 								fallbackMessage={settings.message_fallback}
 								confirmScheduleMessage={settings.message_confirm_schedule}
