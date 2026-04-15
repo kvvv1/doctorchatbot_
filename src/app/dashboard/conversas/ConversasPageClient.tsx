@@ -86,6 +86,7 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 	const {
 		allConversations,
 		loading: conversationsLoading,
+		error: conversationsError,
 		refetch: refetchConversations,
 		updateConversation,
 		markConversationRead,
@@ -443,7 +444,7 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 					onSearchChange={setSearchQuery}
 					statusFilter={statusFilter}
 					onStatusFilterChange={setStatusFilter}
-					loading={loading}
+					loading={loading}						error={conversationsError}					error={conversationsError}
 					showOnlyHumanNeeded={showOnlyHumanNeeded}
 					onToggleHumanNeeded={() => setShowOnlyHumanNeeded(!showOnlyHumanNeeded)}
 					humanNeededCount={humanNeededCount}

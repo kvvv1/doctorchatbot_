@@ -17,6 +17,7 @@ interface ConversationListProps {
 	statusFilter: ConversationStatusFilter
 	onStatusFilterChange: (status: ConversationStatusFilter) => void
 	loading: boolean
+	error?: string | null
 	showOnlyHumanNeeded: boolean
 	onToggleHumanNeeded: () => void
 	humanNeededCount: number
@@ -41,6 +42,7 @@ export default function ConversationList({
 	statusFilter,
 	onStatusFilterChange,
 	loading,
+	error,
 	showOnlyHumanNeeded,
 	onToggleHumanNeeded,
 	humanNeededCount,
@@ -154,7 +156,12 @@ export default function ConversationList({
 
 			{/* List */}
 			<div className="flex-1 overflow-y-auto bg-white">
-				{loading && conversations.length === 0 ? (
+			{error ? (
+				<div className="flex flex-col items-center justify-center p-8 text-center">
+					<p className="text-sm font-medium text-red-500">{error}</p>
+					<a href="/login" className="mt-2 text-xs text-sky-500 underline">Fazer login novamente</a>
+				</div>
+			) : loading && conversations.length === 0 ? (
 					<div className="flex items-center justify-center p-8">
 						<div className="size-6 animate-spin rounded-full border-2 border-neutral-200 border-t-sky-500" />
 					</div>

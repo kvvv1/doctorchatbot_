@@ -68,10 +68,17 @@ export function useConversations({
 				} else {
 					const supabase = createClient()
 
-					// Verify session is valid before querying
-					const { data: { session } } = await supabase.auth.getSession()
-					if (!session) {
-						console.warn('[useConversations] No active session — conversations will be empty. Please log out and log in again.')
+					// Verify session is valid — refresh if expired
+					const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+					if (!session || sessionError) {
+						console.warn('[useConversations] No active session, attempting refresh...')
+						const { error: refreshError } = await supabase.auth.refreshSession()
+						if (refreshError) {
+							console.error('[useConversations] Session refresh failed — user must log in again:', refreshError.message)
+							setError('Sessão expirada. Por favor, faça login novamente.')
+							setLoading(false)
+							return
+						}
 					}
 
 					const { data, error: fetchError } = await supabase
