@@ -859,8 +859,9 @@ function handleSemHorario(msg: string, ctx: BotContext, botSettings?: BotSetting
 // ---------------------------------------------------------------------------
 
 function buildMenuMessage(botSettings?: BotSettings | null): string {
-  // If custom message_menu is explicitly set, use it
-  if (botSettings?.message_menu && botSettings.message_menu !== templates.menu) {
+  // If menu_options is set, always build dynamically to respect enabled/disabled state.
+  // Only fall back to message_menu if menu_options is not configured at all.
+  if (!botSettings?.menu_options && botSettings?.message_menu && botSettings.message_menu !== templates.menu) {
     return botSettings.message_menu
   }
 
