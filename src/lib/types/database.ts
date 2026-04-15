@@ -14,6 +14,8 @@ export type ConversationStatus =
 	| 'done'
 
 export type MessageSender = 'patient' | 'human' | 'bot'
+export type MessageType = 'text'
+export type MessageDeliveryStatus = 'queued' | 'sending' | 'sent' | 'received' | 'failed'
 
 // Canonical types live in bot/context — imported locally and re-exported for consumers
 import type { BotState, BotContext } from '@/lib/bot/context'
@@ -34,6 +36,7 @@ export interface Conversation {
 	last_message_at: string | null
 	last_message_preview: string | null
 	last_patient_message_at: string | null
+	unread_count: number
 	created_at: string
 	updated_at: string
 }
@@ -44,6 +47,11 @@ export interface Message {
 	sender: MessageSender
 	content: string
 	zapi_message_id: string | null
+	client_message_id: string | null
+	message_type: MessageType
+	delivery_status: MessageDeliveryStatus
+	failed_reason: string | null
+	metadata: Record<string, unknown>
 	created_at: string
 	updated_at: string
 }
@@ -191,6 +199,19 @@ export interface Subscription {
 	plan_key: PlanKey | null
 	status: SubscriptionStatus
 	current_period_end: string | null
+	created_at: string
+	updated_at: string
+}
+
+export interface PushSubscriptionRecord {
+	id: string
+	user_id: string
+	endpoint: string
+	p256dh: string
+	auth: string
+	user_agent: string | null
+	last_seen_at: string
+	disabled_at: string | null
 	created_at: string
 	updated_at: string
 }

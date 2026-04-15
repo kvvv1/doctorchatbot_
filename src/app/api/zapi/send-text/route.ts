@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   try {
     // Parse body first to check if this is an internal call
     const body = await request.json();
-    const { conversationId, phone, text, internalCall, choices, choicesTitle } = body;
+    const { conversationId, phone, text, internalCall, choices, choicesTitle, clientMessageId } = body;
 
     let clinicId: string;
     let supabase;
@@ -126,6 +126,29 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    if (!internalCall && typeof clientMessageId === 'string' && clientMessageId.trim()) {
+      const { data: existingMessage, error: existingMessageError } = await supabase
+        .from('messages')
+        .select('id, client_message_id, delivery_status')
+        .eq('conversation_id', conversationId)
+        .eq('client_message_id', clientMessageId.trim())
+        .maybeSingle();
+
+      if (existingMessageError) {
+        console.error('[Send Text] Failed to check idempotent message:', existingMessageError);
+      }
+
+      if (existingMessage) {
+        return NextResponse.json({
+          ok: true,
+          messageId: existingMessage.id,
+          clientMessageId: existingMessage.client_message_id,
+          deliveryStatus: existingMessage.delivery_status,
+          duplicate: true,
+        });
+      }
     }
 
     // 3. Buscar instância WhatsApp da clínica
@@ -249,10 +272,37 @@ export async function POST(request: NextRequest) {
         conversation_id: conversationId,
         sender: 'human',
         content: text,
+        client_message_id: typeof clientMessageId === 'string' ? clientMessageId.trim() || null : null,
+        message_type: 'text',
+        delivery_status: 'sent',
+        metadata: {
+          provider: 'zapi',
+          direction: 'outbound',
+          choicesCount: Array.isArray(choices) ? choices.length : 0,
+        },
       });
 
       if (messageError) {
         console.error('[Send Text] Failed to save message:', messageError);
+
+        if ((messageError as { code?: string }).code === '23505' && typeof clientMessageId === 'string' && clientMessageId.trim()) {
+          const { data: existingMessage } = await supabase
+            .from('messages')
+            .select('id, client_message_id, delivery_status')
+            .eq('conversation_id', conversationId)
+            .eq('client_message_id', clientMessageId.trim())
+            .maybeSingle();
+
+          if (existingMessage) {
+            return NextResponse.json({
+              ok: true,
+              messageId: existingMessage.id,
+              clientMessageId: existingMessage.client_message_id,
+              deliveryStatus: existingMessage.delivery_status,
+              duplicate: true,
+            });
+          }
+        }
         
         supabase.from('logs').insert({
           clinic_id: clinicId,
@@ -312,6 +362,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       messageId: zapiResult.messageId,
+      clientMessageId: typeof clientMessageId === 'string' ? clientMessageId.trim() || null : null,
+      deliveryStatus: 'sent',
     });
 
   } catch (error) {

@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import ConversationList from './components/ConversationList'
 import ChatPanel from './components/ChatPanel'
 import ConversationTabs from './components/ConversationTabs'
+import MobileInboxPwaBar from './components/MobileInboxPwaBar'
 import type { ConversationStatus } from '@/lib/types/database'
 import {
 	buildConversationSearchParams,
@@ -82,12 +83,36 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 		],
 	)
 
-	const { conversations, loading: conversationsLoading, refetch: refetchConversations } = useConversations({
+	const {
+		allConversations,
+		loading: conversationsLoading,
+		refetch: refetchConversations,
+		updateConversation,
+		markConversationRead,
+	} = useConversations({
 		clinicId,
 	})
 
-	const { messages, loading: messagesLoading } = useMessages({
+	const activeConversation =
+		allConversations.find((conversation) => conversation.id === activeConversationId) ?? null
+
+	const {
+		messages,
+		loading: messagesLoading,
+		sendMessage,
+		retryMessage,
+	} = useMessages({
 		conversationId: activeConversationId,
+		phone: activeConversation?.patient_phone,
+		onConversationActivity: (activity) => {
+			if (!activeConversationId) return
+
+			updateConversation(activeConversationId, {
+				...activity,
+				unread_count: activity.unread_count ?? 0,
+				updated_at: new Date().toISOString(),
+			})
+		},
 	})
 
 	const loading = conversationsLoading || messagesLoading
@@ -181,7 +206,7 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 
 		const sanitizedWorkspace = sanitizeConversationWorkspace(
 			workspace,
-			conversations.map((conversation) => conversation.id),
+			allConversations.map((conversation) => conversation.id),
 		)
 
 		if (workspaceMatches(workspace, sanitizedWorkspace)) return
@@ -195,10 +220,10 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 				setIsMobileChatOpen(false)
 			}
 		})
-	}, [conversations, conversationsLoading, isWorkspaceHydrated, workspace])
+	}, [allConversations, conversationsLoading, isWorkspaceHydrated, workspace])
 
 	const filteredConversations = useMemo(() => {
-		let filtered = [...conversations]
+		let filtered = [...allConversations]
 
 		const normalizedSearchQuery = deferredSearchQuery.trim().toLowerCase()
 		if (normalizedSearchQuery) {
@@ -233,24 +258,31 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 			const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0
 			return bTime - aTime
 		})
-	}, [conversations, deferredSearchQuery, showOnlyHumanNeeded, statusFilter])
+	}, [allConversations, deferredSearchQuery, showOnlyHumanNeeded, statusFilter])
 
 	const humanNeededCount = useMemo(
-		() => conversations.filter((conversation) => !conversation.bot_enabled && conversation.status !== 'done').length,
-		[conversations],
+		() =>
+			allConversations.filter(
+				(conversation) => !conversation.bot_enabled && conversation.status !== 'done',
+			).length,
+		[allConversations],
 	)
 
-	const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) ?? null
 	const openConversations = useMemo(
 		() =>
 			openConversationIds
 				.map((conversationId) =>
-					conversations.find((conversation) => conversation.id === conversationId) ?? null,
+					allConversations.find((conversation) => conversation.id === conversationId) ?? null,
 				)
 				.filter((conversation): conversation is NonNullable<typeof conversation> => Boolean(conversation)),
-		[conversations, openConversationIds],
+		[allConversations, openConversationIds],
 	)
 	const activeDraft = activeConversationId ? draftsByConversationId[activeConversationId] ?? '' : ''
+
+	useEffect(() => {
+		if (!activeConversationId || !activeConversation || activeConversation.unread_count === 0) return
+		void markConversationRead(activeConversationId)
+	}, [activeConversation, activeConversationId, markConversationRead])
 
 	const handleActivateConversation = (conversationId: string) => {
 		setActiveConversationId(conversationId)
@@ -260,6 +292,7 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 				: [...currentOpenConversationIds, conversationId],
 		)
 		setIsMobileChatOpen(true)
+		void markConversationRead(conversationId)
 	}
 
 	const handleCloseConversationTab = (conversationId: string) => {
@@ -302,20 +335,7 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 	const handleSendMessage = async (content: string) => {
 		if (!activeConversationId || !activeConversation) return
 
-		const response = await fetch('/api/zapi/send-text', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				conversationId: activeConversationId,
-				phone: activeConversation.patient_phone,
-				text: content,
-			}),
-		})
-
-		const result = await response.json()
-		if (!response.ok || !result.ok) {
-			throw new Error(result.error || 'Falha ao enviar mensagem')
-		}
+		await sendMessage(content)
 
 		setDraftsByConversationId((currentDrafts) => {
 			if (!(activeConversationId in currentDrafts)) return currentDrafts
@@ -340,17 +360,15 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 			})
 			.eq('id', activeConversationId)
 
+		updateConversation(activeConversationId, {
+			bot_enabled: false,
+			status: 'in_progress',
+			updated_at: new Date().toISOString(),
+		})
+
 		const msg = welcomeMessage?.trim()
 		if (msg) {
-			await fetch('/api/zapi/send-text', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					conversationId: activeConversationId,
-					phone: activeConversation.patient_phone,
-					text: msg,
-				}),
-			})
+			await sendMessage(msg)
 		}
 
 		refetchConversations?.()
@@ -370,6 +388,13 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 			})
 			.eq('id', activeConversationId)
 
+		updateConversation(activeConversationId, {
+			bot_enabled: true,
+			bot_state: 'menu',
+			bot_context: {},
+			updated_at: new Date().toISOString(),
+		})
+
 		refetchConversations?.()
 	}
 
@@ -377,6 +402,11 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 		if (!activeConversationId) return
 
 		const supabase = createClient()
+		updateConversation(activeConversationId, {
+			status,
+			updated_at: new Date().toISOString(),
+		})
+
 		supabase
 			.from('conversations')
 			.update({ status, updated_at: new Date().toISOString() })
@@ -390,6 +420,10 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 		if (!activeConversationId) return
 
 		const supabase = createClient()
+		updateConversation(activeConversationId, {
+			notes,
+			updated_at: new Date().toISOString(),
+		})
 		const { error } = await supabase
 			.from('conversations')
 			.update({ notes, updated_at: new Date().toISOString() })
@@ -436,6 +470,7 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 							onSaveNotes={handleSaveNotes}
 							draftMessage={activeDraft}
 							onDraftMessageChange={handleDraftChange}
+							onRetryMessage={retryMessage}
 						/>
 					</div>
 				</div>
@@ -443,19 +478,24 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 
 			<div className="flex h-full w-full md:hidden">
 				{!isMobileChatOpen ? (
-					<ConversationList
-						conversations={filteredConversations}
-						selectedId={activeConversationId}
-						onSelect={handleActivateConversation}
-						searchQuery={searchQuery}
-						onSearchChange={setSearchQuery}
-						statusFilter={statusFilter}
-						onStatusFilterChange={setStatusFilter}
-						loading={loading}
-						showOnlyHumanNeeded={showOnlyHumanNeeded}
-						onToggleHumanNeeded={() => setShowOnlyHumanNeeded(!showOnlyHumanNeeded)}
-						humanNeededCount={humanNeededCount}
-					/>
+					<div className="flex h-full w-full flex-col bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.14),_rgba(255,255,255,0)_42%),linear-gradient(180deg,_#f5f7fb_0%,_#eef2f7_100%)] px-3 pb-3 pt-3">
+						<MobileInboxPwaBar />
+						<div className="min-h-0 flex-1 overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+							<ConversationList
+								conversations={filteredConversations}
+								selectedId={activeConversationId}
+								onSelect={handleActivateConversation}
+								searchQuery={searchQuery}
+								onSearchChange={setSearchQuery}
+								statusFilter={statusFilter}
+								onStatusFilterChange={setStatusFilter}
+								loading={loading}
+								showOnlyHumanNeeded={showOnlyHumanNeeded}
+								onToggleHumanNeeded={() => setShowOnlyHumanNeeded(!showOnlyHumanNeeded)}
+								humanNeededCount={humanNeededCount}
+							/>
+						</div>
+					</div>
 				) : (
 					<ChatPanel
 						conversation={activeConversation}
@@ -469,6 +509,7 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 						onBack={() => setIsMobileChatOpen(false)}
 						draftMessage={activeDraft}
 						onDraftMessageChange={handleDraftChange}
+						onRetryMessage={retryMessage}
 					/>
 				)}
 			</div>

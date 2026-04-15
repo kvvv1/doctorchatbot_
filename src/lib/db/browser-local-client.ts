@@ -46,6 +46,9 @@ export function createBrowserLocalClient() {
       const noop = { on: () => noop, subscribe: () => noop, unsubscribe: () => {} }
       return noop
     },
+    removeChannel() {
+      return null
+    },
 
     // Os hooks (useConversations, useMessages) já usam fetch direto —
     // este from() é um fallback no-op para qualquer chamada residual.

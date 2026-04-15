@@ -14,12 +14,14 @@
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.95.3",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/web-push": "^3.6.4",
     "better-sqlite3": "^12.8.0",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "dotenv": "^17.3.1",
     "googleapis": "^171.4.0",
     "ical-generator": "^10.0.0",
+    "idb": "^8.0.3",
     "lucide-react": "^0.564.0",
     "mercadopago": "^2.12.0",
     "next": "16.1.6",
@@ -28,7 +30,8 @@
     "react-big-calendar": "^1.15.0",
     "react-dom": "19.2.3",
     "react-icons": "^5.5.0",
-    "stripe": "^20.3.1"
+    "stripe": "^20.3.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

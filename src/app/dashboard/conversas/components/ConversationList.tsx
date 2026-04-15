@@ -174,13 +174,19 @@ export default function ConversationList({
 							const isSelected = conversation.id === selectedId
 							const initials = getInitials(conversation.patient_name, conversation.patient_phone)
 							const needsHumanAttention = !conversation.bot_enabled && conversation.status !== 'done'
+							const unreadCount = conversation.unread_count ?? 0
+							const hasUnread = unreadCount > 0
 
 							return (
 								<button
 									key={conversation.id}
 									onClick={() => onSelect(conversation.id)}
 									className={`group relative w-full border-b border-neutral-100 px-3 py-3 text-left transition-colors ${
-										isSelected ? 'bg-sky-50/50' : 'bg-white hover:bg-neutral-50'
+										isSelected
+											? 'bg-sky-50/50'
+											: hasUnread
+												? 'bg-sky-50/20 hover:bg-sky-50/40'
+												: 'bg-white hover:bg-neutral-50'
 									}`}
 								>
 									<div className="flex items-start gap-3">
@@ -196,19 +202,26 @@ export default function ConversationList({
 										{/* Content */}
 										<div className="min-w-0 flex-1">
 											<div className="flex items-baseline justify-between gap-2">
-												<p className={`truncate text-sm ${needsHumanAttention ? 'font-semibold text-neutral-900' : 'font-medium text-neutral-700'}`}>
+												<p className={`truncate text-sm ${needsHumanAttention || hasUnread ? 'font-semibold text-neutral-900' : 'font-medium text-neutral-700'}`}>
 													{conversation.patient_name || conversation.patient_phone}
 												</p>
-												{conversation.last_message_at && (
-													<span className="shrink-0 text-[11px] text-neutral-400">
-														{formatTime(conversation.last_message_at)}
-													</span>
-												)}
+												<div className="flex shrink-0 items-center gap-2">
+													{conversation.last_message_at && (
+														<span className={`text-[11px] ${hasUnread ? 'font-semibold text-sky-600' : 'text-neutral-400'}`}>
+															{formatTime(conversation.last_message_at)}
+														</span>
+													)}
+													{hasUnread && (
+														<span className="flex min-w-[20px] items-center justify-center rounded-full bg-sky-600 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+															{unreadCount > 99 ? '99+' : unreadCount}
+														</span>
+													)}
+												</div>
 											</div>
 
 											<div className="flex items-center justify-between gap-2 mt-1">
 												{conversation.last_message_preview && (
-													<p className="truncate text-xs text-neutral-500">
+													<p className={`truncate text-xs ${hasUnread ? 'font-medium text-neutral-700' : 'text-neutral-500'}`}>
 														{conversation.last_message_preview}
 													</p>
 												)}

@@ -1,7 +1,12 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import type { Conversation, Message, ConversationStatus, BotState } from '@/lib/types/database'
+import type {
+	Conversation,
+	Message,
+	ConversationStatus,
+	BotState,
+} from '@/lib/types/database'
 import MessageInput from './MessageInput'
 import StatusBadge from './StatusBadge'
 import NotesModal from './NotesModal'
@@ -10,10 +15,23 @@ import { isScrolledToBottom } from '@/lib/utils/dataComparison'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
-	Bot, User, UserCircle, ChevronDown, ArrowLeft,
-	CheckCircle2, MoreVertical, Download, StickyNote,
-	Calendar, ExternalLink, Play, HandMetal,
+	Bot,
+	User,
+	UserCircle,
+	ChevronDown,
+	ArrowLeft,
+	CheckCircle2,
+	MoreVertical,
+	Download,
+	StickyNote,
+	Calendar,
+	ExternalLink,
+	Play,
+	HandMetal,
+	RotateCcw,
+	Info,
 } from 'lucide-react'
+import ConversationContextPanel from './ConversationContextPanel'
 
 interface ChatPanelProps {
 	conversation: Conversation | null
@@ -27,6 +45,7 @@ interface ChatPanelProps {
 	onBack?: () => void
 	draftMessage?: string
 	onDraftMessageChange?: (content: string) => void
+	onRetryMessage?: (clientMessageId: string) => Promise<void>
 }
 
 const STATUS_ACTIONS: Array<{ status: ConversationStatus; label: string }> = [
@@ -36,7 +55,6 @@ const STATUS_ACTIONS: Array<{ status: ConversationStatus; label: string }> = [
 	{ status: 'done', label: 'Finalizar conversa' },
 ]
 
-/** Maps bot state to a human-readable label for the header badge */
 const BOT_STATE_LABELS: Record<BotState, string> = {
 	menu: 'Menu principal',
 	agendar_nome: 'Coletando nome',
@@ -63,6 +81,20 @@ const BOT_STATE_LABELS: Record<BotState, string> = {
 	sem_horario: 'Sem horarios disponiveis',
 }
 
+function getDeliveryLabel(message: Message) {
+	if (message.sender === 'patient') return null
+	switch (message.delivery_status) {
+		case 'queued':
+			return 'Na fila'
+		case 'sending':
+			return 'Enviando'
+		case 'failed':
+			return 'Falhou'
+		default:
+			return null
+	}
+}
+
 export default function ChatPanel({
 	conversation,
 	messages,
@@ -75,6 +107,7 @@ export default function ChatPanel({
 	onBack,
 	draftMessage,
 	onDraftMessageChange,
+	onRetryMessage,
 }: ChatPanelProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -84,8 +117,8 @@ export default function ChatPanel({
 	const [showNotesModal, setShowNotesModal] = useState(false)
 	const [showScheduleModal, setShowScheduleModal] = useState(false)
 	const [takingOver, setTakingOver] = useState(false)
+	const [showContextPanel, setShowContextPanel] = useState(false)
 
-	// Auto-scroll
 	useEffect(() => {
 		if (!messagesContainerRef.current) return
 		const container = messagesContainerRef.current
@@ -118,7 +151,11 @@ export default function ChatPanel({
 	}
 
 	const formatMessageTime = (dateString: string) => {
-		try { return format(new Date(dateString), 'HH:mm', { locale: ptBR }) } catch { return '' }
+		try {
+			return format(new Date(dateString), 'HH:mm', { locale: ptBR })
+		} catch {
+			return ''
+		}
 	}
 
 	const getSenderIcon = (sender: Message['sender']) => {
@@ -137,7 +174,6 @@ export default function ChatPanel({
 		return phone.slice(-2)
 	}
 
-	/** Opens WhatsApp web/app with the patient number */
 	const handleOpenWhatsApp = () => {
 		const phone = conversation.patient_phone.replace(/\D/g, '')
 		window.open(`https://wa.me/${phone}`, '_blank')
@@ -154,21 +190,28 @@ export default function ChatPanel({
 			`\n${'='.repeat(50)}\n\n`
 
 		const body = messages
-			.map(msg => {
-				const time = format(new Date(msg.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })
-				const sender = msg.sender === 'patient' ? 'Paciente' : msg.sender === 'bot' ? 'Bot' : 'Atendente'
-				return `[${time}] ${sender}:\n${msg.content}\n`
+			.map((message) => {
+				const time = format(new Date(message.created_at), 'dd/MM/yyyy HH:mm', {
+					locale: ptBR,
+				})
+				const sender =
+					message.sender === 'patient'
+						? 'Paciente'
+						: message.sender === 'bot'
+							? 'Bot'
+							: 'Atendente'
+				return `[${time}] ${sender}:\n${message.content}\n`
 			})
 			.join('\n')
 
 		const blob = new Blob([header + body], { type: 'text/plain;charset=utf-8' })
 		const url = URL.createObjectURL(blob)
-		const a = document.createElement('a')
-		a.href = url
-		a.download = `conversa_${conversation.patient_phone}_${format(new Date(), 'yyyyMMdd_HHmmss')}.txt`
-		document.body.appendChild(a)
-		a.click()
-		document.body.removeChild(a)
+		const anchor = document.createElement('a')
+		anchor.href = url
+		anchor.download = `conversa_${conversation.patient_phone}_${format(new Date(), 'yyyyMMdd_HHmmss')}.txt`
+		document.body.appendChild(anchor)
+		anchor.click()
+		document.body.removeChild(anchor)
 		URL.revokeObjectURL(url)
 		setShowActionsMenu(false)
 	}
@@ -206,29 +249,26 @@ export default function ChatPanel({
 
 	return (
 		<div className="flex h-full w-full flex-col bg-white">
-			{/* Header */}
 			<div className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-2.5">
 				<div className="flex items-center gap-3">
 					{onBack && (
 						<button
 							onClick={onBack}
-							className="md:hidden flex items-center justify-center size-8 rounded-lg hover:bg-neutral-100 transition-colors"
+							className="flex size-8 items-center justify-center rounded-lg hover:bg-neutral-100 transition-colors md:hidden"
 						>
 							<ArrowLeft className="size-4 text-neutral-600" />
 						</button>
 					)}
 
-					{/* Avatar */}
 					<div className="flex size-9 items-center justify-center rounded-full bg-sky-600 text-xs font-semibold text-white">
 						{getInitials(conversation.patient_name, conversation.patient_phone)}
 					</div>
 
-					{/* Name + bot state */}
 					<div>
 						<h2 className="text-sm font-semibold text-neutral-900">
 							{conversation.patient_name || 'Sem nome'}
 						</h2>
-						<div className="flex items-center gap-1.5 mt-0.5">
+						<div className="mt-0.5 flex items-center gap-1.5">
 							<p className="text-xs text-neutral-400">{conversation.patient_phone}</p>
 							{botIsActive && (
 								<>
@@ -243,9 +283,7 @@ export default function ChatPanel({
 					</div>
 				</div>
 
-				{/* Right controls */}
 				<div className="flex items-center gap-2">
-					{/* Open in WhatsApp */}
 					<button
 						onClick={handleOpenWhatsApp}
 						className="flex size-8 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-green-600"
@@ -254,12 +292,19 @@ export default function ChatPanel({
 						<ExternalLink className="size-4" />
 					</button>
 
-					{/* Assumir / Devolver ao bot */}
+					<button
+						onClick={() => setShowContextPanel(true)}
+						className="flex size-8 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-600 transition-colors hover:bg-neutral-50 md:hidden"
+						title="Abrir contexto da conversa"
+					>
+						<Info className="size-4" />
+					</button>
+
 					{botIsActive ? (
 						<button
 							onClick={handleTakeOver}
 							disabled={takingOver}
-							className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-60"
+							className="hidden items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-60 md:flex"
 							title="Assumir atendimento e desligar bot"
 						>
 							<HandMetal className="size-3.5" />
@@ -268,7 +313,7 @@ export default function ChatPanel({
 					) : (
 						<button
 							onClick={onReturnToBot}
-							className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
+							className="hidden items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 md:flex"
 							title="Devolver conversa ao bot"
 						>
 							<Bot className="size-3.5" />
@@ -276,7 +321,6 @@ export default function ChatPanel({
 						</button>
 					)}
 
-					{/* Actions menu */}
 					<div className="relative">
 						<button
 							onClick={() => setShowActionsMenu(!showActionsMenu)}
@@ -291,14 +335,20 @@ export default function ChatPanel({
 								<div className="fixed inset-0 z-10" onClick={() => setShowActionsMenu(false)} />
 								<div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-lg border border-neutral-200 bg-white py-1 shadow-lg">
 									<button
-										onClick={() => { setShowScheduleModal(true); setShowActionsMenu(false) }}
+										onClick={() => {
+											setShowScheduleModal(true)
+											setShowActionsMenu(false)
+										}}
 										className="flex w-full items-center gap-2 px-3 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
 									>
 										<Calendar className="size-4" />
 										Agendar consulta
 									</button>
 									<button
-										onClick={() => { setShowNotesModal(true); setShowActionsMenu(false) }}
+										onClick={() => {
+											setShowNotesModal(true)
+											setShowActionsMenu(false)
+										}}
 										className="flex w-full items-center gap-2 px-3 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
 									>
 										<StickyNote className="size-4" />
@@ -311,35 +361,65 @@ export default function ChatPanel({
 										<Download className="size-4" />
 										Exportar histórico
 									</button>
+									{botIsActive ? (
+										<button
+											onClick={() => {
+												void handleTakeOver()
+												setShowActionsMenu(false)
+											}}
+											className="flex w-full items-center gap-2 px-3 py-2 text-sm text-amber-800 transition-colors hover:bg-amber-50 md:hidden"
+										>
+											<HandMetal className="size-4" />
+											Assumir atendimento
+										</button>
+									) : (
+										<button
+											onClick={() => {
+												void onReturnToBot()
+												setShowActionsMenu(false)
+											}}
+											className="flex w-full items-center gap-2 px-3 py-2 text-sm text-indigo-700 transition-colors hover:bg-indigo-50 md:hidden"
+										>
+											<Bot className="size-4" />
+											Devolver ao bot
+										</button>
+									)}
 								</div>
 							</>
 						)}
 					</div>
 
-					{/* Status dropdown */}
-					<div className="relative">
+					<div className="relative hidden md:block">
 						<button
 							onClick={() => setShowStatusMenu(!showStatusMenu)}
 							className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
 						>
 							<StatusBadge status={conversation.status} size="sm" />
-							<ChevronDown className={`size-3 text-neutral-400 transition-transform ${showStatusMenu ? 'rotate-180' : ''}`} />
+							<ChevronDown
+								className={`size-3 text-neutral-400 transition-transform ${
+									showStatusMenu ? 'rotate-180' : ''
+								}`}
+							/>
 						</button>
 
 						{showStatusMenu && (
 							<>
 								<div className="fixed inset-0 z-10" onClick={() => setShowStatusMenu(false)} />
 								<div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-neutral-200 bg-white py-1 shadow-lg">
-									{STATUS_ACTIONS.map(action => (
+									{STATUS_ACTIONS.map((action) => (
 										<button
 											key={action.status}
-											onClick={() => { onUpdateStatus?.(action.status); setShowStatusMenu(false) }}
+											onClick={() => {
+												onUpdateStatus?.(action.status)
+												setShowStatusMenu(false)
+											}}
 											className="flex w-full items-center gap-2 px-3 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
 										>
-											{action.status === 'done'
-												? <CheckCircle2 className="size-4 text-green-500" />
-												: <Play className="size-4 text-neutral-400" />
-											}
+											{action.status === 'done' ? (
+												<CheckCircle2 className="size-4 text-green-500" />
+											) : (
+												<Play className="size-4 text-neutral-400" />
+											)}
 											{action.label}
 										</button>
 									))}
@@ -350,7 +430,6 @@ export default function ChatPanel({
 				</div>
 			</div>
 
-			{/* Human attention banner */}
 			{needsHumanAttention && (
 				<div className="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2">
 					<div className="flex items-center gap-2">
@@ -368,7 +447,6 @@ export default function ChatPanel({
 				</div>
 			)}
 
-			{/* Messages */}
 			<div ref={messagesContainerRef} className="flex-1 overflow-y-auto bg-neutral-50 p-4">
 				{loading && messages.length === 0 ? (
 					<div className="flex h-full items-center justify-center">
@@ -383,34 +461,74 @@ export default function ChatPanel({
 					</div>
 				) : (
 					<div className="space-y-2">
-						{messages.map(message => {
+						{messages.map((message) => {
 							const isFromPatient = message.sender === 'patient'
+							const deliveryLabel = getDeliveryLabel(message)
 							return (
 								<div
 									key={message.id}
 									className={`flex items-end gap-2 ${isFromPatient ? '' : 'flex-row-reverse'}`}
 								>
-									<div className={`mb-1 flex size-6 shrink-0 items-center justify-center rounded-full shadow-sm ${isFromPatient ? 'bg-white' : 'bg-sky-500/10'}`}>
+									<div
+										className={`mb-1 flex size-6 shrink-0 items-center justify-center rounded-full shadow-sm ${
+											isFromPatient ? 'bg-white' : 'bg-sky-500/10'
+										}`}
+									>
 										{getSenderIcon(message.sender)}
 									</div>
 
-									<div className={`flex max-w-[75%] flex-col gap-1 rounded-lg px-3 py-2 shadow-sm ${
-										isFromPatient
-											? 'bg-white rounded-bl-none'
-											: message.sender === 'bot'
-											? 'bg-[#dcf8c6] rounded-br-none'
-											: 'bg-gradient-to-br from-sky-500 to-indigo-500 text-white rounded-br-none'
-									}`}>
-										<p className={`whitespace-pre-wrap text-[13px] leading-relaxed ${
-											isFromPatient || message.sender === 'bot' ? 'text-neutral-800' : 'text-white'
-										}`}>
+									<div
+										className={`flex max-w-[75%] flex-col gap-1 rounded-lg px-3 py-2 shadow-sm ${
+											isFromPatient
+												? 'rounded-bl-none bg-white'
+												: message.sender === 'bot'
+													? 'rounded-br-none bg-[#dcf8c6]'
+													: 'rounded-br-none bg-gradient-to-br from-sky-500 to-indigo-500 text-white'
+										}`}
+									>
+										<p
+											className={`whitespace-pre-wrap text-[13px] leading-relaxed ${
+												isFromPatient || message.sender === 'bot'
+													? 'text-neutral-800'
+													: 'text-white'
+											}`}
+										>
 											{message.content}
 										</p>
-										<span className={`self-end text-[10px] ${
-											isFromPatient || message.sender === 'bot' ? 'text-neutral-400' : 'text-sky-100'
-										}`}>
-											{formatMessageTime(message.created_at)}
-										</span>
+										<div className="flex items-center justify-end gap-2">
+											{deliveryLabel && (
+												<span
+													className={`text-[10px] md:hidden ${
+														message.delivery_status === 'failed'
+															? 'text-red-200'
+															: 'text-sky-100'
+													}`}
+												>
+													{deliveryLabel}
+												</span>
+											)}
+											<span
+												className={`text-[10px] ${
+													isFromPatient || message.sender === 'bot'
+														? 'text-neutral-400'
+														: 'text-sky-100'
+												}`}
+											>
+												{formatMessageTime(message.created_at)}
+											</span>
+											{message.delivery_status === 'failed' &&
+												message.client_message_id &&
+												onRetryMessage && (
+													<button
+														type="button"
+														onClick={() => void onRetryMessage(message.client_message_id!)}
+														className="rounded-full p-0.5 text-red-200 transition-colors hover:bg-white/10 hover:text-white"
+														title="Tentar novamente"
+													>
+														<RotateCcw className="size-3" />
+													</button>
+												)}
+										</div>
 									</div>
 								</div>
 							)
@@ -420,7 +538,6 @@ export default function ChatPanel({
 				)}
 			</div>
 
-			{/* Input */}
 			<MessageInput
 				onSend={onSendMessage}
 				disabled={!conversation}
@@ -429,14 +546,32 @@ export default function ChatPanel({
 				onChange={onDraftMessageChange}
 			/>
 
-			{/* Modals */}
+			<ConversationContextPanel
+				conversation={conversation}
+				variant="mobile"
+				isOpen={showContextPanel}
+				onClose={() => setShowContextPanel(false)}
+				onOpenNotes={() => {
+					setShowContextPanel(false)
+					setShowNotesModal(true)
+				}}
+				onOpenSchedule={() => {
+					setShowContextPanel(false)
+					setShowScheduleModal(true)
+				}}
+				onExportHistory={handleExportHistory}
+				onOpenWhatsApp={handleOpenWhatsApp}
+				onTakeOver={() => void handleTakeOver()}
+				onReturnToBot={() => void onReturnToBot()}
+			/>
+
 			<NotesModal
 				isOpen={showNotesModal}
 				onClose={() => setShowNotesModal(false)}
 				conversationId={conversation.id}
 				initialNotes={conversation.notes}
 				patientName={conversation.patient_name}
-				onSave={notes => onSaveNotes?.(notes) ?? Promise.resolve()}
+				onSave={(notes) => onSaveNotes?.(notes) ?? Promise.resolve()}
 			/>
 
 			<ScheduleModal

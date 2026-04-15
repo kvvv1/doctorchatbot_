@@ -1,11 +1,19 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Conversation } from '@/lib/types/database'
-import { hasArrayChanged } from '@/lib/utils/dataComparison'
+import {
+	applyConversationChange,
+	normalizeConversation,
+	sortConversationsByPriority,
+} from '@/lib/chat/model'
+import {
+	getCachedConversations,
+	setCachedConversations,
+} from '@/lib/chat/store'
 
-const POLLING_INTERVAL = 20000 // 20 seconds
+const FALLBACK_REFRESH_INTERVAL = 90000
 const IS_LOCAL = process.env.NEXT_PUBLIC_LOCAL_DB === 'sqlite'
 
 interface UseConversationsOptions {
@@ -14,95 +22,255 @@ interface UseConversationsOptions {
 	enabled?: boolean
 }
 
-export function useConversations({ clinicId, searchQuery = '', enabled = true }: UseConversationsOptions) {
+function filterBySearch(conversations: Conversation[], searchQuery: string) {
+	const normalizedSearchQuery = searchQuery.trim().toLowerCase()
+	if (!normalizedSearchQuery) return conversations
+
+	return conversations.filter((conversation) => {
+		const patientName = conversation.patient_name?.toLowerCase() ?? ''
+		const patientPhone = conversation.patient_phone.toLowerCase()
+		return (
+			patientName.includes(normalizedSearchQuery) ||
+			patientPhone.includes(normalizedSearchQuery)
+		)
+	})
+}
+
+export function useConversations({
+	clinicId,
+	searchQuery = '',
+	enabled = true,
+}: UseConversationsOptions) {
 	const [conversations, setConversations] = useState<Conversation[]>([])
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
-	const conversationsRef = useRef<Conversation[]>([])
-	const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
-	const fetchConversations = async (isInitial = false) => {
-		try {
-			if (isInitial) setLoading(true)
+	const fetchConversations = useCallback(
+		async (isInitial = false) => {
+			if (!enabled || !clinicId) return
 
-			let data: Conversation[] | null = null
+			try {
+				if (isInitial) setLoading(true)
 
-			if (IS_LOCAL) {
-				const params = new URLSearchParams({ clinic_id: clinicId })
-				if (searchQuery.trim()) params.set('search', searchQuery)
-				const res = await fetch(`/api/local/conversations?${params}`)
-				if (!res.ok) throw new Error(await res.text())
-				data = await res.json()
-			} else {
-				const supabase = createClient()
+				let nextConversations: Conversation[] = []
 
-				let query = supabase
-					.from('conversations')
-					.select('*')
-					.eq('clinic_id', clinicId)
-					.order('last_message_at', { ascending: false, nullsFirst: false })
-					.order('created_at', { ascending: false })
+				if (IS_LOCAL) {
+					const params = new URLSearchParams({ clinic_id: clinicId })
+					const response = await fetch(`/api/local/conversations?${params}`, {
+						cache: 'no-store',
+					})
 
-				if (searchQuery.trim()) {
-					query = query.or(`patient_name.ilike.%${searchQuery}%,patient_phone.ilike.%${searchQuery}%`)
+					if (!response.ok) {
+						throw new Error(await response.text())
+					}
+
+					nextConversations = ((await response.json()) as Conversation[]).map(normalizeConversation)
+				} else {
+					const supabase = createClient()
+					const { data, error: fetchError } = await supabase
+						.from('conversations')
+						.select('*')
+						.eq('clinic_id', clinicId)
+						.order('last_message_at', { ascending: false, nullsFirst: false })
+						.order('created_at', { ascending: false })
+
+					if (fetchError) throw fetchError
+					nextConversations = (data || []).map(normalizeConversation)
 				}
 
-				const { data: d, error: fetchError } = await query
-				if (fetchError) throw fetchError
-				data = d
-			}
+				const sorted = sortConversationsByPriority(nextConversations)
+				setConversations(sorted)
+				void setCachedConversations(clinicId, sorted)
+				setError(null)
+			} catch (fetchError) {
+				console.error('Error fetching conversations:', fetchError)
 
-			// Only update state if data actually changed
-			const changed = hasArrayChanged(conversationsRef.current, data || [], 'updated_at')
-
-			if (changed) {
-				conversationsRef.current = data || []
-				setConversations(data || [])
+				if (isInitial) {
+					const cached = await getCachedConversations(clinicId)
+					if (cached.length > 0) {
+						setConversations(sortConversationsByPriority(cached.map(normalizeConversation)))
+						setError(null)
+					} else {
+						setError(
+							fetchError instanceof Error
+								? fetchError.message
+								: 'Failed to fetch conversations',
+						)
+					}
+				}
+			} finally {
+				if (isInitial) setLoading(false)
 			}
-
-			if (isInitial) setError(null)
-		} catch (err) {
-			console.error('Error fetching conversations:', err)
-			if (isInitial) {
-				setError(err instanceof Error ? err.message : 'Failed to fetch conversations')
-			}
-		} finally {
-			if (isInitial) setLoading(false)
-		}
-	}
+		},
+		[clinicId, enabled],
+	)
 
 	useEffect(() => {
-		if (!enabled) return
-
-		// Initial fetch
-		fetchConversations(true)
-
-		const startPolling = () => {
-			if (intervalRef.current) clearInterval(intervalRef.current)
-			intervalRef.current = setInterval(() => {
-				if (!document.hidden) fetchConversations(false)
-			}, POLLING_INTERVAL)
+		if (!enabled || !clinicId) {
+			setConversations([])
+			setLoading(false)
+			return
 		}
+
+		let cancelled = false
+
+		const bootstrap = async () => {
+			const cached = await getCachedConversations(clinicId)
+			if (!cancelled && cached.length > 0) {
+				setConversations(sortConversationsByPriority(cached.map(normalizeConversation)))
+				setLoading(false)
+			}
+
+			await fetchConversations(true)
+		}
+
+		void bootstrap()
+
+		return () => {
+			cancelled = true
+		}
+	}, [clinicId, enabled, fetchConversations])
+
+	useEffect(() => {
+		if (!enabled || !clinicId || IS_LOCAL) return
+
+		const supabase = createClient()
+		const channel = supabase
+			.channel(`conversations:${clinicId}`)
+			.on(
+				'postgres_changes',
+				{
+					event: '*',
+					schema: 'public',
+					table: 'conversations',
+					filter: `clinic_id=eq.${clinicId}`,
+				},
+				(payload: {
+					eventType: 'INSERT' | 'UPDATE' | 'DELETE'
+					new: Conversation
+					old: Conversation
+				}) => {
+					const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE'
+					const nextLike =
+						eventType === 'DELETE'
+							? (payload.old as Conversation | null)
+							: (payload.new as Conversation | null)
+
+					setConversations((current) => {
+						const updated = applyConversationChange(current, nextLike ?? null, eventType)
+						void setCachedConversations(clinicId, updated)
+						return updated
+					})
+				},
+			)
+			.subscribe((status: string) => {
+				if (status === 'CHANNEL_ERROR') {
+					void fetchConversations(false)
+				}
+			})
+
+		return () => {
+			supabase.removeChannel(channel)
+		}
+	}, [clinicId, enabled, fetchConversations])
+
+	useEffect(() => {
+		if (!enabled || !clinicId) return
+
+		const interval = window.setInterval(() => {
+			if (!document.hidden) {
+				void fetchConversations(false)
+			}
+		}, FALLBACK_REFRESH_INTERVAL)
 
 		const handleVisibilityChange = () => {
 			if (!document.hidden) {
-				fetchConversations(false)
+				void fetchConversations(false)
 			}
 		}
 
-		startPolling()
+		window.addEventListener('focus', handleVisibilityChange)
 		document.addEventListener('visibilitychange', handleVisibilityChange)
 
 		return () => {
-			if (intervalRef.current) clearInterval(intervalRef.current)
+			window.clearInterval(interval)
+			window.removeEventListener('focus', handleVisibilityChange)
 			document.removeEventListener('visibilitychange', handleVisibilityChange)
 		}
-	}, [clinicId, searchQuery, enabled])
+	}, [clinicId, enabled, fetchConversations])
+
+	const updateConversation = useCallback(
+		(conversationId: string, patch: Partial<Conversation>) => {
+			setConversations((current) => {
+				const next = current.map((conversation) =>
+					conversation.id === conversationId
+						? normalizeConversation({
+								...conversation,
+								...patch,
+								id: conversation.id,
+								clinic_id: conversation.clinic_id,
+								patient_phone: conversation.patient_phone,
+								status: (patch.status ?? conversation.status) as Conversation['status'],
+								bot_enabled: patch.bot_enabled ?? conversation.bot_enabled,
+								bot_state: patch.bot_state ?? conversation.bot_state,
+								bot_context: patch.bot_context ?? conversation.bot_context,
+								created_at: conversation.created_at,
+								updated_at: patch.updated_at ?? new Date().toISOString(),
+							})
+						: conversation,
+				)
+
+				const sorted = sortConversationsByPriority(next)
+				void setCachedConversations(clinicId, sorted)
+				return sorted
+			})
+		},
+		[clinicId],
+	)
+
+	const markConversationRead = useCallback(
+		async (conversationId: string) => {
+			updateConversation(conversationId, {
+				unread_count: 0,
+				updated_at: new Date().toISOString(),
+			})
+
+			if (IS_LOCAL) return
+
+			const supabase = createClient()
+			const { error: rpcError } = await supabase.rpc('reset_conversation_unread', {
+				target_conversation_id: conversationId,
+			})
+
+			if (rpcError) {
+				const { error: updateError } = await supabase
+					.from('conversations')
+					.update({
+						unread_count: 0,
+						updated_at: new Date().toISOString(),
+					})
+					.eq('id', conversationId)
+
+				if (updateError) {
+					console.error('Error marking conversation as read:', updateError)
+				}
+			}
+		},
+		[updateConversation],
+	)
+
+	const filteredConversations = useMemo(
+		() => filterBySearch(conversations, searchQuery),
+		[conversations, searchQuery],
+	)
 
 	return {
-		conversations,
+		conversations: filteredConversations,
+		allConversations: conversations,
 		loading,
 		error,
 		refetch: () => fetchConversations(true),
+		updateConversation,
+		markConversationRead,
 	}
 }

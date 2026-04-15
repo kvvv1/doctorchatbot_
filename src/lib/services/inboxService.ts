@@ -8,6 +8,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Conversation, Message } from '@/lib/types/database'
 import { getBotSettings } from './botSettingsService'
+import { createNotification } from './notificationService'
 
 export interface IncomingMessageData {
   clinicId: string
@@ -86,6 +87,11 @@ export async function handleIncomingMessage(
       sender: 'patient',
       content: data.text || '[Mensagem sem texto]',
       zapiMessageId: data.zapiMessageId || null,
+      deliveryStatus: 'received',
+      metadata: {
+        source: 'zapi_webhook',
+        timestamp: data.timestamp?.toISOString() ?? null,
+      },
     })
 
     if (!message) {
@@ -101,12 +107,29 @@ export async function handleIncomingMessage(
     const messagePreview = truncateText(data.text, 80)
     const now = new Date().toISOString()
 
-    await updateConversationMetadata(supabase, conversation.id, {
-      lastMessageAt: now,
-      lastMessagePreview: messagePreview,
-      lastPatientMessageAt: now,
-      status: conversation.status,
-    })
+    await Promise.all([
+      updateConversationMetadata(supabase, conversation.id, {
+        lastMessageAt: now,
+        lastMessagePreview: messagePreview,
+        lastPatientMessageAt: now,
+        status: conversation.status,
+      }),
+      supabase.rpc('increment_conversation_unread', {
+        target_conversation_id: conversation.id,
+      }),
+    ])
+
+    const patientLabel = conversation.patient_name || data.name || data.phone
+    await createNotification(
+      data.clinicId,
+      created ? 'new_conversation' : 'conversation_waiting',
+      created ? `Nova conversa de ${patientLabel}` : `Nova mensagem de ${patientLabel}`,
+      truncateText(data.text || '[Mensagem sem texto]', 140),
+      {
+        link: `/dashboard/conversas?id=${conversation.id}`,
+        conversationId: conversation.id,
+      },
+    )
 
     return {
       success: true,
@@ -199,6 +222,8 @@ async function insertMessage(
     sender: 'patient' | 'human' | 'bot'
     content: string
     zapiMessageId?: string | null
+    deliveryStatus?: 'queued' | 'sending' | 'sent' | 'received' | 'failed'
+    metadata?: Record<string, unknown>
   }
 ): Promise<Message | null> {
   const { data: message, error } = await supabase
@@ -208,6 +233,9 @@ async function insertMessage(
       sender: data.sender,
       content: data.content,
       zapi_message_id: data.zapiMessageId || null,
+      message_type: 'text',
+      delivery_status: data.deliveryStatus || (data.sender === 'patient' ? 'received' : 'sent'),
+      metadata: data.metadata || {},
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })

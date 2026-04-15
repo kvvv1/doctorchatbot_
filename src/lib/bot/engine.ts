@@ -7,6 +7,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createNotification } from '@/lib/services/notificationService'
 import { sendInternalZapiMessage } from '@/lib/zapi/internalSend'
 import { detectIntent, detectYesNo } from './intent'
 import { templates } from './templates'
@@ -948,6 +949,11 @@ export async function sendBotResponse(
       conversation_id: conversationId,
       sender: 'bot',
       content: response.message,
+      message_type: 'text',
+      delivery_status: 'sent',
+      metadata: {
+        source: 'bot_engine',
+      },
       created_at: new Date().toISOString(),
     })
 
@@ -1001,14 +1007,16 @@ export async function sendBotResponse(
 
         const patientLabel = conversation?.patient_name || phone
 
-        await supabase.from('notifications').insert({
-          clinic_id: clinicId,
-          type: 'conversation_waiting',
-          title: 'Bot solicitou atendimento humano',
-          message: `A conversa com ${patientLabel} foi transferida para humano e está aguardando ação.`,
-          link: `/dashboard/conversas?id=${conversationId}`,
-          conversation_id: conversationId,
-        })
+        await createNotification(
+          clinicId,
+          'conversation_waiting',
+          'Bot solicitou atendimento humano',
+          `A conversa com ${patientLabel} foi transferida para humano e está aguardando ação.`,
+          {
+            link: `/dashboard/conversas?id=${conversationId}`,
+            conversationId,
+          },
+        )
       } catch (notificationError) {
         // Non-blocking: message delivery/state update should succeed even if alert fails.
         console.error('[Bot] Failed to create handoff notification:', notificationError)

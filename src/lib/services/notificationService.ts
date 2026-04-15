@@ -12,6 +12,7 @@ import type {
 	NotificationType,
 } from '@/lib/types/notifications'
 import type { Appointment } from '@/lib/types/database'
+import { sendPushToClinicUsers } from './pushService'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -273,6 +274,27 @@ export async function createNotification(
 	if (error) {
 		console.error('Error creating notification:', error)
 		return null
+	}
+
+	try {
+		await sendPushToClinicUsers({
+			clinicId,
+			userId: options?.userId,
+			payload: {
+				title,
+				body: message,
+				url: options?.link || '/dashboard/conversas',
+				tag: options?.conversationId ? `conversation:${options.conversationId}` : type,
+				data: {
+					notificationId: data.id,
+					type,
+					conversationId: options?.conversationId ?? null,
+					appointmentId: options?.appointmentId ?? null,
+				},
+			},
+		})
+	} catch (pushError) {
+		console.error('Error sending push notification:', pushError)
 	}
 
 	return data

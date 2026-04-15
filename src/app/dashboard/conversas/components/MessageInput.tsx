@@ -266,7 +266,10 @@ export default function MessageInput({
 				</div>
 			)}
 			
-			<form onSubmit={handleSubmit} className="flex items-end gap-2 border-t border-neutral-200 bg-white px-3 py-2.5">
+			<form
+				onSubmit={handleSubmit}
+				className="flex items-end gap-2 border-t border-neutral-200 bg-white px-3 py-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)]"
+			>
 				{/* Quick Replies Button */}
 				{clinicId && (
 					<button
