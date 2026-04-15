@@ -444,7 +444,8 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 					onSearchChange={setSearchQuery}
 					statusFilter={statusFilter}
 					onStatusFilterChange={setStatusFilter}
-					loading={loading}						error={conversationsError}					error={conversationsError}
+					loading={loading}
+					error={conversationsError}
 					showOnlyHumanNeeded={showOnlyHumanNeeded}
 					onToggleHumanNeeded={() => setShowOnlyHumanNeeded(!showOnlyHumanNeeded)}
 					humanNeededCount={humanNeededCount}
