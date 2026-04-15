@@ -276,6 +276,12 @@ async function triggerBotResponse(
 
     // 3. Check if bot is enabled
     if (!conversation.bot_enabled) {
+      // Do NOT reactivate bot while a human attendant is actively attending
+      if (conversation.status === 'waiting_human') {
+        console.log('[Bot] Human attendance active — bot stays silent, ignoring reactivation attempt:', conversationId)
+        return
+      }
+
       // Allow patient to re-engage the bot by typing "menu" / "0" / "início"
       const msgLower = messageText.trim().toLowerCase()
       const isReactivate = /^(menu|inicio|início|oi|olá|ola|0)$/.test(msgLower)
