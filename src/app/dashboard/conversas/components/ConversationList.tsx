@@ -27,6 +27,7 @@ const STATUS_OPTIONS: Array<{ id: ConversationStatusFilter; label: string }> = [
 	{ id: 'new', label: 'Novas' },
 	{ id: 'in_progress', label: 'Em atendimento' },
 	{ id: 'waiting_patient', label: 'Aguardando' },
+	{ id: 'waiting_human', label: 'Aguardando humano' },
 	{ id: 'scheduled', label: 'Agendadas' },
 	{ id: 'done', label: 'Finalizadas' },
 ]

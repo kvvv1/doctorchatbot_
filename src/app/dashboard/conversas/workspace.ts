@@ -5,6 +5,7 @@ export type ConversationStatusFilter =
 	| 'new'
 	| 'in_progress'
 	| 'waiting_patient'
+	| 'waiting_human'
 	| 'scheduled'
 	| 'done'
 
@@ -39,6 +40,7 @@ const VALID_STATUS_FILTERS = new Set<ConversationStatusFilter>([
 	'new',
 	'in_progress',
 	'waiting_patient',
+	'waiting_human',
 	'scheduled',
 	'done',
 ])
