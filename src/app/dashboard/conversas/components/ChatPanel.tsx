@@ -57,6 +57,7 @@ const STATUS_ACTIONS: Array<{ status: ConversationStatus; label: string }> = [
 
 const BOT_STATE_LABELS: Record<BotState, string> = {
 	menu: 'Menu principal',
+	agendar_tipo: 'Tipo de atendimento',
 	agendar_nome: 'Coletando nome',
 	agendar_cpf: 'Coletando CPF',
 	consultar_cpf: 'Localizando por CPF',
@@ -69,12 +70,14 @@ const BOT_STATE_LABELS: Record<BotState, string> = {
 	agendar_alterar_campo: 'Escolhendo o que alterar',
 	agendar_alterar_paciente: 'Alterando paciente',
 	reagendar_qual: 'Selecionando consulta',
+	reagendar_tipo: 'Tipo de atendimento',
 	reagendar_dia: 'Remarcando — data',
 	reagendar_hora: 'Remarcando — horário',
 	reagendar_slot_escolha: 'Escolhendo horário',
 	reagendar_dia_lista: 'Remarcando — data',
 	reagendar_hora_lista: 'Remarcando — horário',
 	cancelar_qual: 'Selecionando consulta',
+	cancelar_tipo: 'Tipo de atendimento',
 	cancelar_confirmar: 'Confirmando cancelamento',
 	cancelar_encaixe: 'Lista de espera',
 	atendente: 'Transferido p/ atendente',
