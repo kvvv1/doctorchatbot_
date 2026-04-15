@@ -202,13 +202,14 @@ export default function BotAdvancedSettingsTab({
 						</div>
 
 						<div>
-						<label className="block font-medium text-neutral-800 mb-1">
-							Menu principal
-						</label>
-						<p className="text-xs text-neutral-400 mb-2">
-							Arraste para reordenar. As opções ativadas viram botões/lista interativa automaticamente.
-						</p>
-						<BotMenuOptionsEditor settings={settings} onChange={setSettings} />
+							<label className="block font-medium text-neutral-800 mb-1">
+								Menu principal
+							</label>
+							<p className="text-xs text-neutral-400 mb-2">
+								Arraste para reordenar. As opções ativadas viram botões/lista interativa automaticamente.
+							</p>
+							<BotMenuOptionsEditor settings={settings} onChange={setSettings} />
+						</div>
 
 						<div>
 							<div className="flex items-center justify-between mb-1">
