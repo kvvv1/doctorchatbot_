@@ -108,11 +108,12 @@ export default function BotAdvancedSettingsTab({
 						message_fallback: settings.message_fallback,
 						message_confirm_schedule: settings.message_confirm_schedule,
 						message_confirm_reschedule: settings.message_confirm_reschedule,
-						message_confirm_cancel: settings.message_confirm_cancel,					menu_options: settings.menu_options,
-					menu_order: settings.menu_order,
-					particular_days: settings.particular_days ?? [],
-					convenios: (settings.convenios ?? []).filter(s => s.trim() !== ''),
-				},
+						message_confirm_cancel: settings.message_confirm_cancel,
+						menu_options: settings.menu_options,
+						menu_order: settings.menu_order,
+						particular_days: settings.particular_days ?? [],
+						convenios: (settings.convenios ?? []).filter(s => s.trim() !== ''),
+					},
 				}),
 			})
 
