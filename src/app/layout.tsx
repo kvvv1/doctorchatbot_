@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 	description: 'Sistema inteligente de atendimento por WhatsApp para clínicas médicas',
 	appleWebApp: {
 		capable: true,
-		statusBarStyle: 'default',
+		statusBarStyle: 'black-translucent',
 		title: 'Doctor Chat Bot',
 	},
 	formatDetection: {
@@ -41,7 +41,7 @@ export const viewport: Viewport = {
 	initialScale: 1,
 	maximumScale: 1,
 	viewportFit: 'cover',
-	themeColor: '#0f766e',
+	themeColor: '#0A84FF',
 }
 
 export default function RootLayout({

@@ -178,7 +178,7 @@ export default function MobileInboxPwaBar() {
 		<div className="mb-3 rounded-[26px] border border-white/80 bg-white/90 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
 			<div className="flex items-start justify-between gap-3">
 				<div>
-					<p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-700">
+					<p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#0A84FF]">
 						Inbox Mobile
 					</p>
 					<h2 className="mt-1 text-sm font-semibold text-neutral-900">
@@ -198,7 +198,7 @@ export default function MobileInboxPwaBar() {
 						</span>
 					)}
 					{isStandalone && (
-						<span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
+						<span className="inline-flex items-center gap-1 rounded-full bg-[#0A84FF]/10 px-2.5 py-1 text-[10px] font-semibold text-[#0A84FF]">
 							<Smartphone className="size-3" />
 							Instalado
 						</span>
@@ -218,7 +218,7 @@ export default function MobileInboxPwaBar() {
 						type="button"
 						onClick={() => void handleInstall()}
 						disabled={busy}
-						className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+						className="inline-flex items-center gap-2 rounded-full bg-[#0A84FF] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#0077E6] disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						<Download className="size-3.5" />
 						Instalar app

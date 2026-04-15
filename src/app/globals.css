@@ -3,6 +3,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --ios-pwa-statusbar: #0A84FF;
 }
 
 @theme inline {
@@ -23,6 +24,22 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+@media (display-mode: standalone) {
+  body {
+    min-height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    background:
+      linear-gradient(
+        180deg,
+        var(--ios-pwa-statusbar) 0,
+        var(--ios-pwa-statusbar) env(safe-area-inset-top),
+        var(--background) env(safe-area-inset-top),
+        var(--background) 100%
+      );
+    background-attachment: fixed;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
