@@ -56,7 +56,7 @@ const MENU_OPTIONS_MAP: Record<MenuKey, Omit<MenuOption, 'key'>> = {
 		emoji: '❌',
 	},
 	attendant: {
-		label: 'Falar com atendente',
+		label: 'Falar com secretária',
 		description: 'Pacientes podem solicitar atendimento humano',
 		emoji: '👤',
 	},

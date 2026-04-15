@@ -78,7 +78,7 @@ export async function handleBotTurn(
   // Universal escape hatch — runs in ANY non-terminal state.
   // Handles two cases:
   //   a) "Voltar ao menu" / "menu" / "voltar" → go to menu
-  //   b) "Sim, falar com atendente" / "atendente" / "1" (when in sem_horario) → transfer
+  //   b) "Sim, falar com secretária" / "secretária" / "1" (when in sem_horario) → transfer
   // This catches timing races where the patient clicked a scheduleNoSlots button
   // BEFORE the DB had persisted 'sem_horario' as the new state.
   if (state !== 'atendente') {
@@ -97,10 +97,10 @@ export async function handleBotTurn(
       || /\bmenu principal\b/.test(escapedMsg)
       || (menuChoiceIndex !== null && matchesChoiceSelection(escapedMsg, menuChoiceIndex))
 
-    // "Sim, falar com atendente" button — only outside menu/agendar_nome states
+    // "Sim, falar com secretária" button — only outside menu/agendar_nome states
     // where "1" or "sim" would be ambiguous
     const isAttendantRequest = state !== 'menu' && (
-      /sim.*falar.*atendente|falar.*atendente|quero.*atendente/i.test(escapedMsg) ||
+      /sim.*falar.*atendente|falar.*atendente|quero.*atendente|sim.*falar.*secretaria|falar.*secretaria|quero.*secretaria/i.test(escapedMsg) ||
       /option[_-]?1|button[_-]?1/.test(escapedMsg) ||
       (state === 'sem_horario' && (escapedMsg === '1' || /^sim$/.test(escapedMsg)))
     )
@@ -883,7 +883,7 @@ function buildMenuMessage(botSettings?: BotSettings | null): string {
     view_appointments: 'Ver meus agendamentos',
     reschedule: 'Remarcar consulta',
     cancel: 'Cancelar consulta',
-    attendant: 'Falar com atendente',
+    attendant: 'Falar com secretária',
   }
 
   const NUMBER_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣']
@@ -1510,7 +1510,7 @@ function withRetry(
   const retries = (ctx.retryCount ?? 0) + 1
   if (retries >= MAX_RETRIES) {
     return {
-      message: `Estou tendo dificuldade em entender. O que deseja fazer?\n\n1️⃣ Falar com atendente\n2️⃣ Voltar ao menu`,
+      message: `Estou tendo dificuldade em entender. O que deseja fazer?\n\n1️⃣ Falar com secretária\n2️⃣ Voltar ao menu`,
       nextState: 'menu',
       nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
     }

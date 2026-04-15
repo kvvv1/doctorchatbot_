@@ -13,7 +13,7 @@ const MENU_OPTION_LABELS: Record<string, string> = {
 	view_appointments: 'Ver meus agendamentos',
 	reschedule: 'Remarcar consulta',
 	cancel: 'Cancelar consulta',
-	attendant: 'Falar com atendente',
+	attendant: 'Falar com secretária',
 }
 const DEFAULT_MENU_ORDER = ['schedule', 'view_appointments', 'reschedule', 'cancel', 'attendant']
 const NUMBER_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣']

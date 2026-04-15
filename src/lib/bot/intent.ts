@@ -60,6 +60,8 @@ export function detectIntent(text: string): Intent {
   // Attendant intent (5)
   if (
     normalized.includes('atendente') ||
+    normalized.includes('secretaria') ||
+    normalized.includes('secretária') ||
     normalized.includes('humano') ||
     normalized.includes('pessoa') ||
     normalized.includes('falar com') ||

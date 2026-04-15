@@ -26,7 +26,7 @@ Como posso te ajudar hoje?
 2️⃣ Ver meus agendamentos
 3️⃣ Remarcar consulta
 4️⃣ Cancelar consulta
-5️⃣ Falar com atendente`,
+5️⃣ Falar com secretária`,
 
   notUnderstood: `Não entendi sua mensagem. O que você deseja fazer?
 
@@ -34,7 +34,7 @@ Como posso te ajudar hoje?
 2️⃣ Ver meus agendamentos
 3️⃣ Remarcar consulta
 4️⃣ Cancelar consulta
-5️⃣ Falar com atendente`,
+5️⃣ Falar com secretária`,
 
   // -------------------------------------------------------------------------
   // Agendamento
@@ -95,7 +95,7 @@ Qual horário você prefere?
 
 Deseja falar com nossa equipe?
 
-1️⃣ Sim, falar com atendente
+1️⃣ Sim, falar com secretária
 2️⃣ Voltar ao menu`,
 
   // List-based scheduling flow (interactive lists)
@@ -236,11 +236,11 @@ Obrigado! Te esperamos. 🏥`,
   // -------------------------------------------------------------------------
   // Atendente humano
   // -------------------------------------------------------------------------
-  attendantTransfer: `Certo! Vou transferir você para um de nossos *atendentes*. 👨‍⚕️
+  attendantTransfer: `Certo! Vou transferir você para uma de nossas *secretárias*. 👨‍⚕️
 
 ⏳ Aguarde um momento, alguém da nossa equipe entrará em contato em breve.`,
 
-  attendantOutOfHours: `Nossos atendentes estão fora do horário agora. 😕
+  attendantOutOfHours: `Nossa secretária está fora do horário agora. 😕
 
 Posso ajudar com alguma dessas opções:
 
@@ -252,7 +252,7 @@ Posso ajudar com alguma dessas opções:
   // -------------------------------------------------------------------------
   technicalError: withMenuHint(`Ops! Tive um problema técnico. Pode tentar novamente em instantes?
 
-Se o problema persistir, use a opção *5 — Falar com atendente*.`),
+Se o problema persistir, use a opção *5 — Falar com secretária*.`),
 }
 
 // ---------------------------------------------------------------------------
