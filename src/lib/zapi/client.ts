@@ -470,6 +470,30 @@ export async function zapiSendChoices(
 }
 
 /**
+ * Obtém a foto de perfil do WhatsApp de um número
+ * Retorna a URL da imagem ou null se não disponível
+ */
+export async function zapiGetProfilePicture(
+  credentials: ZapiCredentials,
+  phone: string,
+): Promise<string | null> {
+  const { instanceId, token, clientToken } = credentials;
+  const baseUrl = getInstanceUrl(instanceId, token);
+  const cleanPhone = phone.replace(/[^0-9]/g, '');
+  const headers = clientToken ? { 'Client-Token': clientToken } : undefined;
+
+  try {
+    const data = await zapiRequest<{ link: string }>(
+      `${baseUrl}/profile-picture?phone=${cleanPhone}`,
+      { method: 'GET', headers },
+    );
+    return data?.link ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Verifica se as credenciais estão válidas
  */
 export function validateCredentials(credentials: ZapiCredentials): boolean {

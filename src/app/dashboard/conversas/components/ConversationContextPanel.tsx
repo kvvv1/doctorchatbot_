@@ -85,7 +85,23 @@ function PanelBody({
 		<div className="flex h-full flex-col">
 			<div className="border-b border-neutral-200 px-5 py-5">
 				<div className="flex items-center gap-3">
-					<div className="flex size-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-sm font-semibold text-emerald-700">
+					{conversation.profile_picture_url ? (
+						<img
+							src={conversation.profile_picture_url}
+							alt={conversation.patient_name || conversation.patient_phone}
+							className="size-14 rounded-2xl object-cover"
+							onError={(e) => {
+								const target = e.currentTarget
+								target.style.display = 'none'
+								const fallback = target.nextElementSibling as HTMLElement | null
+								if (fallback) fallback.style.display = 'flex'
+							}}
+						/>
+					) : null}
+					<div
+						className="size-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-sm font-semibold text-emerald-700"
+						style={{ display: conversation.profile_picture_url ? 'none' : 'flex' }}
+					>
 						{getInitials(conversation.patient_name, conversation.patient_phone)}
 					</div>
 					<div className="min-w-0">

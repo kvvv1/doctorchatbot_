@@ -200,9 +200,22 @@ export default function ConversationList({
 									<div className="flex items-start gap-3">
 										{/* Avatar */}
 										<div className="shrink-0">
-											<div className={`flex size-10 items-center justify-center rounded-full text-xs font-semibold ${
+											{conversation.profile_picture_url ? (
+												<img
+													src={conversation.profile_picture_url}
+													alt={conversation.patient_name || conversation.patient_phone}
+													className="size-10 rounded-full object-cover"
+													onError={(e) => {
+														const target = e.currentTarget
+														target.style.display = 'none'
+														const fallback = target.nextElementSibling as HTMLElement | null
+														if (fallback) fallback.style.display = 'flex'
+													}}
+												/>
+											) : null}
+											<div className={`size-10 items-center justify-center rounded-full text-xs font-semibold ${
 												isSelected ? 'bg-sky-600 text-white' : 'bg-neutral-200 text-neutral-600'
-											}`}>
+											}${conversation.profile_picture_url ? ' hidden' : ' flex'}`}>
 												{initials}
 											</div>
 										</div>

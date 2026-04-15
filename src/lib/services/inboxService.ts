@@ -9,6 +9,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import type { Conversation, Message } from '@/lib/types/database'
 import { getBotSettings } from './botSettingsService'
 import { createNotification } from './notificationService'
+import { zapiGetProfilePicture } from '@/lib/zapi/client'
 
 export interface IncomingMessageData {
   clinicId: string
@@ -131,6 +132,11 @@ export async function handleIncomingMessage(
       },
     )
 
+    // Fetch profile picture asynchronously when a new conversation is created (non-blocking)
+    if (created) {
+      fetchAndSaveProfilePicture(supabase, conversation.id, data.clinicId, data.phone).catch(() => {})
+    }
+
     return {
       success: true,
       conversationId: conversation.id,
@@ -210,6 +216,44 @@ async function findOrCreateConversation(
   }
 
   return { conversation: created as Conversation, created: true }
+}
+
+/**
+ * Fetches the WhatsApp profile picture for a phone number and saves it to the conversation.
+ * Runs asynchronously and non-blocking — failures are silently ignored.
+ */
+async function fetchAndSaveProfilePicture(
+  supabase: ReturnType<typeof createAdminClient>,
+  conversationId: string,
+  clinicId: string,
+  phone: string,
+) {
+  try {
+    const { data: instance } = await supabase
+      .from('whatsapp_instances')
+      .select('instance_id, token, client_token')
+      .eq('clinic_id', clinicId)
+      .eq('provider', 'zapi')
+      .single()
+
+    if (!instance?.instance_id || !instance?.token) return
+
+    const credentials = {
+      instanceId: instance.instance_id,
+      token: instance.token,
+      clientToken: instance.client_token || undefined,
+    }
+
+    const pictureUrl = await zapiGetProfilePicture(credentials, phone)
+    if (!pictureUrl) return
+
+    await supabase
+      .from('conversations')
+      .update({ profile_picture_url: pictureUrl, updated_at: new Date().toISOString() })
+      .eq('id', conversationId)
+  } catch {
+    // Silently ignore — profile picture is non-critical
+  }
 }
 
 /**

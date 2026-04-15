@@ -33,6 +33,7 @@ export interface Conversation {
 	bot_state: BotState
 	bot_context: BotContext
 	notes: string | null
+	profile_picture_url: string | null
 	last_message_at: string | null
 	last_message_preview: string | null
 	last_patient_message_at: string | null

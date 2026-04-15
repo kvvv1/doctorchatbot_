@@ -267,7 +267,23 @@ export default function ChatPanel({
 						</button>
 					)}
 
-					<div className="flex size-9 items-center justify-center rounded-full bg-sky-600 text-xs font-semibold text-white">
+					{conversation.profile_picture_url ? (
+						<img
+							src={conversation.profile_picture_url}
+							alt={conversation.patient_name || conversation.patient_phone}
+							className="size-9 rounded-full object-cover"
+							onError={(e) => {
+								const target = e.currentTarget
+								target.style.display = 'none'
+								const fallback = target.nextElementSibling as HTMLElement | null
+								if (fallback) fallback.style.display = 'flex'
+							}}
+						/>
+					) : null}
+					<div
+						className="size-9 items-center justify-center rounded-full bg-sky-600 text-xs font-semibold text-white"
+						style={{ display: conversation.profile_picture_url ? 'none' : 'flex' }}
+					>
 						{getInitials(conversation.patient_name, conversation.patient_phone)}
 					</div>
 

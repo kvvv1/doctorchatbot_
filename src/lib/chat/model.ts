@@ -36,6 +36,7 @@ export function normalizeConversation(value: PartialConversation): Conversation 
 		bot_state: value.bot_state,
 		bot_context: value.bot_context,
 		notes: value.notes ?? null,
+		profile_picture_url: value.profile_picture_url ?? null,
 		last_message_at: value.last_message_at ?? null,
 		last_message_preview: value.last_message_preview ?? null,
 		last_patient_message_at: value.last_patient_message_at ?? null,
