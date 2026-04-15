@@ -1242,6 +1242,20 @@ export async function sendBotResponse(
       convError = retryResult.error
     }
 
+    // Retry without status if the DB check constraint rejects it (migration may not have run yet)
+    if (convError && convError.code === '23514' && convError.message?.includes('status_check')) {
+      console.warn('[Bot] status check constraint rejected value — retrying without status field. Run migration 031 in Supabase SQL Editor.')
+      const retryUpdate = { ...update }
+      delete retryUpdate.status
+
+      const retryResult = await supabase
+        .from('conversations')
+        .update(retryUpdate)
+        .eq('id', conversationId)
+
+      convError = retryResult.error
+    }
+
     if (convError) {
       console.error('[Bot] Failed to update conversation:', convError)
       return false
