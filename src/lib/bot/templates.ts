@@ -4,10 +4,10 @@
 
 import type { AppointmentSummary, DayOption, Slot } from './context'
 
-const MENU_HINT = '\n\nDigite *menu* para voltar ao menu principal.'
+const MENU_BACK_OPTION = '\n\n0. 🏠 Menu principal'
 
 function withMenuHint(message: string): string {
-  return `${message}${MENU_HINT}`
+  return `${message}${MENU_BACK_OPTION}`
 }
 
 function withMenuOption(message: string, optionNumber: number, label = 'Voltar ao menu principal'): string {

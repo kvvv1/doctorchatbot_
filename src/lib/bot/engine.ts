@@ -91,7 +91,7 @@ export async function handleBotTurn(
     const menuChoiceIndex = getMenuChoiceIndex(state, ctx)
 
     // "Voltar ao menu" button or typed menu/voltar
-    const isBackToMenu = /^(menu|inicio|ajuda|help|sair|cancelar tudo)$/.test(escapedMsg)
+    const isBackToMenu = /^(menu|inicio|ajuda|help|sair|cancelar tudo|0)$/.test(escapedMsg)
       || /\bvoltar\b/.test(escapedMsg)
       || /\bvoltar ao menu\b/.test(escapedMsg)
       || /\bmenu principal\b/.test(escapedMsg)
@@ -901,9 +901,9 @@ function buildMenuMessage(botSettings?: BotSettings | null): string {
 }
 
 function withMenuHintText(message: string): string {
-  if (!message.trim()) return 'Digite *menu* para voltar ao menu principal.'
-  if (/voltar ao menu|menu principal|digite \*menu\*/i.test(message)) return message
-  return `${message}\n\nDigite *menu* para voltar ao menu principal.`
+  if (!message.trim()) return '0. 🏠 Menu principal'
+  if (/voltar ao menu|menu principal|0\.\s*🏠/i.test(message)) return message
+  return `${message}\n\n0. 🏠 Menu principal`
 }
 
 // ---------------------------------------------------------------------------
