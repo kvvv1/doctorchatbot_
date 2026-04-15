@@ -67,6 +67,13 @@ export function useConversations({
 					nextConversations = ((await response.json()) as Conversation[]).map(normalizeConversation)
 				} else {
 					const supabase = createClient()
+
+					// Verify session is valid before querying
+					const { data: { session } } = await supabase.auth.getSession()
+					if (!session) {
+						console.warn('[useConversations] No active session — conversations will be empty. Please log out and log in again.')
+					}
+
 					const { data, error: fetchError } = await supabase
 						.from('conversations')
 						.select('*')
