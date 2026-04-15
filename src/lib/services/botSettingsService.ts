@@ -19,14 +19,28 @@ export async function getBotSettings(clinicId: string): Promise<BotSettings | nu
   const supabase = createAdminClient()
 
   try {
-    // Use the stored function to get or create settings
+    // Direct SELECT to avoid PostgREST composite-type cache issues with the RPC.
     const { data, error } = await supabase
-      .rpc('get_or_create_bot_settings', { p_clinic_id: clinicId })
-      .single()
+      .from('bot_settings')
+      .select('*')
+      .eq('clinic_id', clinicId)
+      .maybeSingle()
 
     if (error) {
       console.error('[BotSettingsService] Error getting bot settings:', error)
       return null
+    }
+
+    if (!data) {
+      // Row doesn't exist yet — create with defaults via RPC
+      const { data: created, error: createError } = await supabase
+        .rpc('get_or_create_bot_settings', { p_clinic_id: clinicId })
+        .single()
+      if (createError) {
+        console.error('[BotSettingsService] Error creating bot settings:', createError)
+        return null
+      }
+      return created as BotSettings
     }
 
     return data as BotSettings
@@ -64,14 +78,29 @@ export async function getBotSettingsForCurrentUser(): Promise<BotSettings | null
       return null
     }
 
-    // Get or create bot settings
+    // Direct SELECT to avoid PostgREST composite-type cache issues with the RPC.
     const { data, error } = await supabase
-      .rpc('get_or_create_bot_settings', { p_clinic_id: profile.clinic_id })
-      .single()
+      .from('bot_settings')
+      .select('*')
+      .eq('clinic_id', profile.clinic_id)
+      .maybeSingle()
 
     if (error) {
       console.error('[BotSettingsService] Error getting bot settings:', error)
       return null
+    }
+
+    if (!data) {
+      // Row doesn't exist yet — create with defaults via admin RPC
+      const adminSupabase = createAdminClient()
+      const { data: created, error: createError } = await adminSupabase
+        .rpc('get_or_create_bot_settings', { p_clinic_id: profile.clinic_id })
+        .single()
+      if (createError) {
+        console.error('[BotSettingsService] Error creating bot settings:', createError)
+        return null
+      }
+      return created as BotSettings
     }
 
     return data as BotSettings
