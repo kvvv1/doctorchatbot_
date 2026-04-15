@@ -291,7 +291,7 @@ export default function MessageInput({
 					placeholder="Mensagem... (Digite / para atalhos)"
 					disabled={disabled || sending}
 					rows={1}
-					className="flex-1 resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none transition-colors placeholder:text-neutral-400 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 disabled:bg-neutral-50 disabled:text-neutral-400"
+					className="flex-1 resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 disabled:bg-neutral-50 disabled:text-neutral-400"
 					style={{
 						minHeight: '38px',
 						maxHeight: '120px',
