@@ -237,6 +237,16 @@ export default function ConversationList({
 															BOT
 														</span>
 													)}
+													{(conversation.bot_context as { appointmentType?: string } | null)?.appointmentType === 'particular' && (
+														<span className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-800">
+															PART.
+														</span>
+													)}
+													{(conversation.bot_context as { appointmentType?: string } | null)?.appointmentType === 'convenio' && (
+														<span className="inline-flex items-center rounded-full border border-sky-300 bg-sky-50 px-1.5 py-0.5 text-[9px] font-semibold text-sky-700">
+															CONV.
+														</span>
+													)}
 													<SLAIndicator
 														lastPatientMessageAt={conversation.last_patient_message_at}
 														thresholdMinutes={30}

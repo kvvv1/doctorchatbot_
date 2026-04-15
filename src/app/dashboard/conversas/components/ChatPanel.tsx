@@ -272,8 +272,18 @@ export default function ChatPanel({
 					</div>
 
 					<div>
-						<h2 className="text-sm font-semibold text-neutral-900">
+						<h2 className="text-sm font-semibold text-neutral-900 flex items-center gap-1.5">
 							{conversation.patient_name || 'Sem nome'}
+							{(conversation.bot_context as { appointmentType?: string } | null)?.appointmentType === 'particular' && (
+								<span className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-800">
+									PARTICULAR
+								</span>
+							)}
+							{(conversation.bot_context as { appointmentType?: string } | null)?.appointmentType === 'convenio' && (
+								<span className="inline-flex items-center rounded-full border border-sky-300 bg-sky-50 px-1.5 py-0.5 text-[9px] font-semibold text-sky-700">
+									CONVÊNIO
+								</span>
+							)}
 						</h2>
 						<div className="mt-0.5 flex items-center gap-1.5">
 							<p className="text-xs text-neutral-400">{conversation.patient_phone}</p>
@@ -468,10 +478,24 @@ export default function ChatPanel({
 					</div>
 				) : (
 					<div className="space-y-2">
-						{messages.map((message) => {
+						{(() => {
+							// Find index of first human message to insert handoff divider before it
+							const firstHumanIdx = messages.findIndex(m => m.sender === 'human')
+							return messages.map((message, idx) => {
 							const isFromPatient = message.sender === 'patient'
 							const deliveryLabel = getDeliveryLabel(message)
 							return (
+								<>
+									{idx === firstHumanIdx && firstHumanIdx > 0 && (
+										<div key={`divider-${message.id}`} className="flex items-center gap-3 py-2">
+											<div className="flex-1 border-t border-dashed border-amber-300" />
+											<span className="flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-700">
+												<UserCircle className="size-3.5" />
+												Início do atendimento humano
+											</span>
+											<div className="flex-1 border-t border-dashed border-amber-300" />
+										</div>
+									)}
 								<div
 									key={message.id}
 									className={`flex items-end gap-2 ${isFromPatient ? '' : 'flex-row-reverse'}`}
@@ -538,8 +562,10 @@ export default function ChatPanel({
 										</div>
 									</div>
 								</div>
+								</>
 							)
-						})}
+							})
+						})()}
 						<div ref={messagesEndRef} />
 					</div>
 				)}
