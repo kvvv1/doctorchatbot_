@@ -69,9 +69,13 @@ Vou te transferir agora!`,
     return withMenuHint(`Qual é o seu convênio? 🏥\n\n${lines}`)
   },
 
-  noConvenioConfigured: withMenuHint(`No momento não temos convênios cadastrados. 😕
+  noConvenioConfigured: `No momento não temos convênios cadastrados. 😕
 
-Para agendar, entre em contato diretamente com nossa secretária.`),
+Como posso te ajudar?
+
+1. 👩‍⚕️ Falar com a secretária
+0. 🏠 Menu principal`,
+
 
   // Appended after the day-list message for convênio patients when particular days exist
   particularDaysHint: (daysLabel: string) =>

@@ -134,6 +134,9 @@ export async function handleBotTurn(
     case 'agendar_convenio':
       return handleAgendarConvenio(userMessage, ctx, botSettings, clinicId)
 
+    case 'convenio_sem_cadastro':
+      return handleConvenioSemCadastro(userMessage, ctx, botSettings)
+
     case 'agendar_nome':
       return handleAgendarNome(userMessage, ctx)
 
@@ -388,7 +391,7 @@ async function handleAgendarTipo(
     if (convenios.length === 0) {
       return {
         message: templates.noConvenioConfigured,
-        nextState: 'menu',
+        nextState: 'convenio_sem_cadastro',
         nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
       }
     }
@@ -404,6 +407,29 @@ async function handleAgendarTipo(
     message: templates.askScheduleType,
     nextState: 'agendar_tipo',
     nextContext: ctx,
+  }
+}
+
+async function handleConvenioSemCadastro(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+): Promise<BotResponse> {
+  const n = msg.trim().toLowerCase()
+  // Option 1 or any secretary-related text → transfer to secretary
+  if (n === '1' || /secret[aá]ria|atendente|humano|falar/i.test(n)) {
+    return {
+      message: templates.attendantTransfer,
+      nextState: 'atendente',
+      nextContext: ctx,
+      transferToHuman: true,
+    }
+  }
+  // Option 0 / menu / back
+  return {
+    message: buildMenuMessage(botSettings),
+    nextState: 'menu',
+    nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
   }
 }
 

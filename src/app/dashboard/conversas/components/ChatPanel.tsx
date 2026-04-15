@@ -59,6 +59,7 @@ const BOT_STATE_LABELS: Record<BotState, string> = {
 	menu: 'Menu principal',
 	agendar_tipo: 'Tipo de atendimento',
 	agendar_convenio: 'Selecionando convênio',
+	convenio_sem_cadastro: 'Sem convênios cadastrados',
 	agendar_nome: 'Coletando nome',
 	agendar_cpf: 'Coletando CPF',
 	consultar_cpf: 'Localizando por CPF',
