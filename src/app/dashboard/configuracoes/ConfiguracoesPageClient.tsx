@@ -131,6 +131,7 @@ export default function ConfiguracoesPageClient({
 	initialDefaultDurationMinutes,
 	planKey,
 	hasCustomFlows,
+	hasCalendarIntegrationAccess,
 }: {
 	initialClinicName: string
 	clinicId: string
@@ -138,6 +139,7 @@ export default function ConfiguracoesPageClient({
 	initialDefaultDurationMinutes: number
 	planKey: PlanKey | null
 	hasCustomFlows: boolean
+	hasCalendarIntegrationAccess: boolean
 }) {
 	const router = useRouter()
 	const searchParams = useSearchParams()
@@ -233,7 +235,13 @@ export default function ConfiguracoesPageClient({
 						/>
 					)}
 					{activeTab === 'whatsapp' && <WhatsAppTab clinicId={clinicId} />}
-					{activeTab === 'integracoes' && <IntegracoesTab clinicId={clinicId} />}
+					{activeTab === 'integracoes' && (
+						<IntegracoesTab
+							clinicId={clinicId}
+							planKey={planKey}
+							hasCalendarIntegrationAccess={hasCalendarIntegrationAccess}
+						/>
+					)}
 					{activeTab === 'bot' && (
 						<BotTab
 							botActive={botActive}
@@ -595,15 +603,28 @@ function WhatsAppTab({ clinicId }: { clinicId: string }) {
 // Integrações Tab — Google Calendar + GestaoDS (e futuras)
 // ---------------------------------------------------------------------------
 
-function IntegracoesTab({ clinicId }: { clinicId: string }) {
+function IntegracoesTab({
+	clinicId,
+	planKey,
+	hasCalendarIntegrationAccess,
+}: {
+	clinicId: string
+	planKey: PlanKey | null
+	hasCalendarIntegrationAccess: boolean
+}) {
 	return (
 		<div className="space-y-6">
 			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
 				<h2 className="mb-2 text-lg font-semibold text-neutral-900">Integrações</h2>
 				<p className="mb-4 text-sm text-neutral-500">
-					Conecte sua agenda e sistemas de gestão para sincronizar consultas automaticamente.
+					A agenda manual e pelo DoctorChatBot continua disponível no Essencial. Esta área
+					controla apenas integrações externas, como Google Calendar e GestãoDS.
 				</p>
-				<AgendaIntegrationTab clinicId={clinicId} />
+				<AgendaIntegrationTab
+					clinicId={clinicId}
+					currentPlan={planKey}
+					hasCalendarIntegrationAccess={hasCalendarIntegrationAccess}
+				/>
 			</div>
 		</div>
 	)

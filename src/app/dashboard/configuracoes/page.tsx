@@ -33,6 +33,9 @@ export default async function ConfiguracoesPage() {
 		subscription.planKey,
 		PlanFeature.BOT_CUSTOM_FLOWS
 	)
+	const hasCalendarIntegrationAccess =
+		subscription.isActive &&
+		hasFeatureAccess(subscription.planKey, PlanFeature.CALENDAR_INTEGRATION)
 
 	return (
 		<ConfiguracoesPageClient 
@@ -42,6 +45,7 @@ export default async function ConfiguracoesPage() {
 			initialDefaultDurationMinutes={initialDefaultDurationMinutes}
 			planKey={subscription.planKey}
 			hasCustomFlows={hasCustomFlows}
+			hasCalendarIntegrationAccess={hasCalendarIntegrationAccess}
 		/>
 	)
 }

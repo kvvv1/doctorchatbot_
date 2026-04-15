@@ -3,13 +3,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { CalendarIntegration } from '@/lib/types/database'
+import type { CalendarIntegration, PlanKey } from '@/lib/types/database'
+import UpgradePrompt from '../../components/UpgradePrompt'
 
 interface AgendaIntegrationTabProps {
 	clinicId: string
+	currentPlan: PlanKey | null
+	hasCalendarIntegrationAccess: boolean
 }
 
-export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabProps) {
+export default function AgendaIntegrationTab({
+	clinicId,
+	currentPlan,
+	hasCalendarIntegrationAccess,
+}: AgendaIntegrationTabProps) {
 	const searchParams = useSearchParams()
 
 	const [integration, setIntegration] = useState<CalendarIntegration | null>(null)
@@ -30,6 +37,8 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 		type: 'success' | 'error'
 		text: string
 	} | null>(null)
+	const upgradeMessage =
+		'A agenda manual e pelo chatbot continua liberada no seu plano. Para integrações externas via API, faça upgrade para Profissional ou Clinic Pro.'
 
 	// Lê mensagens de sucesso/erro da URL (?error=... / ?success=connected)
 	useEffect(() => {
@@ -45,6 +54,8 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 				update_failed: 'Erro ao atualizar integração',
 				insert_failed: 'Erro ao criar integração',
 				callback_failed: 'Erro no processo de autenticação',
+				upgrade_required:
+					'Seu plano atual permite agenda manual e pelo chatbot, mas integrações externas exigem upgrade.',
 			}
 
 			setMessage({
@@ -129,6 +140,11 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 	}, [fetchGestaoDS, fetchIntegration])
 
 	const handleConnect = async () => {
+		if (!hasCalendarIntegrationAccess) {
+			setMessage({ type: 'error', text: upgradeMessage })
+			return
+		}
+
 		setConnecting(true)
 		setMessage(null)
 
@@ -173,6 +189,11 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 	}
 
 	const handleSaveGestaoDS = async () => {
+		if (!hasCalendarIntegrationAccess) {
+			setMessage({ type: 'error', text: upgradeMessage })
+			return
+		}
+
 		setSavingGestaoDs(true)
 		setMessage(null)
 
@@ -229,6 +250,11 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 	}
 
 	const handleSyncGestaoDS = async () => {
+		if (!hasCalendarIntegrationAccess) {
+			setMessage({ type: 'error', text: upgradeMessage })
+			return
+		}
+
 		setSyncingGestaoDs(true)
 		setMessage(null)
 
@@ -257,6 +283,11 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 	}
 
 	const handleImportGestaoDS = async () => {
+		if (!hasCalendarIntegrationAccess) {
+			setMessage({ type: 'error', text: upgradeMessage })
+			return
+		}
+
 		if (
 			!confirm(
 				'Isso executará a importação inicial (histórico + futuros) da agenda GestãoDS. Deseja continuar?'
@@ -334,9 +365,26 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 
 	const isConnected = integration?.is_connected ?? false
 	const hasExternalIntegration = isConnected || gestaoDsEnabled
+	const canManageExternalIntegrations = hasCalendarIntegrationAccess
 
 	return (
 		<div className="space-y-4">
+			{!canManageExternalIntegrations && (
+				<>
+					<div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+						O plano atual mantém a agenda manual e os agendamentos pelo
+						DoctorChatBot disponíveis. As integrações externas via API, como
+						Google Calendar e GestãoDS, ficam liberadas a partir do plano
+						Profissional.
+					</div>
+					<UpgradePrompt
+						featureName="Integrações externas de agenda"
+						requiredPlans={['Profissional', 'Clinic Pro']}
+						currentPlan={currentPlan}
+					/>
+				</>
+			)}
+
 			{/* Mensagem de feedback */}
 			{message && (
 				<div
@@ -351,7 +399,7 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 
 			<div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-700 flex items-center justify-between">
 				<span>
-					Modo atual: {hasExternalIntegration ? 'Integração externa ativa' : 'Sem integração (manual)'}
+					Modo atual: {hasExternalIntegration ? 'Integração externa ativa' : 'Sem integração externa (agenda manual liberada)'}
 				</span>
 				<button
 					onClick={handleDisableAllIntegrations}
@@ -413,7 +461,7 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 					) : (
 						<button
 							onClick={handleConnect}
-							disabled={connecting}
+							disabled={connecting || !canManageExternalIntegrations}
 							className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
 						>
 							{connecting ? 'Conectando...' : 'Conectar Google Calendar'}
@@ -451,7 +499,8 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 						<button
 							type="button"
 							onClick={() => setGestaoDsEnabled((prev) => !prev)}
-							className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${
+							disabled={!canManageExternalIntegrations}
+							className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
 								gestaoDsEnabled ? 'bg-sky-600' : 'bg-neutral-300'
 							}`}
 						>
@@ -469,6 +518,7 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 							<select
 								value={gestaoDsIsDev ? 'dev' : 'prod'}
 								onChange={(e) => setGestaoDsIsDev(e.target.value === 'dev')}
+								disabled={!canManageExternalIntegrations}
 						className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900"
 							>
 								<option value="dev">Desenvolvimento (apidev)</option>
@@ -483,6 +533,7 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 								type="password"
 								value={gestaoDsToken}
 								onChange={(e) => setGestaoDsToken(e.target.value)}
+								disabled={!canManageExternalIntegrations}
 								placeholder={gestaoDsHasToken ? '••••••••••••••••' : 'Cole seu token GestãoDS'}
 						className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400"
 							/>
@@ -509,14 +560,14 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 				<div className="p-4 border-t border-neutral-200 flex items-center justify-end gap-2 flex-wrap">
 					<button
 						onClick={handleSyncGestaoDS}
-						disabled={syncingGestaoDs || !gestaoDsEnabled}
+						disabled={syncingGestaoDs || !gestaoDsEnabled || !canManageExternalIntegrations}
 						className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
 					>
 						{syncingGestaoDs ? 'Sincronizando...' : 'Sincronizar agora'}
 					</button>
 					<button
 						onClick={handleImportGestaoDS}
-						disabled={importingGestaoDs || !gestaoDsEnabled}
+						disabled={importingGestaoDs || !gestaoDsEnabled || !canManageExternalIntegrations}
 						className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
 					>
 						{importingGestaoDs ? 'Importando...' : 'Importação inicial'}
@@ -530,7 +581,7 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 					</button>
 					<button
 						onClick={handleSaveGestaoDS}
-						disabled={savingGestaoDs}
+						disabled={savingGestaoDs || !canManageExternalIntegrations}
 						className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
 					>
 						{savingGestaoDs ? 'Salvando...' : 'Salvar GestãoDS'}
@@ -541,7 +592,7 @@ export default function AgendaIntegrationTab({ clinicId }: AgendaIntegrationTabP
 			{/* Info */}
 			<div className="bg-sky-50 border border-sky-100 rounded-xl p-4 text-xs text-sky-900 space-y-1.5">
 				<p className="font-semibold">Como funciona:</p>
-				<p>1. Ao marcar uma conversa como "Agendado", criamos um evento no seu Google Calendar.</p>
+				<p>1. Ao marcar uma conversa como &quot;Agendado&quot;, criamos um evento no seu Google Calendar.</p>
 				<p>2. O evento inclui nome do paciente, telefone e horário da consulta.</p>
 				<p>3. Se GestãoDS estiver ativo, o roteador de integração pode usar GestãoDS como provedor.</p>
 			</div>

@@ -304,7 +304,7 @@ export default function AgendaConfigPageClient() {
 						<li className="flex items-start">
 							<span className="mr-2">2.</span>
 							<span>
-								Quando você marcar uma conversa como "Agendado", um evento será
+								Quando você marcar uma conversa como &quot;Agendado&quot;, um evento será
 								criado automaticamente no seu Google Calendar
 							</span>
 						</li>

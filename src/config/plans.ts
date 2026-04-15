@@ -29,7 +29,7 @@ export const PLANS: Record<PlanKey, Plan> = {
 		description: 'Para clínicas que querem começar com automação inteligente',
 		features: [
 			'Chatbot inteligente no WhatsApp',
-			'Agendamento automatizado',
+			'Agenda manual e agendamento via chatbot',
 			'Respostas rápidas personalizadas',
 			'Dashboard de conversas',
 			'Histórico completo de mensagens',
@@ -48,7 +48,7 @@ export const PLANS: Record<PlanKey, Plan> = {
 		description: 'Para clínicas que desejam escalar o atendimento',
 		features: [
 			'Tudo do Essencial',
-			'Agendamento inteligente com Google Calendar',
+			'Integrações externas de agenda (Google Calendar e GestãoDS)',
 			'Fluxos personalizados avançados',
 			'Relatórios e métricas detalhadas',
 			'Múltiplos atendentes simultâneos',

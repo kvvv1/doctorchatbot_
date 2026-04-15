@@ -6,8 +6,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getTokensFromCode } from '@/lib/calendar/googleCalendar'
+import { checkFeatureAccess } from '@/lib/services/subscriptionService'
+import { PlanFeature } from '@/lib/services/planFeatures'
 
 export async function GET(request: NextRequest) {
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? request.nextUrl.origin
+
 	try {
 		const searchParams = request.nextUrl.searchParams
 		const code = searchParams.get('code')
@@ -17,13 +21,13 @@ export async function GET(request: NextRequest) {
 		if (error) {
 			console.error('OAuth error:', error)
 			return NextResponse.redirect(
-				`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/configuracoes?tab=agenda&error=oauth_failed`
+				`${appUrl}/dashboard/configuracoes?tab=agenda&error=oauth_failed`
 			)
 		}
 
 		if (!code) {
 			return NextResponse.redirect(
-				`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/configuracoes?tab=agenda&error=no_code`
+				`${appUrl}/dashboard/configuracoes?tab=agenda&error=no_code`
 			)
 		}
 
@@ -35,7 +39,7 @@ export async function GET(request: NextRequest) {
 
 		if (!user) {
 			return NextResponse.redirect(
-				`${process.env.NEXT_PUBLIC_APP_URL}/login?error=unauthorized`
+				`${appUrl}/login?error=unauthorized`
 			)
 		}
 
@@ -49,7 +53,18 @@ export async function GET(request: NextRequest) {
 		if (profileError || !profile) {
 			console.error('Error fetching profile:', profileError)
 			return NextResponse.redirect(
-				`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/configuracoes?tab=agenda&error=profile_not_found`
+				`${appUrl}/dashboard/configuracoes?tab=agenda&error=profile_not_found`
+			)
+		}
+
+		const hasCalendarIntegrationAccess = await checkFeatureAccess(
+			profile.clinic_id,
+			PlanFeature.CALENDAR_INTEGRATION
+		)
+
+		if (!hasCalendarIntegrationAccess) {
+			return NextResponse.redirect(
+				`${appUrl}/dashboard/configuracoes?tab=agenda&error=upgrade_required`
 			)
 		}
 
@@ -80,7 +95,7 @@ export async function GET(request: NextRequest) {
 			if (updateError) {
 				console.error('Error updating clinic integration:', updateError)
 				return NextResponse.redirect(
-					`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/configuracoes?tab=agenda&error=update_failed`
+					`${appUrl}/dashboard/configuracoes?tab=agenda&error=update_failed`
 				)
 			}
 		} else {
@@ -99,7 +114,7 @@ export async function GET(request: NextRequest) {
 			if (insertError) {
 				console.error('Error creating clinic integration:', insertError)
 				return NextResponse.redirect(
-					`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/configuracoes?tab=agenda&error=insert_failed`
+					`${appUrl}/dashboard/configuracoes?tab=agenda&error=insert_failed`
 				)
 			}
 		}
@@ -135,12 +150,12 @@ export async function GET(request: NextRequest) {
 
 		// Redirect back to settings page with success
 		return NextResponse.redirect(
-			`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/configuracoes?tab=agenda&success=connected`
+			`${appUrl}/dashboard/configuracoes?tab=agenda&success=connected`
 		)
 	} catch (error) {
 		console.error('Error in OAuth callback:', error)
 		return NextResponse.redirect(
-			`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/configuracoes?tab=agenda&error=callback_failed`
+			`${appUrl}/dashboard/configuracoes?tab=agenda&error=callback_failed`
 		)
 	}
 }

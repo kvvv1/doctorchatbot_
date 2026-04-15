@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getSessionProfile } from '@/lib/auth/getSessionProfile'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { checkFeatureAccess } from '@/lib/services/subscriptionService'
+import { PlanFeature } from '@/lib/services/planFeatures'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +15,21 @@ export async function GET() {
   const session = await getSessionProfile()
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const hasCalendarIntegrationAccess = await checkFeatureAccess(
+    session.clinic.id,
+    PlanFeature.CALENDAR_INTEGRATION
+  )
+
+  if (!hasCalendarIntegrationAccess) {
+    return NextResponse.json(
+      {
+        error:
+          'Seu plano atual permite agenda manual e pelo chatbot, mas integrações externas exigem upgrade.',
+      },
+      { status: 403 }
+    )
   }
 
   const supabase = createAdminClient()

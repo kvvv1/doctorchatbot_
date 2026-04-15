@@ -14,6 +14,7 @@ export enum PlanFeature {
 	BOT_CUSTOM_FLOWS = 'bot_custom_flows',
 	
 	// Calendar features
+	AGENDA = 'agenda',
 	CALENDAR_INTEGRATION = 'calendar_integration',
 	CALENDAR_AUTO_CONFIRMATION = 'calendar_auto_confirmation',
 	
@@ -46,10 +47,12 @@ export interface PlanLimits {
  */
 export const PLAN_FEATURES: Record<PlanKey, Set<PlanFeature>> = {
 	essencial: new Set([
+		PlanFeature.AGENDA,
 		PlanFeature.BOT_ENABLED,
 	]),
 	
 	profissional: new Set([
+		PlanFeature.AGENDA,
 		PlanFeature.BOT_ENABLED,
 		PlanFeature.BOT_CUSTOM_FLOWS,
 		PlanFeature.CALENDAR_INTEGRATION,
@@ -60,6 +63,7 @@ export const PLAN_FEATURES: Record<PlanKey, Set<PlanFeature>> = {
 	]),
 	
 	clinic_pro: new Set([
+		PlanFeature.AGENDA,
 		PlanFeature.BOT_ENABLED,
 		PlanFeature.BOT_CUSTOM_FLOWS,
 		PlanFeature.CALENDAR_INTEGRATION,
@@ -74,6 +78,7 @@ export const PLAN_FEATURES: Record<PlanKey, Set<PlanFeature>> = {
 	]),
 	
 	fundador: new Set([
+		PlanFeature.AGENDA,
 		PlanFeature.BOT_ENABLED,
 		PlanFeature.PRIORITY_SUPPORT,
 	]),
@@ -154,9 +159,10 @@ export function getPlanFeatures(planKey: PlanKey | null): Set<PlanFeature> {
  */
 export function getFeatureName(feature: PlanFeature): string {
 	const names: Record<PlanFeature, string> = {
+		[PlanFeature.AGENDA]: 'Agenda manual e via chatbot',
 		[PlanFeature.BOT_ENABLED]: 'Chatbot Inteligente',
 		[PlanFeature.BOT_CUSTOM_FLOWS]: 'Fluxos Personalizados',
-		[PlanFeature.CALENDAR_INTEGRATION]: 'Integração com Google Calendar',
+		[PlanFeature.CALENDAR_INTEGRATION]: 'Integrações externas de agenda',
 		[PlanFeature.CALENDAR_AUTO_CONFIRMATION]: 'Confirmação Automática',
 		[PlanFeature.MULTIPLE_ATTENDANTS]: 'Múltiplos Atendentes',
 		[PlanFeature.UNLIMITED_ATTENDANTS]: 'Atendentes Ilimitados',
