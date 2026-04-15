@@ -873,14 +873,29 @@ function buildMenuMessage(botSettings?: BotSettings | null): string {
     attendant: true,
   }
 
+  // Default order if menu_order is not set
+  const DEFAULT_ORDER = ['schedule', 'view_appointments', 'reschedule', 'cancel', 'attendant']
+  const menuOrder: string[] = botSettings?.menu_order ?? DEFAULT_ORDER
+
+  const OPTION_LABELS: Record<string, string> = {
+    schedule: 'Agendar consulta',
+    view_appointments: 'Ver meus agendamentos',
+    reschedule: 'Remarcar consulta',
+    cancel: 'Cancelar consulta',
+    attendant: 'Falar com atendente',
+  }
+
+  const NUMBER_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣']
+
   const preamble = 'Como posso te ajudar? 😊'
   const options: string[] = []
 
-  if (menuOptions.schedule) options.push('1️⃣ Agendar consulta')
-  if (menuOptions.view_appointments) options.push('2️⃣ Ver meus agendamentos')
-  if (menuOptions.reschedule) options.push('3️⃣ Remarcar consulta')
-  if (menuOptions.cancel) options.push('4️⃣ Cancelar consulta')
-  if (menuOptions.attendant) options.push('5️⃣ Falar com atendente')
+  for (const key of menuOrder) {
+    if (menuOptions[key as keyof typeof menuOptions] && OPTION_LABELS[key]) {
+      const emoji = NUMBER_EMOJIS[options.length] ?? `${options.length + 1}.`
+      options.push(`${emoji} ${OPTION_LABELS[key]}`)
+    }
+  }
 
   return `${preamble}\n${options.join('\n')}`
 }

@@ -177,6 +177,9 @@ export interface BotSettings {
 		cancel: boolean
 		attendant: boolean
 	}
+	/** Ordered array of menu option keys. Controls display order in the bot menu.
+	 *  When undefined/null the engine falls back to the default hardcoded order. */
+	menu_order?: string[]
 	created_at: string
 	updated_at: string
 }

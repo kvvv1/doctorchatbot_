@@ -51,6 +51,7 @@ export default function BotConfigPageClient({
 						bot_scheduling_hours: settings.bot_scheduling_hours,
 						message_confirm_cancel: settings.message_confirm_cancel,
 						menu_options: settings.menu_options,
+						menu_order: settings.menu_order,
 					},
 				}),
 			})

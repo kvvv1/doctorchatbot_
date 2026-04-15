@@ -1,93 +1,228 @@
 'use client'
 
 import { useState } from 'react'
+import {
+	DndContext,
+	closestCenter,
+	PointerSensor,
+	TouchSensor,
+	useSensor,
+	useSensors,
+	type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+	SortableContext,
+	useSortable,
+	verticalListSortingStrategy,
+	arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import type { BotSettings } from '@/lib/types/database'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, GripVertical } from 'lucide-react'
 
 interface BotMenuOptionsEditorProps {
 	settings: BotSettings
 	onChange: (settings: BotSettings) => void
 }
 
+type MenuKey = keyof NonNullable<BotSettings['menu_options']>
+
 interface MenuOption {
-	key: keyof NonNullable<BotSettings['menu_options']>
+	key: MenuKey
 	label: string
 	description: string
 	emoji: string
 }
 
-const MENU_OPTIONS: MenuOption[] = [
-	{
-		key: 'schedule',
-		label: '1️⃣ Agendar consulta',
-		description: 'Permitir que pacientes agendem novas consultas',
+const MENU_OPTIONS_MAP: Record<MenuKey, Omit<MenuOption, 'key'>> = {
+	schedule: {
+		label: 'Agendar consulta',
+		description: 'Pacientes podem agendar novas consultas',
 		emoji: '📅',
 	},
-	{
-		key: 'view_appointments',
-		label: '2️⃣ Ver meus agendamentos',
-		description: 'Permitir que pacientes visualizem seus agendamentos',
+	view_appointments: {
+		label: 'Ver meus agendamentos',
+		description: 'Pacientes podem visualizar seus agendamentos',
 		emoji: '👁️',
 	},
-	{
-		key: 'reschedule',
-		label: '3️⃣ Remarcar consulta',
-		description: 'Permitir que pacientes mudem data/hora de consultas',
+	reschedule: {
+		label: 'Remarcar consulta',
+		description: 'Pacientes podem mudar data/hora de consultas',
 		emoji: '🔄',
 	},
-	{
-		key: 'cancel',
-		label: '4️⃣ Cancelar consulta',
-		description: 'Permitir que pacientes cancelem suas consultas',
+	cancel: {
+		label: 'Cancelar consulta',
+		description: 'Pacientes podem cancelar suas consultas',
 		emoji: '❌',
 	},
-	{
-		key: 'attendant',
-		label: '5️⃣ Falar com atendente',
-		description: 'Permitir que pacientes solicitem atendimento humano',
+	attendant: {
+		label: 'Falar com atendente',
+		description: 'Pacientes podem solicitar atendimento humano',
 		emoji: '👤',
 	},
+}
+
+const DEFAULT_ORDER: MenuKey[] = [
+	'schedule',
+	'view_appointments',
+	'reschedule',
+	'cancel',
+	'attendant',
 ]
+
+const DEFAULT_OPTIONS: NonNullable<BotSettings['menu_options']> = {
+	schedule: true,
+	view_appointments: true,
+	reschedule: true,
+	cancel: true,
+	attendant: true,
+}
+
+// ---------------------------------------------------------------------------
+// Sortable row
+// ---------------------------------------------------------------------------
+
+interface SortableRowProps {
+	option: MenuOption
+	position: number
+	enabled: boolean
+	onToggle: (key: MenuKey) => void
+}
+
+function SortableRow({ option, position, enabled, onToggle }: SortableRowProps) {
+	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+		id: option.key,
+	})
+
+	const style = {
+		transform: CSS.Transform.toString(transform),
+		transition,
+		zIndex: isDragging ? 10 : undefined,
+		opacity: isDragging ? 0.85 : 1,
+	}
+
+	return (
+		<div
+			ref={setNodeRef}
+			style={style}
+			className={`flex items-center gap-3 p-3 bg-white rounded-lg border transition-colors ${
+				isDragging ? 'border-blue-400 shadow-md' : 'border-slate-200 hover:border-blue-300'
+			}`}
+		>
+			{/* Drag handle */}
+			<button
+				type="button"
+				{...attributes}
+				{...listeners}
+				className="touch-none cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 flex-shrink-0"
+				aria-label="Arrastar para reordenar"
+			>
+				<GripVertical className="h-5 w-5" />
+			</button>
+
+			{/* Position badge — shows dynamic number based on enabled items */}
+			<span
+				className={`flex-shrink-0 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${
+					enabled ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'
+				}`}
+			>
+				{enabled ? position : '—'}
+			</span>
+
+			{/* Emoji + label + description */}
+			<div className="flex-1 min-w-0">
+				<div className="flex items-center gap-2">
+					<span className="text-base">{option.emoji}</span>
+					<span
+						className={`font-medium text-sm ${enabled ? 'text-slate-800' : 'text-slate-400'}`}
+					>
+						{option.label}
+					</span>
+				</div>
+				<p className="text-xs text-slate-400 mt-0.5 truncate">{option.description}</p>
+			</div>
+
+			{/* Toggle */}
+			<button
+				type="button"
+				onClick={() => onToggle(option.key)}
+				className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ${
+					enabled ? 'bg-blue-600' : 'bg-slate-300'
+				}`}
+			>
+				<span
+					className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+						enabled ? 'translate-x-[18px]' : 'translate-x-[3px]'
+					}`}
+				/>
+			</button>
+		</div>
+	)
+}
+
+// ---------------------------------------------------------------------------
+// Main editor
+// ---------------------------------------------------------------------------
 
 export default function BotMenuOptionsEditor({ settings, onChange }: BotMenuOptionsEditorProps) {
 	const [isOpen, setIsOpen] = useState(false)
 
-	const menuOptions = settings.menu_options || {
-		schedule: true,
-		view_appointments: true,
-		reschedule: true,
-		cancel: true,
-		attendant: true,
-	}
+	const menuOptions = settings.menu_options ?? DEFAULT_OPTIONS
+	const menuOrder: MenuKey[] = (settings.menu_order as MenuKey[] | undefined) ?? DEFAULT_ORDER
 
-	const handleToggleOption = (key: keyof NonNullable<BotSettings['menu_options']>) => {
-		const updated = {
-			...settings,
-			menu_options: {
-				...menuOptions,
-				[key]: !menuOptions[key],
-			},
+	// Build ordered list of option objects
+	const orderedOptions: MenuOption[] = menuOrder
+		.filter((key): key is MenuKey => key in MENU_OPTIONS_MAP)
+		.map((key) => ({ key, ...MENU_OPTIONS_MAP[key] }))
+
+	// Dynamic position counter (only counts enabled items above current)
+	function getPosition(key: MenuKey): number {
+		let pos = 0
+		for (const k of menuOrder) {
+			if (menuOptions[k as MenuKey]) pos++
+			if (k === key) return pos
 		}
-		onChange(updated)
+		return pos
 	}
 
-	const enabledCount = Object.values(menuOptions).filter(Boolean).length
-	const totalCount = MENU_OPTIONS.length
+	const enabledCount = menuOrder.filter((k) => menuOptions[k as MenuKey]).length
+
+	// Sensors support both pointer (desktop) and touch (mobile)
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+		useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
+	)
+
+	const handleDragEnd = (event: DragEndEvent) => {
+		const { active, over } = event
+		if (!over || active.id === over.id) return
+		const oldIndex = menuOrder.indexOf(active.id as MenuKey)
+		const newIndex = menuOrder.indexOf(over.id as MenuKey)
+		const newOrder = arrayMove(menuOrder, oldIndex, newIndex)
+		onChange({ ...settings, menu_order: newOrder })
+	}
+
+	const handleToggle = (key: MenuKey) => {
+		onChange({
+			...settings,
+			menu_options: { ...menuOptions, [key]: !menuOptions[key] },
+		})
+	}
 
 	return (
 		<div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-			{/* Header (always visible) */}
+			{/* Header */}
 			<button
 				type="button"
 				onClick={() => setIsOpen(!isOpen)}
 				className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
 			>
 				<div className="flex items-center gap-3">
-					<span className="text-xl">⚙️</span>
+					<span className="text-xl">📋</span>
 					<div className="text-left">
-						<h3 className="font-semibold text-slate-800">Opções do Menu</h3>
+						<h3 className="font-semibold text-slate-800">Opções do Menu Principal</h3>
 						<p className="text-xs text-slate-500">
-							{enabledCount} de {totalCount} opções habilitadas
+							{enabledCount} de {menuOrder.length} opções habilitadas
 						</p>
 					</div>
 				</div>
@@ -96,53 +231,36 @@ export default function BotMenuOptionsEditor({ settings, onChange }: BotMenuOpti
 				/>
 			</button>
 
-			{/* Content (collapsible) */}
+			{/* Collapsible content */}
 			{isOpen && (
 				<div className="border-t border-slate-200 px-6 py-4 bg-slate-50">
 					<p className="text-sm text-slate-600 mb-4">
-						Selecione quais opções devem aparecer no menu principal do bot. O menu será gerado automaticamente com as opções ativadas.
+						Arraste as linhas para reordenar. Ative ou desative cada opção com o toggle.
 					</p>
 
-					<div className="space-y-3">
-						{MENU_OPTIONS.map((option) => (
-							<div
-								key={option.key}
-								className="flex items-center justify-between p-4 bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-colors"
-							>
-								<div className="flex-1">
-									<div className="flex items-center gap-2 mb-1">
-										<span className="text-lg">{option.emoji}</span>
-										<label
-											htmlFor={`menu-option-${option.key}`}
-											className="font-medium text-slate-700 cursor-pointer"
-										>
-											{option.label}
-										</label>
-									</div>
-									<p className="text-sm text-slate-500 ml-7">{option.description}</p>
-								</div>
-
-								<button
-									id={`menu-option-${option.key}`}
-									type="button"
-									onClick={() => handleToggleOption(option.key)}
-									className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ml-4 flex-shrink-0 ${
-										menuOptions[option.key] ? 'bg-blue-600' : 'bg-slate-300'
-									}`}
-								>
-									<span
-										className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-											menuOptions[option.key] ? 'translate-x-6' : 'translate-x-1'
-										}`}
+					<DndContext
+						sensors={sensors}
+						collisionDetection={closestCenter}
+						onDragEnd={handleDragEnd}
+					>
+						<SortableContext items={menuOrder} strategy={verticalListSortingStrategy}>
+							<div className="space-y-2">
+								{orderedOptions.map((option) => (
+									<SortableRow
+										key={option.key}
+										option={option}
+										position={getPosition(option.key)}
+										enabled={!!menuOptions[option.key]}
+										onToggle={handleToggle}
 									/>
-								</button>
+								))}
 							</div>
-						))}
-					</div>
+						</SortableContext>
+					</DndContext>
 
 					<div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
 						<p className="text-xs text-blue-800">
-							<strong>💡 Dica:</strong> O menu será exibido no WhatsApp com apenas as opções ativadas acima.
+							<strong>💡 Dica:</strong> A numeração no WhatsApp reflete a ordem e somente as opções ativadas.
 						</p>
 					</div>
 				</div>
