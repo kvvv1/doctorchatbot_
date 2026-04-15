@@ -11,6 +11,10 @@ const { getSlotsForDayMock } = vi.hoisted(() => ({
   getSlotsForDayMock: vi.fn(),
 }))
 
+const { getAvailableDaysMock } = vi.hoisted(() => ({
+  getAvailableDaysMock: vi.fn(),
+}))
+
 vi.mock('./actions', async () => {
   return {
     parseDayText: vi.fn(),
@@ -34,7 +38,7 @@ vi.mock('./actions', async () => {
 vi.mock('./availability', async () => {
   return {
     checkSlotAvailable: vi.fn(),
-    getAvailableDays: vi.fn(),
+    getAvailableDays: getAvailableDaysMock,
     getAvailableSlots: vi.fn(),
     getSlotsForDay: getSlotsForDayMock,
   }
@@ -74,6 +78,10 @@ function createBotSettings(overrides: Partial<BotSettings> = {}): BotSettings {
 describe('handleBotTurn - GestaoDS CPF lookup flow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    getAvailableDaysMock.mockResolvedValue([
+      { date: '2026-05-09', label: 'Sábado, 09/05' },
+      { date: '2026-05-10', label: 'Domingo, 10/05' },
+    ])
     getSlotsForDayMock.mockResolvedValue([
       {
         startsAt: '2026-05-04T17:20:00.000Z',
@@ -280,6 +288,134 @@ describe('handleBotTurn - GestaoDS CPF lookup flow', () => {
     expect(createAppointmentFromSlotMock).not.toHaveBeenCalled()
     expect(response.nextState).toBe('menu')
     expect(response.message).toContain('Como posso te ajudar')
+  })
+
+  it('asks which booking field should be changed when the patient chooses not to confirm', async () => {
+    const response = await handleBotTurn(
+      'conv-1',
+      '2',
+      'agendar_confirmar',
+      {
+        patientPhone: '553195531183',
+        patientName: 'Kaike',
+        patientCpf: '17831187685',
+        selectedDay: '2026-05-08',
+        selectedDayLabel: 'Sexta-feira, 08/05',
+        pendingScheduleSlot: {
+          startsAt: '2026-05-08T17:20:00.000Z',
+          endsAt: '2026-05-08T17:40:00.000Z',
+          label: '14h20',
+        },
+      },
+      createBotSettings(),
+      '553195531183',
+      'clinic-1',
+    )
+
+    expect(response.nextState).toBe('agendar_alterar_campo')
+    expect(response.message).toContain('O que você deseja alterar?')
+    expect(response.message).toContain('1️⃣ Data da consulta')
+    expect(response.message).toContain('2️⃣ Horário')
+    expect(response.message).toContain('3️⃣ Paciente')
+  })
+
+  it('changes only the time when the patient selects the horario option', async () => {
+    const response = await handleBotTurn(
+      'conv-1',
+      '2',
+      'agendar_alterar_campo',
+      {
+        patientPhone: '553195531183',
+        patientName: 'Kaike',
+        patientCpf: '17831187685',
+        selectedDay: '2026-05-08',
+        selectedDayLabel: 'Sexta-feira, 08/05',
+        pendingScheduleSlot: {
+          startsAt: '2026-05-08T17:20:00.000Z',
+          endsAt: '2026-05-08T17:40:00.000Z',
+          label: '14h20',
+        },
+      },
+      createBotSettings(),
+      '553195531183',
+      'clinic-1',
+    )
+
+    expect(getSlotsForDayMock).toHaveBeenCalledWith('clinic-1', '2026-05-08', expect.any(Object))
+    expect(response.nextState).toBe('agendar_hora_lista')
+    expect(response.message).toContain('Horários disponíveis para *Sexta-feira, 08/05*')
+    expect(response.nextContext.selectedDay).toBe('2026-05-08')
+    expect(response.nextContext.pendingScheduleSlot).toBeUndefined()
+  })
+
+  it('asks for the new patient name and then re-collects CPF before confirming', async () => {
+    const choosePatientResponse = await handleBotTurn(
+      'conv-1',
+      '3',
+      'agendar_alterar_campo',
+      {
+        patientPhone: '553195531183',
+        patientName: 'Kaike',
+        patientCpf: '17831187685',
+        selectedDay: '2026-05-08',
+        selectedDayLabel: 'Sexta-feira, 08/05',
+        pendingScheduleSlot: {
+          startsAt: '2026-05-08T17:20:00.000Z',
+          endsAt: '2026-05-08T17:40:00.000Z',
+          label: '14h20',
+        },
+      },
+      createBotSettings(),
+      '553195531183',
+      'clinic-1',
+    )
+
+    expect(choosePatientResponse.nextState).toBe('agendar_alterar_paciente')
+    expect(choosePatientResponse.message).toContain('nome completo do paciente')
+
+    const patientNameResponse = await handleBotTurn(
+      'conv-1',
+      'Maria Eduarda',
+      'agendar_alterar_paciente',
+      choosePatientResponse.nextContext,
+      createBotSettings(),
+      '553195531183',
+      'clinic-1',
+    )
+
+    expect(patientNameResponse.nextState).toBe('agendar_cpf')
+    expect(patientNameResponse.message).toContain('Agora preciso do seu *CPF*')
+    expect(patientNameResponse.nextContext.patientName).toBe('Maria Eduarda')
+    expect(patientNameResponse.nextContext.patientCpf).toBeUndefined()
+    expect(patientNameResponse.nextContext.pendingScheduleSlot?.label).toBe('14h20')
+  })
+
+  it('forces a new day and time choice when the patient selects the date option', async () => {
+    const response = await handleBotTurn(
+      'conv-1',
+      '1',
+      'agendar_alterar_campo',
+      {
+        patientPhone: '553195531183',
+        patientName: 'Kaike',
+        patientCpf: '17831187685',
+        selectedDay: '2026-05-08',
+        selectedDayLabel: 'Sexta-feira, 08/05',
+        pendingScheduleSlot: {
+          startsAt: '2026-05-08T17:20:00.000Z',
+          endsAt: '2026-05-08T17:40:00.000Z',
+          label: '14h20',
+        },
+      },
+      createBotSettings(),
+      '553195531183',
+      'clinic-1',
+    )
+
+    expect(getAvailableDaysMock).toHaveBeenCalled()
+    expect(response.nextState).toBe('agendar_dia_lista')
+    expect(response.message).toContain('Escolha o dia da consulta')
+    expect(response.nextContext.pendingScheduleSlot).toBeUndefined()
   })
 
   it('returns to menu when the menu option is selected in a dynamic appointment list', async () => {

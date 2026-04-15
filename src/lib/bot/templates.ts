@@ -77,6 +77,15 @@ Qual horário você prefere?
       3,
     ),
 
+  scheduleChangeField: withMenuOption(
+    `Sem problema. O que você deseja alterar?\n\n1️⃣ Data da consulta\n2️⃣ Horário\n3️⃣ Paciente`,
+    4,
+  ),
+
+  scheduleAskPatientName: withMenuHint(
+    `Perfeito. Para quem será a consulta?\n\nMe informe o *nome completo do paciente*:`,
+  ),
+
   scheduleConflict: (slots: Slot[]) => {
     const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')
     return withMenuOption(`⚠️ Este horário está ocupado. Escolha um horário disponível:\n\n${lines}`, slots.length + 1)

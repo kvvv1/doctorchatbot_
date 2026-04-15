@@ -25,7 +25,8 @@ import {
   normalizeCpf,
 } from './actions'
 import { checkSlotAvailable, getAvailableDays, getAvailableSlots, getSlotsForDay } from './availability'
-import { setHours, setMinutes, addMinutes } from 'date-fns'
+import { setHours, setMinutes, addMinutes, format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import type { BotState, BotContext, Slot } from './context'
 import type { BotSettings } from '@/lib/types/database'
 
@@ -153,6 +154,12 @@ export async function handleBotTurn(
 
     case 'agendar_confirmar':
       return handleAgendarConfirmar(conversationId, userMessage, ctx, botSettings, clinicId)
+
+    case 'agendar_alterar_campo':
+      return handleAgendarAlterarCampo(userMessage, ctx, botSettings, clinicId)
+
+    case 'agendar_alterar_paciente':
+      return handleAgendarAlterarPaciente(userMessage, ctx)
 
     case 'reagendar_qual':
       return handleQualAppointment(userMessage, ctx, 'reagendar', botSettings, clinicId)
@@ -1221,6 +1228,19 @@ async function handleAgendarConfirmar(
     })
   }
 
+  const normalizedMsg = normalizeChoiceText(msg)
+  if (
+    normalizedMsg.includes('alterar') ||
+    normalizedMsg.includes('mudar') ||
+    normalizedMsg.includes('trocar')
+  ) {
+    return {
+      message: templates.scheduleChangeField,
+      nextState: 'agendar_alterar_campo',
+      nextContext: ctx,
+    }
+  }
+
   const answer = detectYesNo(msg)
 
   if (answer === 'unknown') {
@@ -1232,16 +1252,11 @@ async function handleAgendarConfirmar(
   }
 
   if (answer === 'no') {
-    return showDayList({
-      clinicId,
-      botSettings,
-      ctx: {
-        ...ctx,
-        pendingScheduleSlot: undefined,
-      },
-      flow: 'agendar',
-      offset: 0,
-    })
+    return {
+      message: templates.scheduleChangeField,
+      nextState: 'agendar_alterar_campo',
+      nextContext: ctx,
+    }
   }
 
   const result = await createAppointmentFromSlot({
@@ -1259,6 +1274,115 @@ async function handleAgendarConfirmar(
     nextState: result.success ? 'menu' : 'agendar_confirmar',
     nextContext: result.success ? {} : ctx,
     conversationStatus: result.success ? 'scheduled' : undefined,
+  }
+}
+
+async function handleAgendarAlterarCampo(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const field = detectScheduleEditField(msg)
+
+  if (field === 'unknown') {
+    return {
+      message: templates.scheduleChangeField,
+      nextState: 'agendar_alterar_campo',
+      nextContext: ctx,
+    }
+  }
+
+  if (field === 'patient') {
+    return {
+      message: templates.scheduleAskPatientName,
+      nextState: 'agendar_alterar_paciente',
+      nextContext: ctx,
+    }
+  }
+
+  if (!clinicId || !botSettings) return technicalError(ctx)
+
+  if (field === 'day') {
+    return showDayList({
+      clinicId,
+      botSettings,
+      ctx: {
+        ...ctx,
+        pendingScheduleSlot: undefined,
+        availableSlots: undefined,
+        selectedDay: undefined,
+        selectedDayLabel: undefined,
+      },
+      flow: 'agendar',
+      offset: 0,
+    })
+  }
+
+  const scheduleDay = deriveScheduleDayContext(ctx)
+  if (!scheduleDay.selectedDay || !scheduleDay.selectedDayLabel) {
+    return showDayList({
+      clinicId,
+      botSettings,
+      ctx: {
+        ...ctx,
+        pendingScheduleSlot: undefined,
+        availableSlots: undefined,
+      },
+      flow: 'agendar',
+      offset: 0,
+    })
+  }
+
+  const slots = await getSlotsForDay(clinicId, scheduleDay.selectedDay, botSettings)
+
+  if (slots.length === 0) {
+    return {
+      message: templates.scheduleNoSlots,
+      nextState: 'sem_horario',
+      nextContext: {
+        ...ctx,
+        patientPhone: ctx.patientPhone,
+        patientName: ctx.patientName,
+      },
+    }
+  }
+
+  return {
+    message: templates.scheduleSlotList(scheduleDay.selectedDayLabel, slots, true),
+    nextState: 'agendar_hora_lista',
+    nextContext: {
+      ...ctx,
+      selectedDay: scheduleDay.selectedDay,
+      selectedDayLabel: scheduleDay.selectedDayLabel,
+      availableSlots: slots,
+      pendingScheduleSlot: undefined,
+    },
+  }
+}
+
+async function handleAgendarAlterarPaciente(
+  msg: string,
+  ctx: BotContext,
+): Promise<BotResponse> {
+  const patientName = msg.trim()
+
+  if (!patientName) {
+    return {
+      message: templates.scheduleAskPatientName,
+      nextState: 'agendar_alterar_paciente',
+      nextContext: ctx,
+    }
+  }
+
+  return {
+    message: templates.scheduleAskCpf(patientName),
+    nextState: 'agendar_cpf',
+    nextContext: {
+      ...ctx,
+      patientName,
+      patientCpf: undefined,
+    },
   }
 }
 
@@ -1459,6 +1583,7 @@ function getMenuChoiceIndex(state: BotState, ctx: BotContext): number | null {
     case 'sem_horario':
     case 'ver_agendamentos':
     case 'agendar_confirmar':
+    case 'agendar_alterar_campo':
     case 'cancelar_confirmar':
     case 'cancelar_encaixe':
     case 'confirmar_presenca':
@@ -1508,6 +1633,78 @@ function buildScheduleConfirmationMessage(params: {
     timeLabel: slot.label,
     patientName: ctx.patientName,
   })
+}
+
+function detectScheduleEditField(message: string): 'day' | 'time' | 'patient' | 'unknown' {
+  const normalized = normalizeChoiceText(message)
+
+  if (!normalized) return 'unknown'
+
+  if (
+    normalized === '1' ||
+    normalized.includes('data') ||
+    normalized.includes('dia')
+  ) {
+    return 'day'
+  }
+
+  if (
+    normalized === '2' ||
+    normalized.includes('horario') ||
+    normalized.includes('hora')
+  ) {
+    return 'time'
+  }
+
+  if (
+    normalized === '3' ||
+    normalized.includes('paciente') ||
+    normalized.includes('nome') ||
+    normalized.includes('filha') ||
+    normalized.includes('filho')
+  ) {
+    return 'patient'
+  }
+
+  return 'unknown'
+}
+
+function deriveScheduleDayContext(ctx: BotContext): {
+  selectedDay?: string
+  selectedDayLabel?: string
+} {
+  if (ctx.selectedDay && ctx.selectedDayLabel) {
+    return {
+      selectedDay: ctx.selectedDay,
+      selectedDayLabel: ctx.selectedDayLabel,
+    }
+  }
+
+  if (ctx.selectedDay) {
+    return {
+      selectedDay: ctx.selectedDay,
+      selectedDayLabel: formatDayLabelFromDate(ctx.selectedDay),
+    }
+  }
+
+  if (ctx.pendingScheduleSlot?.startsAt) {
+    const selectedDay = ctx.pendingScheduleSlot.startsAt.slice(0, 10)
+    return {
+      selectedDay,
+      selectedDayLabel: formatDayLabelFromDate(selectedDay),
+    }
+  }
+
+  return {
+    selectedDay: undefined,
+    selectedDayLabel: undefined,
+  }
+}
+
+function formatDayLabelFromDate(dateText: string): string {
+  const parsed = new Date(`${dateText}T12:00:00`)
+  const label = format(parsed, 'EEEE, dd/MM', { locale: ptBR })
+  return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
 function askForAppointmentCpf(

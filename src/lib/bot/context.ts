@@ -14,6 +14,8 @@ export type BotState =
   | 'agendar_dia_lista'       // patient picks a day from an interactive list
   | 'agendar_hora_lista'      // patient picks a time slot from an interactive list
   | 'agendar_confirmar'       // patient confirms selected day/time before booking
+  | 'agendar_alterar_campo'   // patient chooses which booking field to change
+  | 'agendar_alterar_paciente'// patient changes the patient name before booking
   | 'reagendar_qual'          // patient has multiple appointments — pick which one
   | 'reagendar_dia'
   | 'reagendar_hora'
