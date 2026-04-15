@@ -246,6 +246,12 @@ body {
   background-color: #f9fafb;
 }
 
+/* Oculta a coluna de data apenas na view em lista da agenda */
+.rbc-agenda-view .rbc-agenda-table thead > tr > th:first-child,
+.rbc-agenda-view .rbc-agenda-table tbody > tr > .rbc-agenda-date-cell {
+  display: none;
+}
+
 .rbc-agenda-view .rbc-event {
   background: transparent !important;
   border: none !important;
