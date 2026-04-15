@@ -30,20 +30,43 @@ export async function PUT(request: NextRequest) {
     const supabase = createAdminClient()
     const now = new Date().toISOString()
 
+    // Strip unknown columns that may not exist yet in the DB to avoid update errors.
+    // menu_order requires migration 028 — remove it from the payload if column is absent.
+    const { menu_order, ...settingsWithoutMenuOrder } = settings ?? {}
+    let settingsPayload = { ...settings, updated_at: now }
+
     const { data: updatedSettings, error: settingsError } = await supabase
       .from('bot_settings')
-      .update({
-        ...settings,
-        updated_at: now,
-      })
+      .update(settingsPayload)
       .eq('clinic_id', clinicId)
       .select()
       .single()
 
-    if (settingsError || !updatedSettings) {
-      console.error('[BotConfig] Failed to update bot_settings:', settingsError)
-      return NextResponse.json({ error: 'Falha ao salvar configurações do bot' }, { status: 500 })
+    if (settingsError) {
+      // If the error is about menu_order column not existing, retry without it
+      if (
+        settingsError.message?.includes('menu_order') ||
+        settingsError.code === '42703'
+      ) {
+        console.warn('[BotConfig] menu_order column missing — retrying without it')
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('bot_settings')
+          .update({ ...settingsWithoutMenuOrder, updated_at: now })
+          .eq('clinic_id', clinicId)
+          .select()
+          .single()
+        if (fallbackError || !fallbackData) {
+          console.error('[BotConfig] Failed to update bot_settings (fallback):', fallbackError)
+          return NextResponse.json({ error: 'Falha ao salvar configurações do bot' }, { status: 500 })
+        }
+        settingsPayload = fallbackData
+      } else {
+        console.error('[BotConfig] Failed to update bot_settings:', settingsError)
+        return NextResponse.json({ error: 'Falha ao salvar configurações do bot' }, { status: 500 })
+      }
     }
+
+    const finalSettings = updatedSettings ?? settingsPayload
 
     // Only update appointment duration when explicitly provided
     if (Number.isFinite(defaultDurationMinutes) && defaultDurationMinutes > 0) {
@@ -66,7 +89,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      settings: updatedSettings,
+      settings: finalSettings,
       defaultDurationMinutes,
     })
   } catch (error) {
