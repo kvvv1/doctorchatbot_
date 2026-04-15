@@ -1086,7 +1086,7 @@ function formatParticularDaysLabel(keys: string[]): string {
   return labels.slice(0, -1).join(', ') + ' e ' + labels[labels.length - 1]
 }
 
-function buildMenuMessage(botSettings?: BotSettings | null): string {
+export function buildMenuMessage(botSettings?: BotSettings | null): string {
   // If menu_options is set, always build dynamically to respect enabled/disabled state.
   // Only fall back to message_menu if menu_options is not configured at all.
   if (!botSettings?.menu_options && botSettings?.message_menu && botSettings.message_menu !== templates.menu) {

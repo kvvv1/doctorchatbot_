@@ -2,7 +2,7 @@ import { after, NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseConnectionStatusWebhook, parseWebhookPayload, shouldProcessWebhook } from '@/lib/zapi/webhookParser'
 import { handleIncomingMessage, logWebhookActivity } from '@/lib/services/inboxService'
-import { handleBotTurn, sendBotResponse, type BotState, type BotContext } from '@/lib/bot/engine'
+import { handleBotTurn, sendBotResponse, buildMenuMessage, type BotState, type BotContext } from '@/lib/bot/engine'
 import { getPatientAppointments } from '@/lib/bot/actions'
 import { getBotSettings, isWithinWorkingHours } from '@/lib/services/botSettingsService'
 import { sendInternalZapiMessage } from '@/lib/zapi/internalSend'
@@ -276,7 +276,26 @@ async function triggerBotResponse(
 
     // 3. Check if bot is enabled
     if (!conversation.bot_enabled) {
-      console.log('[Bot] Bot disabled for conversation:', conversationId)
+      // Allow patient to re-engage the bot by typing "menu" / "0" / "início"
+      const msgLower = messageText.trim().toLowerCase()
+      const isReactivate = /^(menu|inicio|início|oi|olá|ola|0)$/.test(msgLower)
+        || /\bmenu principal\b/.test(msgLower)
+      if (isReactivate) {
+        // Re-enable bot and send welcome menu
+        await supabase
+          .from('conversations')
+          .update({ bot_enabled: true, bot_state: 'menu' })
+          .eq('id', conversationId)
+        const menuResponse = {
+          message: buildMenuMessage(botSettings),
+          nextState: 'menu' as BotState,
+          nextContext: { patientPhone: phone } as BotContext,
+        }
+        await sendBotResponse(conversationId, phone, menuResponse, clinicId)
+        console.log('[Bot] Bot reactivated by patient typing menu keyword:', conversationId)
+      } else {
+        console.log('[Bot] Bot disabled for conversation:', conversationId)
+      }
       return
     }
 
