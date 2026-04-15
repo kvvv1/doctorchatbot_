@@ -64,6 +64,19 @@ Seu atendimento é:
 
 Vou te transferir agora!`,
 
+  askConvenio: (convenios: string[]) => {
+    const lines = convenios.map((name, i) => `${i + 1}️⃣ ${name}`).join('\n')
+    return withMenuHint(`Qual é o seu convênio? 🏥\n\n${lines}`)
+  },
+
+  noConvenioConfigured: withMenuHint(`No momento não temos convênios cadastrados. 😕
+
+Para agendar, entre em contato diretamente com nossa secretária.`),
+
+  // Appended after the day-list message for convênio patients when particular days exist
+  particularDaysHint: (daysLabel: string) =>
+    `\n\n💡 *Precisa de atendimento mais urgente?* Oferecemos consultas *Particulares* às *${daysLabel}*. Fale com nossa secretária para verificar disponibilidade.`,
+
   // -------------------------------------------------------------------------
   // Agendamento
   // -------------------------------------------------------------------------

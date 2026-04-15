@@ -183,6 +183,8 @@ export interface BotSettings {
 	/** Weekday keys reserved for Particular appointments (e.g. ["mon","wed"]).
 	 *  Convênio patients will not see these days in the available date list. */
 	particular_days?: string[]
+	/** Insurance plans accepted by the clinic. Shown as a selection list for Convênio patients. */
+	convenios?: string[]
 	created_at: string
 	updated_at: string
 }

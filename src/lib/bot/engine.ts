@@ -131,6 +131,9 @@ export async function handleBotTurn(
     case 'agendar_tipo':
       return handleAgendarTipo(userMessage, ctx, botSettings, clinicId)
 
+    case 'agendar_convenio':
+      return handleAgendarConvenio(userMessage, ctx, botSettings, clinicId)
+
     case 'agendar_nome':
       return handleAgendarNome(userMessage, ctx)
 
@@ -381,14 +384,19 @@ async function handleAgendarTipo(
 
   if (tipo === 'convenio') {
     const ctxWithType = { ...ctx, appointmentType: 'convenio' as const }
-    if (!ctxWithType.patientName) {
+    const convenios = botSettings?.convenios ?? []
+    if (convenios.length === 0) {
       return {
-        message: templates.scheduleAskName,
-        nextState: 'agendar_nome',
-        nextContext: ctxWithType,
+        message: templates.noConvenioConfigured,
+        nextState: 'menu',
+        nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
       }
     }
-    return showDayList({ clinicId, botSettings, ctx: ctxWithType, flow: 'agendar', offset: 0 })
+    return {
+      message: templates.askConvenio(convenios),
+      nextState: 'agendar_convenio',
+      nextContext: ctxWithType,
+    }
   }
 
   // Unknown input — repeat the question
@@ -397,6 +405,46 @@ async function handleAgendarTipo(
     nextState: 'agendar_tipo',
     nextContext: ctx,
   }
+}
+
+async function handleAgendarConvenio(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const convenios = botSettings?.convenios ?? []
+
+  // Try to match by number or by name substring
+  const normalized = msg.trim().toLowerCase()
+  const byNumber = parseInt(normalized, 10)
+  let selected: string | undefined
+
+  if (!isNaN(byNumber) && byNumber >= 1 && byNumber <= convenios.length) {
+    selected = convenios[byNumber - 1]
+  } else {
+    selected = convenios.find((c) => c.toLowerCase().includes(normalized))
+  }
+
+  if (!selected) {
+    // Unknown input — repeat the list
+    return {
+      message: templates.askConvenio(convenios),
+      nextState: 'agendar_convenio',
+      nextContext: ctx,
+    }
+  }
+
+  const ctxWithConvenio = { ...ctx, selectedConvenio: selected }
+
+  if (!ctxWithConvenio.patientName) {
+    return {
+      message: templates.scheduleAskName,
+      nextState: 'agendar_nome',
+      nextContext: ctxWithConvenio,
+    }
+  }
+  return showDayList({ clinicId, botSettings, ctx: ctxWithConvenio, flow: 'agendar', offset: 0 })
 }
 
 async function handleReagendarTipo(
@@ -995,6 +1043,23 @@ function handleSemHorario(msg: string, ctx: BotContext, botSettings?: BotSetting
 // Helper: Build dynamic menu message
 // ---------------------------------------------------------------------------
 
+const WEEKDAY_LABELS: Record<string, string> = {
+  sun: 'Domingos',
+  mon: 'Segundas-feiras',
+  tue: 'Terças-feiras',
+  wed: 'Quartas-feiras',
+  thu: 'Quintas-feiras',
+  fri: 'Sextas-feiras',
+  sat: 'Sábados',
+}
+
+function formatParticularDaysLabel(keys: string[]): string {
+  const labels = keys.map((k) => WEEKDAY_LABELS[k] ?? k)
+  if (labels.length === 0) return ''
+  if (labels.length === 1) return labels[0]
+  return labels.slice(0, -1).join(', ') + ' e ' + labels[labels.length - 1]
+}
+
 function buildMenuMessage(botSettings?: BotSettings | null): string {
   // If menu_options is set, always build dynamically to respect enabled/disabled state.
   // Only fall back to message_menu if menu_options is not configured at all.
@@ -1260,10 +1325,19 @@ async function showDayList(params: {
   const hasMore = days.length > DAY_LIST_PAGE_SIZE
   const page = days.slice(0, DAY_LIST_PAGE_SIZE)
 
-  const message =
+  let message =
     params.flow === 'agendar'
       ? templates.scheduleDayList(page, hasMore)
       : templates.rescheduleDayList(page, hasMore)
+
+  // Append particular days hint for convênio patients
+  if (params.ctx.appointmentType === 'convenio') {
+    const particularDays = params.botSettings.particular_days ?? []
+    if (particularDays.length > 0) {
+      const daysLabel = formatParticularDaysLabel(particularDays)
+      message = message + templates.particularDaysHint(daysLabel)
+    }
+  }
 
   return {
     message,

@@ -6,6 +6,7 @@
 export type BotState =
   | 'menu'
   | 'agendar_tipo'           // patient picks Particular or Convênio before scheduling
+  | 'agendar_convenio'       // patient selects which insurance plan they have
   | 'agendar_nome'
   | 'agendar_cpf'             // collecting patient CPF for GestaoDS
   | 'consultar_cpf'           // collecting patient CPF to find appointments in GestaoDS
@@ -72,6 +73,8 @@ export type BotContext = {
 
   // Appointment type (particular or convenio)
   appointmentType?: 'particular' | 'convenio'
+  // Selected insurance plan name
+  selectedConvenio?: string
 
   // Scheduling flow — raw text from patient before parsing (legacy)
   requestedDay?: string

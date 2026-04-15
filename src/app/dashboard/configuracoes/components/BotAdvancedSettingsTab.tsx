@@ -110,7 +110,9 @@ export default function BotAdvancedSettingsTab({
 						message_confirm_reschedule: settings.message_confirm_reschedule,
 						message_confirm_cancel: settings.message_confirm_cancel,					menu_options: settings.menu_options,
 					menu_order: settings.menu_order,
-					particular_days: settings.particular_days ?? [],					},
+					particular_days: settings.particular_days ?? [],
+					convenios: (settings.convenios ?? []).filter(s => s.trim() !== ''),
+				},
 				}),
 			})
 
@@ -276,6 +278,52 @@ export default function BotAdvancedSettingsTab({
 										</button>
 									)
 								})}
+							</div>
+						</div>
+
+						{/* Convênios aceitos */}
+						<div>
+							<label className="block font-medium text-neutral-800 mb-1">
+								Convênios aceitos 🏥
+							</label>
+							<p className="text-xs text-neutral-400 mb-2">
+								Cadastre os planos de saúde aceitos. O paciente que escolher <strong>Convênio</strong> verá essa lista para selecionar o plano.
+							</p>
+							<div className="space-y-2">
+								{(settings.convenios ?? []).map((name, idx) => (
+									<div key={idx} className="flex items-center gap-2">
+										<input
+											type="text"
+											value={name}
+											onChange={(e) => {
+												const next = [...(settings.convenios ?? [])]
+												next[idx] = e.target.value
+												setSettings({ ...settings, convenios: next })
+											}}
+											placeholder="Ex: Unimed, Amil, Bradesco Saúde..."
+											className="flex-1 px-3 py-1.5 border border-neutral-300 rounded-lg text-sm text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+										/>
+										<button
+											type="button"
+											onClick={() => {
+												const next = (settings.convenios ?? []).filter((_, i) => i !== idx)
+												setSettings({ ...settings, convenios: next })
+											}}
+											className="text-rose-500 hover:text-rose-700 flex-shrink-0 text-xs font-medium px-2 py-1 rounded hover:bg-rose-50 transition-colors"
+										>
+											Remover
+										</button>
+									</div>
+								))}
+								<button
+									type="button"
+									onClick={() =>
+										setSettings({ ...settings, convenios: [...(settings.convenios ?? []), ''] })
+									}
+									className="mt-1 text-xs font-medium text-sky-700 hover:text-sky-800 flex items-center gap-1"
+								>
+									+ Adicionar convênio
+								</button>
 							</div>
 						</div>
 

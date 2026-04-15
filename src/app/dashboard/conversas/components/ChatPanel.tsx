@@ -58,6 +58,7 @@ const STATUS_ACTIONS: Array<{ status: ConversationStatus; label: string }> = [
 const BOT_STATE_LABELS: Record<BotState, string> = {
 	menu: 'Menu principal',
 	agendar_tipo: 'Tipo de atendimento',
+	agendar_convenio: 'Selecionando convênio',
 	agendar_nome: 'Coletando nome',
 	agendar_cpf: 'Coletando CPF',
 	consultar_cpf: 'Localizando por CPF',
