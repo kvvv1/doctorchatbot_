@@ -5,6 +5,7 @@
 
 export type BotState =
   | 'menu'
+  | 'agendar_tipo'           // patient picks Particular or Convênio before scheduling
   | 'agendar_nome'
   | 'agendar_cpf'             // collecting patient CPF for GestaoDS
   | 'consultar_cpf'           // collecting patient CPF to find appointments in GestaoDS
@@ -17,12 +18,14 @@ export type BotState =
   | 'agendar_alterar_campo'   // patient chooses which booking field to change
   | 'agendar_alterar_paciente'// patient changes the patient name before booking
   | 'reagendar_qual'          // patient has multiple appointments — pick which one
+  | 'reagendar_tipo'          // patient picks Particular or Convênio before reschedule
   | 'reagendar_dia'
   | 'reagendar_hora'
   | 'reagendar_slot_escolha'  // patient picks from offered slots after reschedule conflict
   | 'reagendar_dia_lista'     // patient picks a day from an interactive list (reschedule)
   | 'reagendar_hora_lista'    // patient picks a time slot from an interactive list (reschedule)
   | 'cancelar_qual'           // patient has multiple appointments — pick which one
+  | 'cancelar_tipo'           // patient picks Particular or Convênio before cancel
   | 'cancelar_confirmar'
   | 'cancelar_encaixe'
   | 'atendente'
@@ -66,6 +69,9 @@ export type BotContext = {
   patientPhone?: string
   patientName?: string
   patientCpf?: string           // CPF for GestaoDS scheduling
+
+  // Appointment type (particular or convenio)
+  appointmentType?: 'particular' | 'convenio'
 
   // Scheduling flow — raw text from patient before parsing (legacy)
   requestedDay?: string

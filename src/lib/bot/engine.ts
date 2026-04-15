@@ -128,6 +128,9 @@ export async function handleBotTurn(
     case 'menu':
       return handleMenu(userMessage, ctx, botSettings, clinicId)
 
+    case 'agendar_tipo':
+      return handleAgendarTipo(userMessage, ctx, botSettings, clinicId)
+
     case 'agendar_nome':
       return handleAgendarNome(userMessage, ctx)
 
@@ -164,6 +167,9 @@ export async function handleBotTurn(
     case 'reagendar_qual':
       return handleQualAppointment(userMessage, ctx, 'reagendar', botSettings, clinicId)
 
+    case 'reagendar_tipo':
+      return handleReagendarTipo(userMessage, ctx, botSettings, clinicId)
+
     case 'reagendar_dia':
       return handleReagendarDia(userMessage, ctx)
 
@@ -182,6 +188,9 @@ export async function handleBotTurn(
     case 'cancelar_qual':
       return handleQualAppointment(userMessage, ctx, 'cancelar', botSettings, clinicId)
 
+    case 'cancelar_tipo':
+      return handleCancelarTipo(userMessage, ctx, botSettings, clinicId)
+
     case 'cancelar_confirmar':
       return handleCancelarConfirmar(userMessage, ctx)
 
@@ -193,7 +202,7 @@ export async function handleBotTurn(
       // The webhook skips bot processing when status === 'waiting_human',
       // but if it reaches here (e.g. status was changed externally), stay put.
       return {
-        message: 'Sua mensagem foi encaminhada ao atendente. Aguarde o contato da nossa equipe. 😊',
+        message: 'Sua mensagem foi encaminhada à secretária. Aguarde o contato da nossa equipe. 😊',
         nextState: 'atendente',
         nextContext: ctx,
         // transferToHuman NOT set here — already transferred, no repeat
@@ -240,51 +249,25 @@ async function handleMenu(
 
   switch (intent) {
     case 'schedule':
-      if (!ctx.patientName) {
-        return { message: templates.scheduleAskName, nextState: 'agendar_nome', nextContext: { ...ctx, intent: 'schedule' } }
+      return {
+        message: templates.askScheduleType,
+        nextState: 'agendar_tipo',
+        nextContext: { ...ctx, intent: 'schedule' },
       }
-
-      return showDayList({
-        clinicId,
-        botSettings,
-        ctx: { ...ctx, intent: 'schedule' },
-        flow: 'agendar',
-        offset: 0,
-      })
 
     case 'reschedule':
-      if (ctx.appointments && ctx.appointments.length === 0) {
-        if (await shouldAskCpfForAppointmentLookup(ctx, clinicId)) {
-          return askForAppointmentCpf(ctx, 'reschedule')
-        }
-        return { message: templates.cancelNoAppointments, nextState: 'menu', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
-      }
-      if (ctx.appointments && ctx.appointments.length > 0) {
-        if (ctx.appointments.length > 1) {
-          return { message: templates.whichAppointmentReschedule(ctx.appointments), nextState: 'reagendar_qual', nextContext: { ...ctx, intent: 'reschedule' } }
-        }
-        return showDayList({ clinicId, botSettings, ctx: { ...ctx, intent: 'reschedule', appointmentId: ctx.appointments[0].id }, flow: 'reagendar', offset: 0 })
-      }
       return {
-        message: '🔍 Buscando suas consultas para remarcar...',
-        nextState: 'ver_agendamentos',
+        message: templates.askRescheduleType,
+        nextState: 'reagendar_tipo',
         nextContext: { ...ctx, intent: 'reschedule' },
       }
 
     case 'cancel':
-      if (ctx.appointments && ctx.appointments.length === 0) {
-        if (await shouldAskCpfForAppointmentLookup(ctx, clinicId)) {
-          return askForAppointmentCpf(ctx, 'cancel')
-        }
-        return { message: templates.cancelNoAppointments, nextState: 'menu', nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
+      return {
+        message: templates.askCancelType,
+        nextState: 'cancelar_tipo',
+        nextContext: { ...ctx, intent: 'cancel' },
       }
-      if (ctx.appointments && ctx.appointments.length > 1) {
-        return { message: templates.whichAppointmentCancel(ctx.appointments), nextState: 'cancelar_qual', nextContext: { ...ctx, intent: 'cancel' } }
-      }
-      if (ctx.appointments && ctx.appointments.length === 1) {
-        return { message: templates.cancelConfirmSingle(ctx.appointments[0].label), nextState: 'cancelar_confirmar', nextContext: { ...ctx, intent: 'cancel', appointmentId: ctx.appointments[0].id } }
-      }
-      return { message: templates.cancelConfirmGeneric, nextState: 'cancelar_confirmar', nextContext: { ...ctx, intent: 'cancel' } }
 
     case 'attendant':
       return {
@@ -348,6 +331,160 @@ function isGreetingMessage(text: string): boolean {
   if (!normalized) return false
 
   return /\b(oi|ola|bom dia|boa tarde|boa noite|opa|e ai|hey)\b/.test(normalized)
+}
+
+// ---- Tipo de atendimento (Particular / Convênio) ---------------------------
+
+function parseAppointmentType(msg: string): 'particular' | 'convenio' | null {
+  const n = msg
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+
+  if (
+    n === '1' ||
+    n.includes('particular') ||
+    /(?:^|\D)1(?:\D|$)|option[_-]?1|button[_-]?1/.test(n)
+  ) {
+    return 'particular'
+  }
+
+  if (
+    n === '2' ||
+    n.includes('convenio') ||
+    /(?:^|\D)2(?:\D|$)|option[_-]?2|button[_-]?2/.test(n)
+  ) {
+    return 'convenio'
+  }
+
+  return null
+}
+
+async function handleAgendarTipo(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const tipo = parseAppointmentType(msg)
+
+  if (tipo === 'particular') {
+    return {
+      message: templates.particularTransfer,
+      nextState: 'atendente',
+      nextContext: { ...ctx, appointmentType: 'particular' },
+      conversationStatus: 'waiting_human',
+      transferToHuman: true,
+    }
+  }
+
+  if (tipo === 'convenio') {
+    const ctxWithType = { ...ctx, appointmentType: 'convenio' as const }
+    if (!ctxWithType.patientName) {
+      return {
+        message: templates.scheduleAskName,
+        nextState: 'agendar_nome',
+        nextContext: ctxWithType,
+      }
+    }
+    return showDayList({ clinicId, botSettings, ctx: ctxWithType, flow: 'agendar', offset: 0 })
+  }
+
+  // Unknown input — repeat the question
+  return {
+    message: templates.askScheduleType,
+    nextState: 'agendar_tipo',
+    nextContext: ctx,
+  }
+}
+
+async function handleReagendarTipo(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const tipo = parseAppointmentType(msg)
+
+  if (tipo === 'particular') {
+    return {
+      message: templates.particularTransfer,
+      nextState: 'atendente',
+      nextContext: { ...ctx, appointmentType: 'particular' },
+      conversationStatus: 'waiting_human',
+      transferToHuman: true,
+    }
+  }
+
+  if (tipo === 'convenio') {
+    const ctxWithType = { ...ctx, appointmentType: 'convenio' as const }
+    if (ctxWithType.appointments && ctxWithType.appointments.length === 0) {
+      if (await shouldAskCpfForAppointmentLookup(ctxWithType, clinicId)) {
+        return askForAppointmentCpf(ctxWithType, 'reschedule')
+      }
+      return { message: templates.cancelNoAppointments, nextState: 'menu', nextContext: { patientPhone: ctxWithType.patientPhone, patientName: ctxWithType.patientName } }
+    }
+    if (ctxWithType.appointments && ctxWithType.appointments.length > 0) {
+      if (ctxWithType.appointments.length > 1) {
+        return { message: templates.whichAppointmentReschedule(ctxWithType.appointments), nextState: 'reagendar_qual', nextContext: { ...ctxWithType, intent: 'reschedule' } }
+      }
+      return showDayList({ clinicId, botSettings, ctx: { ...ctxWithType, intent: 'reschedule', appointmentId: ctxWithType.appointments[0].id }, flow: 'reagendar', offset: 0 })
+    }
+    return {
+      message: '🔍 Buscando suas consultas para remarcar...',
+      nextState: 'ver_agendamentos',
+      nextContext: { ...ctxWithType, intent: 'reschedule' },
+    }
+  }
+
+  return {
+    message: templates.askRescheduleType,
+    nextState: 'reagendar_tipo',
+    nextContext: ctx,
+  }
+}
+
+async function handleCancelarTipo(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const tipo = parseAppointmentType(msg)
+
+  if (tipo === 'particular') {
+    return {
+      message: templates.particularTransfer,
+      nextState: 'atendente',
+      nextContext: { ...ctx, appointmentType: 'particular' },
+      conversationStatus: 'waiting_human',
+      transferToHuman: true,
+    }
+  }
+
+  if (tipo === 'convenio') {
+    const ctxWithType = { ...ctx, appointmentType: 'convenio' as const }
+    if (ctxWithType.appointments && ctxWithType.appointments.length === 0) {
+      if (await shouldAskCpfForAppointmentLookup(ctxWithType, clinicId)) {
+        return askForAppointmentCpf(ctxWithType, 'cancel')
+      }
+      return { message: templates.cancelNoAppointments, nextState: 'menu', nextContext: { patientPhone: ctxWithType.patientPhone, patientName: ctxWithType.patientName } }
+    }
+    if (ctxWithType.appointments && ctxWithType.appointments.length > 1) {
+      return { message: templates.whichAppointmentCancel(ctxWithType.appointments), nextState: 'cancelar_qual', nextContext: { ...ctxWithType, intent: 'cancel' } }
+    }
+    if (ctxWithType.appointments && ctxWithType.appointments.length === 1) {
+      return { message: templates.cancelConfirmSingle(ctxWithType.appointments[0].label), nextState: 'cancelar_confirmar', nextContext: { ...ctxWithType, intent: 'cancel', appointmentId: ctxWithType.appointments[0].id } }
+    }
+    return { message: templates.cancelConfirmGeneric, nextState: 'cancelar_confirmar', nextContext: { ...ctxWithType, intent: 'cancel' } }
+  }
+
+  return {
+    message: templates.askCancelType,
+    nextState: 'cancelar_tipo',
+    nextContext: ctx,
+  }
 }
 
 // ---- Agendar ---------------------------------------------------------------

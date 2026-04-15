@@ -37,6 +37,34 @@ Como posso te ajudar hoje?
 5️⃣ Falar com secretária`,
 
   // -------------------------------------------------------------------------
+  // Tipo de atendimento (Particular / Convênio)
+  // -------------------------------------------------------------------------
+  askScheduleType: withMenuHint(`Vou agendar sua consulta! 😊
+
+Seu atendimento será:
+
+1️⃣ Particular
+2️⃣ Convênio`),
+
+  askRescheduleType: withMenuHint(`Certo! Para remarcar, me diga:
+
+Seu atendimento é:
+
+1️⃣ Particular
+2️⃣ Convênio`),
+
+  askCancelType: withMenuHint(`Entendido! Para cancelar, me diga:
+
+Seu atendimento é:
+
+1️⃣ Particular
+2️⃣ Convênio`),
+
+  particularTransfer: `Para consultas *Particulares*, nossa secretária cuida do agendamento pessoalmente. 👩‍⚕️
+
+Vou te transferir agora!`,
+
+  // -------------------------------------------------------------------------
   // Agendamento
   // -------------------------------------------------------------------------
   scheduleAskName: withMenuHint(`Ótimo! Vou agendar sua consulta. 😊
