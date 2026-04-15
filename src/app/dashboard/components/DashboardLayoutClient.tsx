@@ -122,7 +122,10 @@ export default function DashboardLayoutClient({
 	}
 
 	return (
-		<div className="flex h-screen overflow-hidden bg-neutral-50">
+		<div
+			className="flex overflow-hidden bg-neutral-50"
+			style={{ height: 'calc(100dvh - env(safe-area-inset-top, 0px))' }}
+		>
 			<Sidebar
 				isMobileOpen={isMobileOpen}
 				isCollapsed={isSidebarCollapsed}
@@ -180,7 +183,7 @@ export default function DashboardLayoutClient({
 					</div>
 				)}
 				
-				<main className="flex-1 overflow-y-auto">
+				<main className="flex-1 overflow-y-auto pb-safe">
 					{children}
 				</main>
 			</div>

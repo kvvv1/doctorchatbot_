@@ -1,10 +1,10 @@
 'use client'
 
-import { Subscription, PlanKey } from '@/lib/types/database'
+import { Subscription } from '@/lib/types/database'
 import { SubscriptionCheck } from '@/lib/services/subscriptionService'
 import PlanCard from './components/PlanCard'
 import BillingTrustSection from './components/BillingTrustSection'
-import { getMainPlans, getFounderPlan, PLANS } from '@/config/plans'
+import { getMainPlans, PLANS } from '@/config/plans'
 import { CheckCircle, XCircle, Clock, AlertTriangle, CreditCard, Calendar, Check } from 'lucide-react'
 import { useState } from 'react'
 
@@ -12,13 +12,6 @@ interface BillingPageClientProps {
 	subscription: Subscription | null
 	subscriptionCheck: SubscriptionCheck
 	clinicId: string
-}
-
-const PLAN_NAMES: Record<PlanKey, string> = {
-	essencial: 'Essencial',
-	profissional: 'Profissional',
-	clinic_pro: 'Clinic Pro',
-	fundador: 'Fundador',
 }
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
@@ -36,7 +29,6 @@ function formatDate(d: string | null) {
 
 export default function BillingPageClient({ subscription, subscriptionCheck }: BillingPageClientProps) {
 	const mainPlans = getMainPlans()
-	const founderPlan = getFounderPlan()
 	const [canceling, setCanceling] = useState(false)
 
 	const { planKey, isActive, status, currentPeriodEnd } = subscriptionCheck
@@ -157,10 +149,6 @@ export default function BillingPageClient({ subscription, subscriptionCheck }: B
 						{mainPlans.map((p) => (
 							<PlanCard key={p.key} plan={p} isActive={isActive} />
 						))}
-					</div>
-
-					<div className="max-w-3xl mx-auto mt-8">
-						<PlanCard plan={founderPlan} isActive={isActive} isFounder />
 					</div>
 				</div>
 
