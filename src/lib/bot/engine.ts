@@ -1087,11 +1087,9 @@ function formatParticularDaysLabel(keys: string[]): string {
 }
 
 export function buildMenuMessage(botSettings?: BotSettings | null): string {
-  // If menu_options is set, always build dynamically to respect enabled/disabled state.
-  // Only fall back to message_menu if menu_options is not configured at all.
-  if (!botSettings?.menu_options && botSettings?.message_menu && botSettings.message_menu !== templates.menu) {
-    return botSettings.message_menu
-  }
+  // Always build dynamically so menu_options + menu_order are respected.
+  // message_menu (legacy free-text field) is intentionally NOT used here —
+  // it would bypass enabled/disabled toggles and drag-drop ordering.
 
   // Get menu options (default: all enabled)
   const menuOptions = botSettings?.menu_options || {
