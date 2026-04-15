@@ -126,12 +126,19 @@ export function buildInitialConversationWorkspace(
 	const searchQuery = searchParams.has('q')
 		? searchParams.get('q') ?? ''
 		: storedWorkspace.searchQuery
+	// When navigating directly to a conversation via ?id=, always reset the
+	// status filter to 'all' so the target conversation is visible regardless
+	// of its current status (e.g. waiting_human, in_progress, etc.)
 	const statusFilter = searchParams.has('status')
 		? parseConversationStatusFilter(searchParams.get('status'))
-		: storedWorkspace.statusFilter
+		: searchParams.has('id')
+			? 'all'
+			: storedWorkspace.statusFilter
 	const showOnlyHumanNeeded = searchParams.has('human')
 		? searchParams.get('human') === '1'
-		: storedWorkspace.showOnlyHumanNeeded
+		: searchParams.has('id')
+			? false
+			: storedWorkspace.showOnlyHumanNeeded
 
 	return {
 		activeConversationId,
