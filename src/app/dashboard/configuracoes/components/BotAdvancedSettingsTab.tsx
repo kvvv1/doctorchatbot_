@@ -109,7 +109,8 @@ export default function BotAdvancedSettingsTab({
 						message_confirm_schedule: settings.message_confirm_schedule,
 						message_confirm_reschedule: settings.message_confirm_reschedule,
 						message_confirm_cancel: settings.message_confirm_cancel,					menu_options: settings.menu_options,
-					menu_order: settings.menu_order,					},
+					menu_order: settings.menu_order,
+					particular_days: settings.particular_days ?? [],					},
 				}),
 			})
 
@@ -234,6 +235,48 @@ export default function BotAdvancedSettingsTab({
 								Arraste para reordenar. As opções ativadas viram botões/lista interativa automaticamente.
 							</p>
 							<BotMenuOptionsEditor settings={settings} onChange={setSettings} />
+						</div>
+
+						<div>
+							<label className="block font-medium text-neutral-800 mb-1">
+								Dias para Particular 🏷️
+							</label>
+							<p className="text-xs text-neutral-400 mb-2">
+								Pacientes que escolherem <strong>Convênio</strong> não verão esses dias na lista de agendamento. Pacientes <strong>Particulares</strong> são sempre encaminhados à secretária.
+							</p>
+							<div className="flex flex-wrap gap-2">
+								{([
+									{ key: 'mon', label: 'Seg' },
+									{ key: 'tue', label: 'Ter' },
+									{ key: 'wed', label: 'Qua' },
+									{ key: 'thu', label: 'Qui' },
+									{ key: 'fri', label: 'Sex' },
+									{ key: 'sat', label: 'Sáb' },
+									{ key: 'sun', label: 'Dom' },
+								] as const).map(({ key, label }) => {
+									const selected = (settings.particular_days ?? []).includes(key)
+									return (
+										<button
+											key={key}
+											type="button"
+											onClick={() => {
+												const current = settings.particular_days ?? []
+												const next = selected
+													? current.filter((d) => d !== key)
+													: [...current, key]
+												setSettings({ ...settings, particular_days: next })
+											}}
+											className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+												selected
+													? 'bg-sky-600 border-sky-600 text-white'
+													: 'bg-white border-neutral-300 text-neutral-700 hover:border-sky-400'
+											}`}
+										>
+											{label}
+										</button>
+									)
+								})}
+							</div>
 						</div>
 
 						<div>

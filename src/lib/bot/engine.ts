@@ -1237,6 +1237,12 @@ async function showDayList(params: {
 }): Promise<BotResponse> {
   if (!params.clinicId || !params.botSettings) return technicalError(params.ctx)
 
+  // When patient chose Convênio, exclude days reserved for Particular
+  const excludeWeekdays =
+    params.ctx.appointmentType === 'convenio'
+      ? (params.botSettings.particular_days ?? [])
+      : []
+
   // Fetch one extra day to detect if there are more pages
   const days = await getAvailableDays(
     params.clinicId,
@@ -1244,6 +1250,7 @@ async function showDayList(params: {
     new Date(),
     DAY_LIST_PAGE_SIZE + 1,
     params.offset,
+    excludeWeekdays,
   )
 
   if (days.length === 0) {

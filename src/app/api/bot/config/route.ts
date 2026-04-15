@@ -31,8 +31,8 @@ export async function PUT(request: NextRequest) {
     const now = new Date().toISOString()
 
     // Strip unknown columns that may not exist yet in the DB to avoid update errors.
-    // menu_order requires migration 028 — remove it from the payload if column is absent.
-    const { menu_order, ...settingsWithoutMenuOrder } = settings ?? {}
+    // menu_order requires migration 028; particular_days requires migration 029.
+    const { menu_order, particular_days, ...settingsWithoutNewCols } = settings ?? {}
     let settingsPayload = { ...settings, updated_at: now }
 
     const { data: updatedSettings, error: settingsError } = await supabase
@@ -43,15 +43,16 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (settingsError) {
-      // If the error is about menu_order column not existing, retry without it
+      // If the error is about a missing column, retry without the new columns
       if (
         settingsError.message?.includes('menu_order') ||
+        settingsError.message?.includes('particular_days') ||
         settingsError.code === '42703'
       ) {
-        console.warn('[BotConfig] menu_order column missing — retrying without it')
+        console.warn('[BotConfig] New column missing — retrying without menu_order/particular_days')
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('bot_settings')
-          .update({ ...settingsWithoutMenuOrder, updated_at: now })
+          .update({ ...settingsWithoutNewCols, updated_at: now })
           .eq('clinic_id', clinicId)
           .select()
           .single()

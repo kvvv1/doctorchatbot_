@@ -331,11 +331,12 @@ export async function getAvailableDays(
   fromDate: Date = new Date(),
   limit = 8,
   offset = 0,
+  excludeWeekdays: string[] = [],
 ): Promise<DayOption[]> {
   const gestaoDSService = await getGestaoDSService(clinicId)
 
   if (gestaoDSService) {
-    return getAvailableDaysFromGestaoDS(gestaoDSService, clinicId, fromDate, limit, offset)
+    return getAvailableDaysFromGestaoDS(gestaoDSService, clinicId, fromDate, limit, offset, excludeWeekdays)
   }
 
   // Fallback: internal slot generation (no GestaoDS)
@@ -346,7 +347,8 @@ export async function getAvailableDays(
   let found = 0
 
   while (days.length < limit && daysChecked < maxDaysAhead) {
-    if (isDayWorking(botSettings, cursor)) {
+    const dayKey = JS_DAY_TO_KEY[getDay(cursor)]
+    if (isDayWorking(botSettings, cursor) && !excludeWeekdays.includes(dayKey)) {
       const slots = await getSlotsForDayInternal(clinicId, cursor, botSettings, 1)
       if (slots.length > 0) {
         if (found >= offset) {
@@ -375,6 +377,7 @@ async function getAvailableDaysFromGestaoDS(
   fromDate: Date,
   limit: number,
   offset: number,
+  excludeWeekdays: string[] = [],
 ): Promise<DayOption[]> {
   const days: DayOption[] = []
   let found = 0
@@ -397,6 +400,9 @@ async function getAvailableDaysFromGestaoDS(
       const date = new Date(y, m - 1, d)
 
       if (date < startOfDay(fromDate)) continue // skip past dates
+
+      // Skip days reserved for particular appointments
+      if (excludeWeekdays.length > 0 && excludeWeekdays.includes(JS_DAY_TO_KEY[getDay(date)])) continue
 
       if (found >= offset) {
         const dateStr = format(date, 'yyyy-MM-dd')
