@@ -115,6 +115,7 @@ export default function BotAdvancedSettingsTab({
 						menu_order: settings.menu_order,
 						particular_days: settings.particular_days ?? [],
 						convenios: (settings.convenios ?? []).filter(s => s.trim() !== ''),
+						convenio_solicita_carteirinha: settings.convenio_solicita_carteirinha ?? false,
 					},
 				}),
 			})
@@ -328,6 +329,31 @@ export default function BotAdvancedSettingsTab({
 									+ Adicionar convênio
 								</button>
 							</div>
+							{/* Toggle: solicitar foto da carteirinha */}
+							{(settings.convenios ?? []).filter(s => s.trim() !== '').length > 0 && (
+								<div className="flex items-center justify-between mt-3 pt-3 border-t border-neutral-100">
+									<div>
+										<p className="text-sm font-medium text-neutral-800">Solicitar foto da carteirinha 📷</p>
+										<p className="text-xs text-neutral-400">Quando ativado, após o paciente escolher o convênio o bot pede a foto da carteirinha e transfere para atendimento humano para análise do plano.</p>
+									</div>
+									<button
+										type="button"
+										onClick={() =>
+											setSettings({ ...settings, convenio_solicita_carteirinha: !settings.convenio_solicita_carteirinha })
+										}
+										className={`relative inline-flex h-5 w-10 flex-shrink-0 items-center rounded-full transition-colors ${
+											settings.convenio_solicita_carteirinha ? 'bg-sky-600' : 'bg-neutral-300'
+										}`}
+										title={settings.convenio_solicita_carteirinha ? 'Ativado — clique para desativar' : 'Desativado — clique para ativar'}
+									>
+										<span
+											className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+												settings.convenio_solicita_carteirinha ? 'translate-x-5' : 'translate-x-1'
+											}`}
+										/>
+									</button>
+								</div>
+							)}
 						</div>
 
 						<div>

@@ -33,7 +33,8 @@ export async function PUT(request: NextRequest) {
     // Strip unknown columns that may not exist yet in the DB to avoid update errors.
     // menu_order requires migration 028; particular_days requires migration 029; convenios requires migration 030.
     // message_takeover and takeover_message_enabled require migration 033.
-    const { menu_order, particular_days, convenios, message_takeover, takeover_message_enabled, ...settingsWithoutNewCols } = settings ?? {}
+    // convenio_solicita_carteirinha requires migration 034.
+    const { menu_order, particular_days, convenios, message_takeover, takeover_message_enabled, convenio_solicita_carteirinha, ...settingsWithoutNewCols } = settings ?? {}
     let settingsPayload = { ...settings, updated_at: now }
 
     const { data: updatedSettings, error: settingsError } = await supabase
@@ -51,6 +52,7 @@ export async function PUT(request: NextRequest) {
         settingsError.message?.includes('convenios') ||
         settingsError.message?.includes('message_takeover') ||
         settingsError.message?.includes('takeover_message_enabled') ||
+        settingsError.message?.includes('convenio_solicita_carteirinha') ||
         settingsError.code === '42703'
       ) {
         console.warn('[BotConfig] New column missing — retrying without new columns')

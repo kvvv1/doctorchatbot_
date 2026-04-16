@@ -188,6 +188,8 @@ export interface BotSettings {
 	particular_days?: string[]
 	/** Insurance plans accepted by the clinic. Shown as a selection list for Convênio patients. */
 	convenios?: string[]
+	/** When true, after selecting a convenio the bot asks for a photo of the insurance card before transferring to human. */
+	convenio_solicita_carteirinha?: boolean
 	created_at: string
 	updated_at: string
 }

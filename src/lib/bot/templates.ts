@@ -4,7 +4,7 @@
 
 import type { AppointmentSummary, DayOption, Slot } from './context'
 
-const MENU_BACK_OPTION = '\n\n0. 🏠 Menu principal'
+const MENU_BACK_OPTION = '\n\n0. Menu principal'
 
 function withMenuHint(message: string): string {
   return `${message}${MENU_BACK_OPTION}`
@@ -68,6 +68,12 @@ Vou te transferir agora!`,
     const lines = convenios.map((name, i) => `${i + 1}️⃣ ${name}`).join('\n')
     return withMenuHint(`Qual é o seu convênio? 🏥\n\n${lines}`)
   },
+
+  askCarteirinha: (convenioName: string) => withMenuHint(
+    `Ótimo! Para agendamentos pelo convênio *${convenioName}*, precisamos verificar a cobertura. 🏥\n\nPor favor, *envie uma foto da sua carteirinha* do plano para que nossa equipe possa analisar e confirmar o atendimento.`
+  ),
+
+  carteirinhaRecebida: `Obrigado! Recebemos a foto da sua carteirinha. 📋\n\nVou transferir você para nossa equipe, que irá analisar o plano e entrar em contato para confirmar o agendamento. 😊`,
 
   noConvenioConfigured: `No momento não temos convênios cadastrados. 😕
 

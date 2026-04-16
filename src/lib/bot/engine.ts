@@ -134,6 +134,9 @@ export async function handleBotTurn(
     case 'agendar_convenio':
       return handleAgendarConvenio(userMessage, ctx, botSettings, clinicId)
 
+    case 'convenio_aguardando_carteirinha':
+      return handleConvenioAguardandoCarteirinha(ctx)
+
     case 'convenio_sem_cadastro':
       return handleConvenioSemCadastro(userMessage, ctx, botSettings)
 
@@ -463,6 +466,15 @@ async function handleAgendarConvenio(
 
   const ctxWithConvenio = { ...ctx, selectedConvenio: selected }
 
+  // If the clinic enabled "request insurance card photo", ask for it and go to human review.
+  if (botSettings?.convenio_solicita_carteirinha) {
+    return {
+      message: templates.askCarteirinha(selected),
+      nextState: 'convenio_aguardando_carteirinha',
+      nextContext: ctxWithConvenio,
+    }
+  }
+
   if (!ctxWithConvenio.patientName) {
     return {
       message: templates.scheduleAskName,
@@ -471,6 +483,22 @@ async function handleAgendarConvenio(
     }
   }
   return showDayList({ clinicId, botSettings, ctx: ctxWithConvenio, flow: 'agendar', offset: 0 })
+}
+
+/**
+ * State: convenio_aguardando_carteirinha
+ * The patient was asked to send a photo of their insurance card.
+ * Whatever they send (photo or text), we transfer to human.
+ */
+function handleConvenioAguardandoCarteirinha(ctx: BotContext): BotResponse {
+  return {
+    message: templates.carteirinhaRecebida,
+    nextState: 'atendente',
+    nextContext: ctx,
+    conversationStatus: 'waiting_human',
+    transferToHuman: true,
+  }
+}
 }
 
 async function handleReagendarTipo(
@@ -1169,7 +1197,7 @@ export async function sendBotResponse(
 
   try {
     // 1. Send via Z-API
-    if (interactive && interactive.choices.length >= 2) {
+    if (interactive && interactive.choices.length >= 1) {
       // Optional preamble (e.g. welcome message) sent as plain text first
       if (response.preambleMessage?.trim()) {
         const ok = await zapiSend({ conversationId, phone, text: response.preambleMessage.trim(), internalCall: true })
@@ -2125,7 +2153,7 @@ function extractInteractiveChoices(
       arr.findIndex(item => item.id === choice.id || item.label === choice.label) === index,
   )
 
-  if (deduped.length < 2) return null
+  if (deduped.length < 1) return null
 
   const inlineChoiceLinePattern = /\d+[.):-]\s+.+\d+[.):-]\s+/
   const cleanedLines = lines.filter(

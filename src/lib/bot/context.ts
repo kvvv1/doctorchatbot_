@@ -8,6 +8,7 @@ export type BotState =
   | 'agendar_tipo'           // patient picks Particular or Convênio before scheduling
   | 'agendar_convenio'       // patient selects which insurance plan they have
   | 'convenio_sem_cadastro'   // no insurance plans configured — offer secretária or menu
+  | 'convenio_aguardando_carteirinha' // waiting for patient to send photo of insurance card
   | 'agendar_nome'
   | 'agendar_cpf'             // collecting patient CPF for GestaoDS
   | 'consultar_cpf'           // collecting patient CPF to find appointments in GestaoDS
