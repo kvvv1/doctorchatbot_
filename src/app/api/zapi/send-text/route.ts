@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
             .filter((item): item is { id: string; label: string } => item !== null)
         : [];
 
-      if (normalizedChoices.length >= 2) {
+      if (normalizedChoices.length >= 1) {
         zapiResult = await zapiSendChoices(
           credentials,
           phone,
