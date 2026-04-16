@@ -190,6 +190,8 @@ export interface BotSettings {
 	convenios?: string[]
 	/** When true, after selecting a convenio the bot asks for a photo of the insurance card before transferring to human. */
 	convenio_solicita_carteirinha?: boolean
+	/** List of convenio names that require an insurance card photo before transferring to human. */
+	convenios_solicita_carteirinha?: string[]
 	created_at: string
 	updated_at: string
 }

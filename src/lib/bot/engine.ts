@@ -466,8 +466,9 @@ async function handleAgendarConvenio(
 
   const ctxWithConvenio = { ...ctx, selectedConvenio: selected }
 
-  // If the clinic enabled "request insurance card photo", ask for it and go to human review.
-  if (botSettings?.convenio_solicita_carteirinha) {
+  // If this specific convenio requires an insurance card photo, ask for it and go to human review.
+  const solicita = botSettings?.convenios_solicita_carteirinha ?? []
+  if (solicita.includes(selected)) {
     return {
       message: templates.askCarteirinha(selected),
       nextState: 'convenio_aguardando_carteirinha',

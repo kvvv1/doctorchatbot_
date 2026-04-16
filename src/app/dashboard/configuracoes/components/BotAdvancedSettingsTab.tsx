@@ -115,8 +115,7 @@ export default function BotAdvancedSettingsTab({
 						menu_order: settings.menu_order,
 						particular_days: settings.particular_days ?? [],
 						convenios: (settings.convenios ?? []).filter(s => s.trim() !== ''),
-						convenio_solicita_carteirinha: settings.convenio_solicita_carteirinha ?? false,
-					},
+						convenio_solicita_carteirinha: settings.convenio_solicita_carteirinha ?? false,							convenios_solicita_carteirinha: settings.convenios_solicita_carteirinha ?? [],					},
 				}),
 			})
 
@@ -293,67 +292,82 @@ export default function BotAdvancedSettingsTab({
 							<p className="text-xs text-neutral-400 mb-2">
 								Cadastre os planos de saúde aceitos. O paciente que escolher <strong>Convênio</strong> verá essa lista para selecionar o plano.
 							</p>
-							<div className="space-y-2">
-								{(settings.convenios ?? []).map((name, idx) => (
-									<div key={idx} className="flex items-center gap-2">
-										<input
-											type="text"
-											value={name}
-											onChange={(e) => {
-												const next = [...(settings.convenios ?? [])]
-												next[idx] = e.target.value
-												setSettings({ ...settings, convenios: next })
-											}}
-											placeholder="Ex: Unimed, Amil, Bradesco Saúde..."
-											className="flex-1 px-3 py-1.5 border border-neutral-300 rounded-lg text-sm text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-										/>
-										<button
-											type="button"
-											onClick={() => {
-												const next = (settings.convenios ?? []).filter((_, i) => i !== idx)
-												setSettings({ ...settings, convenios: next })
-											}}
-											className="text-rose-500 hover:text-rose-700 flex-shrink-0 text-xs font-medium px-2 py-1 rounded hover:bg-rose-50 transition-colors"
-										>
-											Remover
-										</button>
-									</div>
-								))}
+							<div className="space-y-1">
+								{(settings.convenios ?? []).map((name, idx) => {
+									const solicita = settings.convenios_solicita_carteirinha ?? []
+									const carteirinhaOn = name.trim() !== '' && solicita.includes(name.trim())
+									const toggleCarteirinha = () => {
+										const trimmed = name.trim()
+										if (!trimmed) return
+										const next = carteirinhaOn
+											? solicita.filter(s => s !== trimmed)
+											: [...solicita, trimmed]
+										setSettings({ ...settings, convenios_solicita_carteirinha: next })
+									}
+									return (
+										<div key={idx} className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
+											<div className="flex items-center gap-2">
+												<input
+													type="text"
+													value={name}
+													onChange={(e) => {
+														const prev = name.trim()
+														const next = [...(settings.convenios ?? [])]
+														next[idx] = e.target.value
+														// keep solicita list in sync when name changes
+														const newSolicita = (settings.convenios_solicita_carteirinha ?? []).map(s => s === prev ? e.target.value.trim() : s)
+														setSettings({ ...settings, convenios: next, convenios_solicita_carteirinha: newSolicita })
+													}}
+													placeholder="Ex: Unimed, Amil, Bradesco Saúde..."
+													className="flex-1 bg-transparent text-sm text-neutral-900 focus:outline-none"
+												/>
+												<button
+													type="button"
+													onClick={() => {
+														const nextConvenios = (settings.convenios ?? []).filter((_, i) => i !== idx)
+														const nextSolicita = (settings.convenios_solicita_carteirinha ?? []).filter(s => s !== name.trim())
+														setSettings({ ...settings, convenios: nextConvenios, convenios_solicita_carteirinha: nextSolicita })
+													}}
+													className="text-rose-500 hover:text-rose-700 flex-shrink-0 text-xs font-medium px-2 py-0.5 rounded hover:bg-rose-50 transition-colors"
+												>
+													Remover
+												</button>
+											</div>
+											{name.trim() !== '' && (
+												<div className="flex items-center justify-between mt-2 pt-2 border-t border-neutral-200">
+													<div className="flex items-center gap-1.5">
+														<span className="text-base">📷</span>
+														<div>
+															<p className="text-xs font-medium text-neutral-700">Solicitar carteirinha</p>
+															<p className="text-xs text-neutral-400">{carteirinhaOn ? 'Bot pede foto e transfere para humano' : 'Bot segue para agendamento normal'}</p>
+														</div>
+													</div>
+													<button
+														type="button"
+														onClick={toggleCarteirinha}
+														className={`relative inline-flex h-5 w-10 flex-shrink-0 items-center rounded-full transition-colors ${
+															carteirinhaOn ? 'bg-sky-600' : 'bg-neutral-300'
+														}`}
+													>
+														<span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+															carteirinhaOn ? 'translate-x-5' : 'translate-x-1'
+														}`} />
+													</button>
+												</div>
+											)}
+										</div>
+									)
+								})}
 								<button
 									type="button"
 									onClick={() =>
 										setSettings({ ...settings, convenios: [...(settings.convenios ?? []), ''] })
 									}
-									className="mt-1 text-xs font-medium text-sky-700 hover:text-sky-800 flex items-center gap-1"
+									className="mt-2 text-xs font-medium text-sky-700 hover:text-sky-800 flex items-center gap-1"
 								>
 									+ Adicionar convênio
 								</button>
 							</div>
-							{/* Toggle: solicitar foto da carteirinha */}
-							{(settings.convenios ?? []).filter(s => s.trim() !== '').length > 0 && (
-								<div className="flex items-center justify-between mt-3 pt-3 border-t border-neutral-100">
-									<div>
-										<p className="text-sm font-medium text-neutral-800">Solicitar foto da carteirinha 📷</p>
-										<p className="text-xs text-neutral-400">Quando ativado, após o paciente escolher o convênio o bot pede a foto da carteirinha e transfere para atendimento humano para análise do plano.</p>
-									</div>
-									<button
-										type="button"
-										onClick={() =>
-											setSettings({ ...settings, convenio_solicita_carteirinha: !settings.convenio_solicita_carteirinha })
-										}
-										className={`relative inline-flex h-5 w-10 flex-shrink-0 items-center rounded-full transition-colors ${
-											settings.convenio_solicita_carteirinha ? 'bg-sky-600' : 'bg-neutral-300'
-										}`}
-										title={settings.convenio_solicita_carteirinha ? 'Ativado — clique para desativar' : 'Desativado — clique para ativar'}
-									>
-										<span
-											className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-												settings.convenio_solicita_carteirinha ? 'translate-x-5' : 'translate-x-1'
-											}`}
-										/>
-									</button>
-								</div>
-							)}
 						</div>
 
 						<div>
