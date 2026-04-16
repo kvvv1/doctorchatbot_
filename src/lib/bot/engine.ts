@@ -499,7 +499,6 @@ function handleConvenioAguardandoCarteirinha(ctx: BotContext): BotResponse {
     transferToHuman: true,
   }
 }
-}
 
 async function handleReagendarTipo(
   msg: string,
