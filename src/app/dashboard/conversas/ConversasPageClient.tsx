@@ -22,6 +22,8 @@ import {
 
 interface ConversasPageClientProps {
 	clinicId: string
+	defaultTakeoverMessage: string
+	takeoverMessageEnabled: boolean
 }
 
 function arraysMatch(left: string[], right: string[]) {
@@ -48,7 +50,7 @@ function workspaceMatches(left: ConversationWorkspace, right: ConversationWorksp
 	)
 }
 
-export default function ConversasPageClient({ clinicId }: ConversasPageClientProps) {
+export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, takeoverMessageEnabled }: ConversasPageClientProps) {
 	const router = useRouter()
 	const pathname = usePathname()
 	const searchParams = useSearchParams()
@@ -472,8 +474,8 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 							onSaveNotes={handleSaveNotes}
 							draftMessage={activeDraft}
 							onDraftMessageChange={handleDraftChange}
-							onRetryMessage={retryMessage}
-						/>
+							onRetryMessage={retryMessage}						defaultTakeoverMessage={defaultTakeoverMessage}
+						takeoverMessageEnabled={takeoverMessageEnabled}						/>
 					</div>
 				</div>
 			</main>
@@ -512,6 +514,8 @@ export default function ConversasPageClient({ clinicId }: ConversasPageClientPro
 						draftMessage={activeDraft}
 						onDraftMessageChange={handleDraftChange}
 						onRetryMessage={retryMessage}
+						defaultTakeoverMessage={defaultTakeoverMessage}
+						takeoverMessageEnabled={takeoverMessageEnabled}
 					/>
 				)}
 			</div>

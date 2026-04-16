@@ -46,6 +46,8 @@ interface ChatPanelProps {
 	draftMessage?: string
 	onDraftMessageChange?: (content: string) => void
 	onRetryMessage?: (clientMessageId: string) => Promise<void>
+	defaultTakeoverMessage?: string
+	takeoverMessageEnabled?: boolean
 }
 
 const STATUS_ACTIONS: Array<{ status: ConversationStatus; label: string }> = [
@@ -115,6 +117,8 @@ export default function ChatPanel({
 	draftMessage,
 	onDraftMessageChange,
 	onRetryMessage,
+	defaultTakeoverMessage = 'Olá! Sou um atendente da clínica e estou aqui para te ajudar. 😊',
+	takeoverMessageEnabled = true,
 }: ChatPanelProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -125,6 +129,9 @@ export default function ChatPanel({
 	const [showScheduleModal, setShowScheduleModal] = useState(false)
 	const [takingOver, setTakingOver] = useState(false)
 	const [showContextPanel, setShowContextPanel] = useState(false)
+	const [showTakeoverModal, setShowTakeoverModal] = useState(false)
+	const [takeoverMsg, setTakeoverMsg] = useState(defaultTakeoverMessage)
+	const [sendTakeoverMsg, setSendTakeoverMsg] = useState(takeoverMessageEnabled)
 
 	useEffect(() => {
 		if (!messagesContainerRef.current) return
@@ -240,11 +247,22 @@ export default function ChatPanel({
 		onUpdateStatus?.('scheduled')
 	}
 
+	const openTakeoverModal = () => {
+		// Reset modal state to defaults each time
+		const firstName = conversation?.patient_name?.split(' ')[0]
+		const personalizedMsg = firstName
+			? defaultTakeoverMessage.replace('Olá!', `Olá, ${firstName}!`)
+			: defaultTakeoverMessage
+		setTakeoverMsg(personalizedMsg)
+		setSendTakeoverMsg(takeoverMessageEnabled)
+		setShowTakeoverModal(true)
+	}
+
 	const handleTakeOver = async () => {
 		setTakingOver(true)
+		setShowTakeoverModal(false)
 		try {
-			const welcome = `Olá, ${conversation.patient_name?.split(' ')[0] || ''}! Sou um atendente da clínica e estou aqui para te ajudar. 😊`.trim()
-			await onTakeOver(welcome)
+			await onTakeOver(sendTakeoverMsg ? takeoverMsg.trim() : undefined)
 		} finally {
 			setTakingOver(false)
 		}
@@ -335,7 +353,7 @@ export default function ChatPanel({
 
 					{botIsActive ? (
 						<button
-							onClick={handleTakeOver}
+							onClick={openTakeoverModal}
 							disabled={takingOver}
 							className="hidden items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-60 md:flex"
 							title="Assumir atendimento e desligar bot"
@@ -397,7 +415,7 @@ export default function ChatPanel({
 									{botIsActive ? (
 										<button
 											onClick={() => {
-												void handleTakeOver()
+												openTakeoverModal()
 												setShowActionsMenu(false)
 											}}
 											className="flex w-full items-center gap-2 px-3 py-2 text-sm text-amber-800 transition-colors hover:bg-amber-50 md:hidden"
@@ -589,10 +607,12 @@ export default function ChatPanel({
 
 			<MessageInput
 				onSend={onSendMessage}
-				disabled={!conversation}
+				disabled={!conversation || conversation.status === 'waiting_human'}
 				clinicId={conversation?.clinic_id}
 				value={draftMessage}
 				onChange={onDraftMessageChange}
+				waitingHuman={conversation?.status === 'waiting_human'}
+				onTakeOver={openTakeoverModal}
 			/>
 
 			<ConversationContextPanel
@@ -610,9 +630,61 @@ export default function ChatPanel({
 				}}
 				onExportHistory={handleExportHistory}
 				onOpenWhatsApp={handleOpenWhatsApp}
-				onTakeOver={() => void handleTakeOver()}
+				onTakeOver={() => openTakeoverModal()}
 				onReturnToBot={() => void onReturnToBot()}
 			/>
+
+			{/* Takeover confirmation modal */}
+			{showTakeoverModal && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+					<div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+						<div className="border-b border-neutral-100 px-6 py-4">
+							<h3 className="text-base font-semibold text-neutral-900">Assumir atendimento</h3>
+							<p className="mt-0.5 text-sm text-neutral-500">
+								Você vai desligar o bot e passar a atender manualmente.
+							</p>
+						</div>
+						<div className="px-6 py-4 space-y-4">
+							<label className="flex items-center gap-3 cursor-pointer select-none">
+								<input
+									type="checkbox"
+									checked={sendTakeoverMsg}
+									onChange={(e) => setSendTakeoverMsg(e.target.checked)}
+									className="size-4 rounded border-neutral-300 text-sky-600 accent-sky-600"
+								/>
+								<span className="text-sm font-medium text-neutral-700">
+									Enviar mensagem de boas-vindas ao paciente
+								</span>
+							</label>
+							{sendTakeoverMsg && (
+								<textarea
+									rows={3}
+									value={takeoverMsg}
+									onChange={(e) => setTakeoverMsg(e.target.value)}
+									className="w-full resize-none rounded-lg border border-neutral-300 px-3 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+									placeholder="Mensagem que será enviada ao paciente..."
+								/>
+							)}
+						</div>
+						<div className="flex justify-end gap-2 border-t border-neutral-100 px-6 py-4">
+							<button
+								onClick={() => setShowTakeoverModal(false)}
+								className="rounded-lg px-4 py-2 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100"
+							>
+								Cancelar
+							</button>
+							<button
+								onClick={() => void handleTakeOver()}
+								disabled={takingOver}
+								className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-600 disabled:opacity-60"
+							>
+								<HandMetal className="size-4" />
+								{takingOver ? 'Assumindo...' : 'Assumir'}
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 
 			<NotesModal
 				isOpen={showNotesModal}

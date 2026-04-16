@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getSessionProfile } from '@/lib/auth/getSessionProfile'
+import { getBotSettings } from '@/lib/services/botSettingsService'
 import ConversasPageClient from './ConversasPageClient'
 import { Metadata } from 'next'
 
@@ -14,5 +15,13 @@ export default async function ConversasPage() {
 	const session = await getSessionProfile()
 	if (!session) redirect('/login')
 
-	return <ConversasPageClient clinicId={session.clinic.id} />
+	const botSettings = await getBotSettings(session.clinic.id)
+
+	return (
+		<ConversasPageClient
+			clinicId={session.clinic.id}
+			defaultTakeoverMessage={botSettings?.message_takeover ?? 'Olá! Sou um atendente da clínica e estou aqui para te ajudar. 😊'}
+			takeoverMessageEnabled={botSettings?.takeover_message_enabled ?? true}
+		/>
+	)
 }

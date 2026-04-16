@@ -170,6 +170,8 @@ export interface BotSettings {
 	message_confirm_schedule: string
 	message_confirm_reschedule: string
 	message_confirm_cancel: string
+	message_takeover: string
+	takeover_message_enabled: boolean
 	// --- Menu options ---
 	menu_options?: {
 		schedule: boolean

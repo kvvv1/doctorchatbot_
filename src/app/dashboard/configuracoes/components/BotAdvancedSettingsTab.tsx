@@ -109,6 +109,8 @@ export default function BotAdvancedSettingsTab({
 						message_confirm_schedule: settings.message_confirm_schedule,
 						message_confirm_reschedule: settings.message_confirm_reschedule,
 						message_confirm_cancel: settings.message_confirm_cancel,
+						message_takeover: settings.message_takeover,
+						takeover_message_enabled: settings.takeover_message_enabled,
 						menu_options: settings.menu_options,
 						menu_order: settings.menu_order,
 						particular_days: settings.particular_days ?? [],
@@ -458,6 +460,34 @@ export default function BotAdvancedSettingsTab({
 									</div>
 								</div>
 							</div>
+						</div>
+
+						{/* Takeover message */}
+						<div className="pt-3 border-t border-neutral-200">
+							<p className="text-xs font-semibold text-neutral-600 mb-1 uppercase tracking-wide">
+								Atendimento humano
+							</p>
+							<p className="text-xs text-neutral-400 mb-3">
+								Mensagem enviada ao paciente quando um atendente assume o chat.
+							</p>
+							<label className="flex items-center gap-2 mb-2 cursor-pointer select-none">
+								<input
+									type="checkbox"
+									checked={settings.takeover_message_enabled ?? true}
+									onChange={(e) => setSettings({ ...settings, takeover_message_enabled: e.target.checked })}
+									className="size-4 rounded border-neutral-300 accent-sky-600"
+								/>
+								<span className="text-sm font-medium text-neutral-700">Enviar mensagem ao assumir</span>
+							</label>
+							{(settings.takeover_message_enabled ?? true) && (
+								<textarea
+									value={settings.message_takeover ?? ''}
+									onChange={(e) => setSettings({ ...settings, message_takeover: e.target.value })}
+									rows={2}
+									placeholder="Olá! Sou um atendente da clínica e estou aqui para te ajudar. 😊"
+									className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+								/>
+							)}
 						</div>
 					</div>
 

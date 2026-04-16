@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Zap, AlertCircle } from 'lucide-react'
+import { Send, Zap, HandMetal, AlertCircle } from 'lucide-react'
 import QuickRepliesPopover from './QuickRepliesPopover'
 import type { QuickReply } from '@/lib/types/database'
 import { createClient } from '@/lib/supabase/client'
@@ -12,6 +12,8 @@ interface MessageInputProps {
 	clinicId?: string
 	value?: string
 	onChange?: (content: string) => void
+	waitingHuman?: boolean
+	onTakeOver?: () => void
 }
 
 export default function MessageInput({
@@ -20,6 +22,8 @@ export default function MessageInput({
 	clinicId,
 	value,
 	onChange,
+	waitingHuman = false,
+	onTakeOver,
 }: MessageInputProps) {
 	const [internalContent, setInternalContent] = useState('')
 	const [sending, setSending] = useState(false)
@@ -270,44 +274,63 @@ export default function MessageInput({
 				onSubmit={handleSubmit}
 				className="flex items-end gap-2 border-t border-neutral-200 bg-white px-3 py-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)]"
 			>
-				{/* Quick Replies Button */}
-				{clinicId && (
-					<button
-						type="button"
-						onClick={() => setShowQuickReplies(!showQuickReplies)}
-						disabled={disabled}
-						className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-amber-500 transition-colors hover:bg-amber-50 hover:border-amber-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-						title="Respostas rápidas"
-					>
-						<Zap className="size-4" />
-					</button>
-				)}
+				{waitingHuman ? (
+					// Banner blocking input — secretary must click Assumir first
+					<div className="flex w-full items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 gap-3">
+						<p className="text-sm text-amber-800 font-medium leading-snug">
+							Aguardando atendente assumir o chat.
+						</p>
+						<button
+							type="button"
+							onClick={onTakeOver}
+							className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-600"
+						>
+							<HandMetal className="size-3.5" />
+							Assumir
+						</button>
+					</div>
+				) : (
+					<>
+						{/* Quick Replies Button */}
+						{clinicId && (
+							<button
+								type="button"
+								onClick={() => setShowQuickReplies(!showQuickReplies)}
+								disabled={disabled}
+								className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-amber-500 transition-colors hover:bg-amber-50 hover:border-amber-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+								title="Respostas rápidas"
+							>
+								<Zap className="size-4" />
+							</button>
+						)}
 
-				<textarea
-					ref={textareaRef}
-					value={content}
-					onChange={(e) => setContent(e.target.value)}
-					onKeyDown={handleKeyDown}
-					placeholder="Mensagem... (Digite / para atalhos)"
-					disabled={disabled || sending}
-					rows={1}
-					className="flex-1 resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 disabled:bg-neutral-50 disabled:text-neutral-400"
-					style={{
-						minHeight: '38px',
-						maxHeight: '120px',
-					}}
-				/>
-				<button
-					type="submit"
-					disabled={!content.trim() || sending || disabled}
-					className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sky-600 text-white transition-colors hover:bg-sky-700 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-				>
-					{sending ? (
-						<div className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-					) : (
-						<Send className="size-4" />
-					)}
-				</button>
+						<textarea
+							ref={textareaRef}
+							value={content}
+							onChange={(e) => setContent(e.target.value)}
+							onKeyDown={handleKeyDown}
+							placeholder="Mensagem... (Digite / para atalhos)"
+							disabled={disabled || sending}
+							rows={1}
+							className="flex-1 resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 disabled:bg-neutral-50 disabled:text-neutral-400"
+							style={{
+								minHeight: '38px',
+								maxHeight: '120px',
+							}}
+						/>
+						<button
+							type="submit"
+							disabled={!content.trim() || sending || disabled}
+							className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sky-600 text-white transition-colors hover:bg-sky-700 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+						>
+							{sending ? (
+								<div className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+							) : (
+								<Send className="size-4" />
+							)}
+						</button>
+					</>
+				)}
 			</form>
 		</div>
 	)
