@@ -142,18 +142,33 @@ Qual horário você prefere?
     return withMenuOption(`⚠️ Este horário está ocupado. Escolha um horário disponível:\n\n${lines}`, slots.length + 1)
   },
 
-  scheduleNoSlots: `😕 Não encontrei horários disponíveis nos próximos dias.
+  scheduleNoSlots: `Não encontrei horários disponíveis nos próximos dias.
 
 Deseja falar com nossa equipe?
 
-1️⃣ Sim, falar com secretária
-2️⃣ Voltar ao menu`,
+1. Sim, falar com secretária
+2. Voltar ao menu`,
+
+  scheduleNoSlotsConvenioSuggestParticular: `Não encontrei horários em convênios disponíveis para essa data.
+
+Precisa de atendimento mais urgente?
+Oferecemos consultas Particulares em todos os dias da semana! 
+Sexta-feira é prioritário para particulares. Veja disponibilidade abaixo.
+
+1. Ver horários particulares
+2. Falar com secretária
+3. Voltar ao menu`,
 
   // List-based scheduling flow (interactive lists)
   scheduleDayList: (days: DayOption[], hasMore: boolean) => {
     const lines = days.map((d, i) => `${i + 1}️⃣ ${d.label}`).join('\n')
-    const moreOption = hasMore ? `\n${days.length + 1}️⃣ 📅 Ver mais datas` : ''
-    return withMenuOption(`📅 Escolha o dia da consulta:\n\n${lines}${moreOption}`, days.length + (hasMore ? 1 : 0) + 1)
+    let nextOption = days.length + 1
+    const moreOption = hasMore ? `\n${nextOption}️⃣ 📅 Ver mais datas` : ''
+    if (hasMore) nextOption++
+    const attendantOption = `\n${nextOption}️⃣ ☎️ Falar com atendente`
+    nextOption++
+    const menuOption = `\n${nextOption}️⃣ Voltar ao menu principal`
+    return `📅 Escolha o dia da consulta:\n\n${lines}${moreOption}${attendantOption}${menuOption}`
   },
 
   scheduleSlotList: (dayLabel: string, slots: Slot[], showBack: boolean) => {
@@ -164,8 +179,13 @@ Deseja falar com nossa equipe?
 
   rescheduleDayList: (days: DayOption[], hasMore: boolean) => {
     const lines = days.map((d, i) => `${i + 1}️⃣ ${d.label}`).join('\n')
-    const moreOption = hasMore ? `\n${days.length + 1}️⃣ 📅 Ver mais datas` : ''
-    return withMenuOption(`📅 Escolha o novo dia da consulta:\n\n${lines}${moreOption}`, days.length + (hasMore ? 1 : 0) + 1)
+    let nextOption = days.length + 1
+    const moreOption = hasMore ? `\n${nextOption}️⃣ 📅 Ver mais datas` : ''
+    if (hasMore) nextOption++
+    const attendantOption = `\n${nextOption}️⃣ ☎️ Falar com atendente`
+    nextOption++
+    const menuOption = `\n${nextOption}️⃣ Voltar ao menu principal`
+    return `📅 Escolha o novo dia da consulta:\n\n${lines}${moreOption}${attendantOption}${menuOption}`
   },
 
   rescheduleSlotList: (dayLabel: string, slots: Slot[], showBack: boolean) => {

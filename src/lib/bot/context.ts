@@ -20,6 +20,7 @@ export type BotState =
   | 'agendar_confirmar'       // patient confirms selected day/time before booking
   | 'agendar_alterar_campo'   // patient chooses which booking field to change
   | 'agendar_alterar_paciente'// patient changes the patient name before booking
+  | 'agendar_sem_slots_convenio' // no slots in convênio, offer particular or secretary
   | 'reagendar_qual'          // patient has multiple appointments — pick which one
   | 'reagendar_tipo'          // patient picks Particular or Convênio before reschedule
   | 'reagendar_dia'
@@ -27,6 +28,7 @@ export type BotState =
   | 'reagendar_slot_escolha'  // patient picks from offered slots after reschedule conflict
   | 'reagendar_dia_lista'     // patient picks a day from an interactive list (reschedule)
   | 'reagendar_hora_lista'    // patient picks a time slot from an interactive list (reschedule)
+  | 'reagendar_sem_slots_convenio' // no slots in convênio, offer particular or secretary
   | 'cancelar_qual'           // patient has multiple appointments — pick which one
   | 'cancelar_tipo'           // patient picks Particular or Convênio before cancel
   | 'cancelar_confirmar'

@@ -173,6 +173,9 @@ export async function handleBotTurn(
     case 'agendar_alterar_paciente':
       return handleAgendarAlterarPaciente(userMessage, ctx)
 
+    case 'agendar_sem_slots_convenio':
+      return handleAgendarSemSlotsConvenio(userMessage, ctx, botSettings, clinicId)
+
     case 'reagendar_qual':
       return handleQualAppointment(userMessage, ctx, 'reagendar', botSettings, clinicId)
 
@@ -193,6 +196,9 @@ export async function handleBotTurn(
 
     case 'reagendar_hora_lista':
       return handleReagendarHoraLista(conversationId, userMessage, ctx, botSettings, clinicId)
+
+    case 'reagendar_sem_slots_convenio':
+      return handleReagendarSemSlotsConvenio(userMessage, ctx, botSettings, clinicId)
 
     case 'cancelar_qual':
       return handleQualAppointment(userMessage, ctx, 'cancelar', botSettings, clinicId)
@@ -1428,6 +1434,16 @@ async function handleAgendarDiaLista(
   const days = ctx.availableDays ?? []
   const normalizedMsg = normalizeChoiceText(msg)
 
+  // "Falar com atendente" option
+  if (normalizedMsg.includes('atendente') || normalizedMsg.includes('falar') || normalizedMsg.includes('secretaria')) {
+    return {
+      message: templates.attendantTransfer,
+      nextState: 'atendente',
+      nextContext: ctx,
+      transferToHuman: true,
+    }
+  }
+
   // "Ver mais datas" option
   if (normalizedMsg.includes('mais datas') || normalizedMsg.includes('ver mais')) {
     return showDayList({ clinicId, botSettings, ctx, flow: 'agendar', offset: (ctx.dayListOffset ?? 0) + DAY_LIST_PAGE_SIZE })
@@ -1447,6 +1463,14 @@ async function handleAgendarDiaLista(
   const slots = await getSlotsForDay(clinicId, selectedDay.date, botSettings)
 
   if (slots.length === 0) {
+    // If searching in convênio and no slots, offer particular
+    if (ctx.appointmentType === 'convenio') {
+      return {
+        message: templates.scheduleNoSlotsConvenioSuggestParticular,
+        nextState: 'agendar_sem_slots_convenio',
+        nextContext: { ...ctx, patientPhone: ctx.patientPhone, patientName: ctx.patientName, selectedDay: selectedDay.date, selectedDayLabel: selectedDay.label },
+      }
+    }
     return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { ...ctx, patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
   }
 
@@ -1686,6 +1710,59 @@ async function handleAgendarAlterarPaciente(
   }
 }
 
+function handleAgendarSemSlotsConvenio(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): BotResponse {
+  if (!clinicId || !botSettings) return technicalError(ctx)
+
+  const normalizedMsg = msg
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+
+  // "1. Ver horários particulares"
+  if (normalizedMsg === '1' || /(?:^|\D)1(?:\D|$)|particular|ver particular|horario particular/.test(normalizedMsg)) {
+    const selectedDay = ctx.selectedDay
+    return showDayList({
+      clinicId,
+      botSettings,
+      ctx: { ...ctx, appointmentType: 'particular' },
+      flow: 'agendar',
+      offset: 0,
+    })
+  }
+
+  // "2. Falar com secretária"
+  if (normalizedMsg === '2' || /(?:^|\D)2(?:\D|$)|secretaria|falar|atendente/.test(normalizedMsg)) {
+    return {
+      message: templates.attendantTransfer,
+      nextState: 'atendente',
+      nextContext: ctx,
+      transferToHuman: true,
+    }
+  }
+
+  // "3. Voltar ao menu"
+  if (normalizedMsg === '3' || /(?:^|\D)3(?:\D|$)|menu|voltar/.test(normalizedMsg)) {
+    return {
+      message: templates.menu(botSettings),
+      nextState: 'menu',
+      nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
+    }
+  }
+
+  // Invalid choice
+  return withRetry({
+    message: templates.invalidChoice(3),
+    nextState: 'agendar_sem_slots_convenio',
+    nextContext: ctx,
+  }, ctx)
+}
+
 async function handleReagendarDiaLista(
   msg: string,
   ctx: BotContext,
@@ -1696,6 +1773,16 @@ async function handleReagendarDiaLista(
 
   const days = ctx.availableDays ?? []
   const normalizedMsg = normalizeChoiceText(msg)
+
+  // "Falar com atendente" option
+  if (normalizedMsg.includes('atendente') || normalizedMsg.includes('falar') || normalizedMsg.includes('secretaria')) {
+    return {
+      message: templates.attendantTransfer,
+      nextState: 'atendente',
+      nextContext: ctx,
+      transferToHuman: true,
+    }
+  }
 
   if (normalizedMsg.includes('mais datas') || normalizedMsg.includes('ver mais')) {
     return showDayList({ clinicId, botSettings, ctx, flow: 'reagendar', offset: (ctx.dayListOffset ?? 0) + DAY_LIST_PAGE_SIZE })
@@ -1715,6 +1802,14 @@ async function handleReagendarDiaLista(
   const slots = await getSlotsForDay(clinicId, selectedDay.date, botSettings)
 
   if (slots.length === 0) {
+    // If searching in convênio and no slots, offer particular
+    if (ctx.appointmentType === 'convenio') {
+      return {
+        message: templates.scheduleNoSlotsConvenioSuggestParticular,
+        nextState: 'reagendar_sem_slots_convenio',
+        nextContext: { ...ctx, patientPhone: ctx.patientPhone, patientName: ctx.patientName, selectedDay: selectedDay.date, selectedDayLabel: selectedDay.label },
+      }
+    }
     return { message: templates.scheduleNoSlots, nextState: 'sem_horario', nextContext: { ...ctx, patientPhone: ctx.patientPhone, patientName: ctx.patientName } }
   }
 
@@ -1770,6 +1865,59 @@ async function handleReagendarHoraLista(
     nextContext: result.success ? {} : ctx,
     conversationStatus: result.success ? 'scheduled' : undefined,
   }
+}
+
+function handleReagendarSemSlotsConvenio(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): BotResponse {
+  if (!clinicId || !botSettings) return technicalError(ctx)
+
+  const normalizedMsg = msg
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+
+  // "1. Ver horários particulares"
+  if (normalizedMsg === '1' || /(?:^|\D)1(?:\D|$)|particular|ver particular|horario particular/.test(normalizedMsg)) {
+    const selectedDay = ctx.selectedDay
+    return showDayList({
+      clinicId,
+      botSettings,
+      ctx: { ...ctx, appointmentType: 'particular' },
+      flow: 'reagendar',
+      offset: 0,
+    })
+  }
+
+  // "2. Falar com secretária"
+  if (normalizedMsg === '2' || /(?:^|\D)2(?:\D|$)|secretaria|falar|atendente/.test(normalizedMsg)) {
+    return {
+      message: templates.attendantTransfer,
+      nextState: 'atendente',
+      nextContext: ctx,
+      transferToHuman: true,
+    }
+  }
+
+  // "3. Voltar ao menu"
+  if (normalizedMsg === '3' || /(?:^|\D)3(?:\D|$)|menu|voltar/.test(normalizedMsg)) {
+    return {
+      message: templates.menu(botSettings),
+      nextState: 'menu',
+      nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
+    }
+  }
+
+  // Invalid choice
+  return withRetry({
+    message: templates.invalidChoice(3),
+    nextState: 'reagendar_sem_slots_convenio',
+    nextContext: ctx,
+  }, ctx)
 }
 
 function technicalError(ctx: BotContext): BotResponse {
