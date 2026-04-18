@@ -375,7 +375,6 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 		}
 
 		refetchConversations?.()
-		await refetch?.()
 	}
 
 	const handleReturnToBot = async () => {
