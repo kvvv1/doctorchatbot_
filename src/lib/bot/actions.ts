@@ -935,17 +935,61 @@ export async function addToWaitlist(
 }
 
 /**
+ * Mark a conversation as waitlisted with time-window preferences.
+ * timeStart / timeEnd are hour strings in 24h format, e.g. "08", "12".
+ * An automatic 30-day expiration is set so the cron skips stale entries.
+ */
+export async function addToWaitlistWithPreference(
+  clinicId: string,
+  conversationId: string,
+  preference: {
+    timeStart: string   // "08"
+    timeEnd: string     // "12"
+    appointmentType?: 'particular' | 'convenio'
+  }
+): Promise<ActionResult> {
+  const supabase = createAdminClient()
+
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + 30)
+
+  const { error } = await supabase
+    .from('conversations')
+    .update({
+      status: 'waitlist',
+      waitlist_preferred_time_start: preference.timeStart,
+      waitlist_preferred_time_end: preference.timeEnd,
+      waitlist_appointment_type: preference.appointmentType ?? null,
+      waitlist_expires_at: expiresAt.toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', conversationId)
+    .eq('clinic_id', clinicId)
+
+  if (error) {
+    console.error('[bot/actions] addToWaitlistWithPreference error:', error)
+    return { success: false, message: 'Erro ao entrar na lista de espera.', error: error.message }
+  }
+
+  return { success: true, message: 'Adicionado à lista de espera com preferência.' }
+}
+
+/**
  * Fetch conversations on the waitlist for a clinic.
- * Used by the waitlist processor to notify patients when a slot opens.
+ * Returns preference fields so the cron can filter by time window.
+ * Expired entries (waitlist_expires_at in the past) are excluded.
  */
 export async function getWaitlistConversations(clinicId: string) {
   const supabase = createAdminClient()
 
+  const now = new Date().toISOString()
+
   const { data } = await supabase
     .from('conversations')
-    .select('id, patient_phone, patient_name')
+    .select('id, patient_phone, patient_name, waitlist_preferred_time_start, waitlist_preferred_time_end, waitlist_appointment_type, waitlist_expires_at')
     .eq('clinic_id', clinicId)
     .eq('status', 'waitlist')
+    .or(`waitlist_expires_at.is.null,waitlist_expires_at.gt.${now}`)
     .order('updated_at', { ascending: true })
 
   return data ?? []

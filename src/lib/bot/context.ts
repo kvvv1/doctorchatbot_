@@ -37,6 +37,7 @@ export type BotState =
   | 'ver_agendamentos'
   | 'ver_agendamento_selecionado'  // patient selected one appointment from list, choosing action
   | 'confirmar_presenca'
+  | 'lista_espera_faixa'  // patient picks preferred time window for waitlist
   | 'sem_horario'
 
 /**
@@ -107,6 +108,9 @@ export type BotContext = {
 
   // Waitlist
   waitlistId?: string
+  waitlistPreferredTimeStart?: string  // "08" (hour)
+  waitlistPreferredTimeEnd?: string    // "12" (hour)
+  waitlistAppointmentType?: 'particular' | 'convenio'
 
   // General
   intent?: string

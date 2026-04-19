@@ -21,6 +21,7 @@ import {
   cancelAppointment,
   rescheduleAppointment,
   addToWaitlist,
+  addToWaitlistWithPreference,
   getPatientAppointments,
   hasGestaoDSIntegration,
   normalizeCpf,
@@ -103,7 +104,8 @@ export async function handleBotTurn(
     const isAttendantRequest = state !== 'menu' && (
       /sim.*falar.*atendente|falar.*atendente|quero.*atendente|sim.*falar.*secretaria|falar.*secretaria|quero.*secretaria/i.test(escapedMsg) ||
       /option[_-]?1|button[_-]?1/.test(escapedMsg) ||
-      (state === 'sem_horario' && (escapedMsg === '1' || /^sim$/.test(escapedMsg)))
+      (state === 'sem_horario' && (escapedMsg === '1' || /^sim$/.test(escapedMsg))) ||
+      (state === 'lista_espera_faixa' && false) // list_espera_faixa handled in its own switch case
     )
 
     if (isBackToMenu) {
@@ -232,6 +234,9 @@ export async function handleBotTurn(
 
     case 'confirmar_presenca':
       return await handleConfirmarPresenca(userMessage, ctx, clinicId)
+
+    case 'lista_espera_faixa':
+      return handleListaEsperaFaixa(conversationId, userMessage, ctx, botSettings, clinicId)
 
     case 'sem_horario':
       return handleSemHorario(userMessage, ctx, botSettings)
@@ -1299,6 +1304,58 @@ async function handleConfirmarPresenca(msg: string, ctx: BotContext, clinicId?: 
   return { message: templates.confirmAttendanceAsk, nextState: 'confirmar_presenca', nextContext: ctx }
 }
 
+// ---- Lista de espera por faixa de horário ----------------------------------
+
+async function handleListaEsperaFaixa(
+  conversationId: string,
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const normalized = msg
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+
+  type Preference = { start: string; end: string; label: string }
+  let pref: Preference | null = null
+
+  if (normalized === '1' || /(?:^|\D)1(?:\D|$)|manha|manha|manha/i.test(normalized)) {
+    pref = { start: '08', end: '12', label: '🌅 Manhã (8h – 12h)' }
+  } else if (normalized === '2' || /(?:^|\D)2(?:\D|$)|tarde/i.test(normalized)) {
+    pref = { start: '12', end: '18', label: '🌞 Tarde (12h – 18h)' }
+  } else if (normalized === '3' || /(?:^|\D)3(?:\D|$)|noite/i.test(normalized)) {
+    pref = { start: '18', end: '21', label: '🌙 Noite (18h – 21h)' }
+  } else if (normalized === '4' || /(?:^|\D)4(?:\D|$)|qualquer|any/i.test(normalized)) {
+    pref = { start: '00', end: '23', label: '🕐 Qualquer horário' }
+  }
+
+  if (!pref) {
+    return {
+      message: templates.waitlistAskPreference,
+      nextState: 'lista_espera_faixa',
+      nextContext: ctx,
+    }
+  }
+
+  if (clinicId) {
+    await addToWaitlistWithPreference(clinicId, conversationId, {
+      timeStart: pref.start,
+      timeEnd: pref.end,
+      appointmentType: ctx.waitlistAppointmentType,
+    })
+  }
+
+  return {
+    message: templates.waitlistConfirmed(pref.label),
+    nextState: 'menu',
+    nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
+    conversationStatus: 'waitlist',
+  }
+}
+
 function handleSemHorario(msg: string, ctx: BotContext, botSettings?: BotSettings | null): BotResponse {
   const normalized = msg
     .normalize('NFD')
@@ -1310,9 +1367,13 @@ function handleSemHorario(msg: string, ctx: BotContext, botSettings?: BotSetting
     normalized === '1' ||
     /(?:^|\D)1(?:\D|$)|option[_-]?1|button[_-]?1|sim|atendente|falar|humano|pessoa/i.test(normalized)
 
-  const wantsMenu =
+  const wantsWaitlist =
     normalized === '2' ||
-    /(?:^|\D)2(?:\D|$)|option[_-]?2|button[_-]?2|nao|voltar|menu|inicio/i.test(normalized)
+    /(?:^|\D)2(?:\D|$)|option[_-]?2|button[_-]?2|lista|espera|aguardar/i.test(normalized)
+
+  const wantsMenu =
+    normalized === '3' ||
+    /(?:^|\D)3(?:\D|$)|option[_-]?3|button[_-]?3|nao|voltar|menu|inicio/i.test(normalized)
 
   if (wantsAttendant) {
     return {
@@ -1320,6 +1381,14 @@ function handleSemHorario(msg: string, ctx: BotContext, botSettings?: BotSetting
       nextState: 'atendente',
       nextContext: ctx,
       transferToHuman: true,
+    }
+  }
+
+  if (wantsWaitlist) {
+    return {
+      message: templates.waitlistAskPreference,
+      nextState: 'lista_espera_faixa',
+      nextContext: { ...ctx, waitlistAppointmentType: ctx.appointmentType },
     }
   }
 
@@ -2281,7 +2350,8 @@ function getMenuChoiceIndex(state: BotState, ctx: BotContext): number | null {
     case 'cancelar_confirmar':
     case 'cancelar_encaixe':
     case 'confirmar_presenca':
-      return state === 'sem_horario' ? 2 : 3
+    case 'lista_espera_faixa':
+      return state === 'sem_horario' ? 3 : state === 'lista_espera_faixa' ? 4 : 3
 
     case 'agendar_slot_escolha':
     case 'reagendar_slot_escolha':

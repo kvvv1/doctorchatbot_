@@ -91,6 +91,7 @@ const BOT_STATE_LABELS: Record<BotState, string> = {
 	ver_agendamentos: 'Visualizando consultas',
 	ver_agendamento_selecionado: 'Consulta selecionada',
 	confirmar_presenca: 'Confirmando presença',
+	lista_espera_faixa: 'Lista de espera - preferência',
 	sem_horario: 'Sem horarios disponiveis',
 }
 

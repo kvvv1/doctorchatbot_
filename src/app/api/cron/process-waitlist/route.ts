@@ -4,9 +4,29 @@ import { getAvailableSlots } from '@/lib/bot/availability'
 import { getWaitlistConversations } from '@/lib/bot/actions'
 import { getBotSettings } from '@/lib/services/botSettingsService'
 import { zapiSendText } from '@/lib/zapi/client'
+import { templates } from '@/lib/bot/templates'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+/**
+ * Filter available slots based on the patient's preferred time window.
+ * timeStart / timeEnd are hour strings like "08", "12".
+ * If both are null (legacy entries without preference), all slots pass.
+ */
+function filterSlotsByPreference(
+  slots: { startsAt: string; label: string }[],
+  timeStart: string | null,
+  timeEnd: string | null,
+): typeof slots {
+  if (!timeStart || !timeEnd) return slots
+  const start = parseInt(timeStart, 10)
+  const end   = parseInt(timeEnd, 10)
+  return slots.filter((s) => {
+    const hour = new Date(s.startsAt).getHours()
+    return hour >= start && hour < end
+  })
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -41,13 +61,12 @@ export async function GET(request: NextRequest) {
         const botSettings = await getBotSettings(clinicId)
         if (!botSettings) continue
 
-        const slots = await getAvailableSlots(clinicId, new Date(), botSettings, 1)
-        if (slots.length === 0) continue
+        // Fetch all available slots for the next days
+        const allSlots = await getAvailableSlots(clinicId, new Date(), botSettings, 1)
+        if (allSlots.length === 0) continue
 
         const waitlistConversations = await getWaitlistConversations(clinicId)
         if (!waitlistConversations.length) continue
-
-        const target = waitlistConversations[0]
 
         const { data: instance, error: instanceError } = await supabase
           .from('whatsapp_instances')
@@ -61,39 +80,57 @@ export async function GET(request: NextRequest) {
           continue
         }
 
-        const bestSlot = slots[0]
-        const patientName = target.patient_name || 'Paciente'
+        for (const target of waitlistConversations) {
+          try {
+            // Apply preference filter — if patient specified a time window, honour it
+            const matchingSlots = filterSlotsByPreference(
+              allSlots,
+              target.waitlist_preferred_time_start ?? null,
+              target.waitlist_preferred_time_end ?? null,
+            )
 
-        const message = `Oi, ${patientName}! Surgiu uma vaga na agenda: ${bestSlot.label}.\n\nSe quiser, responda com *Agendar* para eu te ajudar a marcar.`
+            if (matchingSlots.length === 0) {
+              // No slots in the patient's preferred window — skip for now
+              continue
+            }
 
-        await zapiSendText(
-          {
-            instanceId: instance.instance_id,
-            token: instance.token,
-            clientToken: instance.client_token || undefined,
-          },
-          target.patient_phone,
-          message
-        )
+            const bestSlot = matchingSlots[0]
+            const patientName = target.patient_name || 'Paciente'
 
-        await supabase
-          .from('conversations')
-          .update({
-            status: 'waiting_patient',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', target.id)
+            const message = templates.waitlistNotification(patientName, bestSlot.label)
 
-        await supabase.from('notifications').insert({
-          clinic_id: clinicId,
-          type: 'conversation_waiting',
-          title: 'Paciente notificado da lista de espera',
-          message: `${patientName} foi avisado(a) sobre uma vaga disponível na agenda.`,
-          link: `/dashboard/conversas?id=${target.id}`,
-          conversation_id: target.id,
-        })
+            await zapiSendText(
+              {
+                instanceId: instance.instance_id,
+                token: instance.token,
+                clientToken: instance.client_token || undefined,
+              },
+              target.patient_phone,
+              message
+            )
 
-        notified++
+            await supabase
+              .from('conversations')
+              .update({
+                status: 'waiting_patient',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', target.id)
+
+            await supabase.from('notifications').insert({
+              clinic_id: clinicId,
+              type: 'conversation_waiting',
+              title: 'Paciente notificado da lista de espera',
+              message: `${patientName} foi avisado(a) sobre uma vaga disponível na agenda.`,
+              link: `/dashboard/conversas?id=${target.id}`,
+              conversation_id: target.id,
+            })
+
+            notified++
+          } catch (patientError) {
+            errors.push(`Clinic ${clinicId} / conversation ${target.id}: ${patientError instanceof Error ? patientError.message : 'Unknown error'}`)
+          }
+        }
       } catch (error) {
         errors.push(`Clinic ${clinicId}: ${error instanceof Error ? error.message : 'Unknown error'}`)
       }

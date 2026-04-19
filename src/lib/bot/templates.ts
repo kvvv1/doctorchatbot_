@@ -147,7 +147,8 @@ Qual horário você prefere?
 Deseja falar com nossa equipe?
 
 1. Sim, falar com secretária
-2. Voltar ao menu`,
+2. 📋 Entrar na lista de espera
+3. Voltar ao menu`,
 
   scheduleNoSlotsConvenioSuggestParticular: `Não encontrei horários em convênios disponíveis para essa data.
 
@@ -256,6 +257,29 @@ Você foi adicionado à *lista de espera*. Avisaremos assim que surgir um horár
   cancelWithoutWaitlist: `✅ Consulta cancelada.
 
 Se precisar agendar novamente no futuro, é só chamar! Obrigado. 😊`,
+
+  // -------------------------------------------------------------------------
+  // Lista de espera por preferência de horário
+  // -------------------------------------------------------------------------
+  waitlistAskPreference: `📋 *Lista de espera*
+
+Vou te avisar assim que surgir uma vaga! Para te notificar no melhor momento, qual período você prefere?
+
+1️⃣ 🌅 Manhã (8h – 12h)
+2️⃣ 🌞 Tarde (12h – 18h)
+3️⃣ 🌙 Noite (18h – 21h)
+4️⃣ 🕐 Qualquer horário`,
+
+  waitlistConfirmed: (period: string) => `✅ Você está na *lista de espera*!
+
+Período preferido: *${period}*
+
+Assim que surgir uma vaga no seu horário, te aviso aqui pelo WhatsApp. 📲
+
+Obrigado pela paciência! 😊`,
+
+  waitlistNotification: (patientName: string, slotLabel: string) =>
+    `Oi, ${patientName}! 👋\n\nSurgiu uma vaga na agenda:\n📅 *${slotLabel}*\n\nEsse horário está dentro da sua preferência! Responda com *Agendar* para eu te ajudar a confirmar. 😊`,
 
   cancelAborted: `Ok! Sua consulta está *mantida*. 👍
 
