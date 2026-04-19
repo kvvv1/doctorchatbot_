@@ -862,7 +862,7 @@ export async function getPatientAppointments(
 
   const { data, error } = await supabase
     .from('appointments')
-    .select('id, starts_at, status')
+    .select('id, starts_at, status, appointment_type')
     .eq('clinic_id', clinicId)
     .in('patient_phone', phoneCandidates)
     .in('status', ['scheduled', 'confirmed'])
@@ -877,6 +877,7 @@ export async function getPatientAppointments(
         startsAt: a.starts_at,
         label: formatSlotLabel(new Date(a.starts_at)),
         status: a.status,
+        appointmentType: (a.appointment_type as 'particular' | 'convenio' | null) ?? null,
       }))
 
   // Supplement with GestaoDS API (covers appointments synced with missing phone)

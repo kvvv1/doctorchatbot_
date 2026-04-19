@@ -314,7 +314,7 @@ async function handleMenu(
         return showDayList({
           clinicId,
           botSettings,
-          ctx: { ...ctx, intent: 'reschedule', appointmentId: appts[0].id, appointments: appts },
+          ctx: { ...ctx, intent: 'reschedule', appointmentId: appts[0].id, appointments: appts, appointmentType: appts[0].appointmentType ?? ctx.appointmentType },
           flow: 'reagendar',
           offset: 0,
         })
@@ -972,7 +972,7 @@ async function handleQualAppointment(
   return showDayList({
     clinicId,
     botSettings,
-    ctx: { ...ctx, appointmentId: chosen.id },
+    ctx: { ...ctx, appointmentId: chosen.id, appointmentType: chosen.appointmentType ?? ctx.appointmentType },
     flow: 'reagendar',
     offset: 0,
   })

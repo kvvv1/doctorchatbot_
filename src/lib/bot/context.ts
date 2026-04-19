@@ -65,6 +65,7 @@ export type AppointmentSummary = {
   startsAt: string  // ISO 8601
   label: string     // e.g. "Segunda, 14/04 às 10h00"
   status: string
+  appointmentType?: 'particular' | 'convenio' | null
 }
 
 /**

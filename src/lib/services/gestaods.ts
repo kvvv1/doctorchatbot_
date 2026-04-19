@@ -548,7 +548,7 @@ export class GestaoDSService {
                 const errorData = await response.json().catch(() => ({}))
                 return {
                     success: false,
-                    error: errorData.detail || response.statusText || 'Falha ao reagendar agendamento'
+                    error: errorData.detail || errorData.message || `Erro ao reagendar no GestãoDS (${response.status})`
                 }
             }
 
