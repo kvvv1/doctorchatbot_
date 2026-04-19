@@ -31,6 +31,7 @@ export interface GestaoDSAppointmentRequest {
     cpf: string
     token: string
     primeiro_atendimento?: boolean
+    tipo_consulta?: 'particular' | 'convenio' // Appointment type
 }
 
 export interface GestaoDSPatientAppointmentsRequest {

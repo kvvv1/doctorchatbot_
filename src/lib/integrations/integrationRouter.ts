@@ -38,6 +38,8 @@ export async function createExternalAppointment(params: {
   conversationId?: string | null
   /** CPF do paciente (obrigatório para GestaoDS quando não existe conversa vinculada) */
   cpf?: string | null
+  /** Tipo de consulta: particular ou convênio */
+  appointmentType?: 'particular' | 'convenio'
 }): Promise<ExternalCreateResult> {
   const resolution = await resolveClinicIntegration(params.supabase, params.clinicId)
 
@@ -109,6 +111,7 @@ export async function createExternalAppointment(params: {
       data_agendamento: startsAtFormatted,
       data_fim_agendamento: endsAtFormatted,
       primeiro_atendimento: false,
+      tipo_consulta: params.appointmentType || 'particular',
     })
 
     if (!bookingResult.success) {

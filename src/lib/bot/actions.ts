@@ -265,6 +265,7 @@ export async function createAppointmentFromSlot(params: {
   patientCpf?: string
   slot: Slot
   confirmTemplate?: string
+  appointmentType?: 'particular' | 'convenio'
 }): Promise<ActionResult> {
   const supabase = createAdminClient()
 
@@ -273,6 +274,7 @@ export async function createAppointmentFromSlot(params: {
     patientPhone: params.patientPhone,
     hasCpf: !!params.patientCpf,
     cpfValue: params.patientCpf ? params.patientCpf.substring(0, 5) + '***' : undefined,
+    appointmentType: params.appointmentType,
   })
 
   const externalResult = await createExternalAppointment({
@@ -285,6 +287,7 @@ export async function createAppointmentFromSlot(params: {
     endsAt: new Date(params.slot.endsAt),
     description: 'Agendamento via WhatsApp',
     conversationId: params.conversationId,
+    appointmentType: params.appointmentType,
   })
 
   if (externalResult.provider !== 'none' && !externalResult.synced) {
@@ -313,6 +316,7 @@ export async function createAppointmentFromSlot(params: {
       provider: externalResult.synced ? externalResult.provider : 'manual',
       provider_reference_id: externalResult.providerReferenceId || null,
       description: 'Agendamento via WhatsApp',
+      appointment_type: params.appointmentType || 'particular',
     })
     .select('id')
     .single()

@@ -174,7 +174,7 @@ export async function handleBotTurn(
       return handleAgendarAlterarPaciente(userMessage, ctx)
 
     case 'agendar_sem_slots_convenio':
-      return handleAgendarSemSlotsConvenio(userMessage, ctx, botSettings, clinicId)
+      return await handleAgendarSemSlotsConvenio(userMessage, ctx, botSettings, clinicId)
 
     case 'reagendar_qual':
       return handleQualAppointment(userMessage, ctx, 'reagendar', botSettings, clinicId)
@@ -198,7 +198,7 @@ export async function handleBotTurn(
       return handleReagendarHoraLista(conversationId, userMessage, ctx, botSettings, clinicId)
 
     case 'reagendar_sem_slots_convenio':
-      return handleReagendarSemSlotsConvenio(userMessage, ctx, botSettings, clinicId)
+      return await handleReagendarSemSlotsConvenio(userMessage, ctx, botSettings, clinicId)
 
     case 'cancelar_qual':
       return handleQualAppointment(userMessage, ctx, 'cancelar', botSettings, clinicId)
@@ -1591,6 +1591,7 @@ async function handleAgendarConfirmar(
     patientCpf: ctx.patientCpf || undefined,
     slot,
     confirmTemplate: botSettings?.message_confirm_schedule,
+    appointmentType: ctx.appointmentType || 'particular',
   })
 
   return {
@@ -1710,12 +1711,12 @@ async function handleAgendarAlterarPaciente(
   }
 }
 
-function handleAgendarSemSlotsConvenio(
+async function handleAgendarSemSlotsConvenio(
   msg: string,
   ctx: BotContext,
   botSettings?: BotSettings | null,
   clinicId?: string,
-): BotResponse {
+): Promise<BotResponse> {
   if (!clinicId || !botSettings) return technicalError(ctx)
 
   const normalizedMsg = msg
@@ -1727,7 +1728,7 @@ function handleAgendarSemSlotsConvenio(
   // "1. Ver horários particulares"
   if (normalizedMsg === '1' || /(?:^|\D)1(?:\D|$)|particular|ver particular|horario particular/.test(normalizedMsg)) {
     const selectedDay = ctx.selectedDay
-    return showDayList({
+    return await showDayList({
       clinicId,
       botSettings,
       ctx: { ...ctx, appointmentType: 'particular' },
@@ -1749,7 +1750,7 @@ function handleAgendarSemSlotsConvenio(
   // "3. Voltar ao menu"
   if (normalizedMsg === '3' || /(?:^|\D)3(?:\D|$)|menu|voltar/.test(normalizedMsg)) {
     return {
-      message: templates.menu(botSettings),
+      message: botSettings?.message_menu || templates.menu,
       nextState: 'menu',
       nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
     }
@@ -1867,12 +1868,12 @@ async function handleReagendarHoraLista(
   }
 }
 
-function handleReagendarSemSlotsConvenio(
+async function handleReagendarSemSlotsConvenio(
   msg: string,
   ctx: BotContext,
   botSettings?: BotSettings | null,
   clinicId?: string,
-): BotResponse {
+): Promise<BotResponse> {
   if (!clinicId || !botSettings) return technicalError(ctx)
 
   const normalizedMsg = msg
@@ -1884,7 +1885,7 @@ function handleReagendarSemSlotsConvenio(
   // "1. Ver horários particulares"
   if (normalizedMsg === '1' || /(?:^|\D)1(?:\D|$)|particular|ver particular|horario particular/.test(normalizedMsg)) {
     const selectedDay = ctx.selectedDay
-    return showDayList({
+    return await showDayList({
       clinicId,
       botSettings,
       ctx: { ...ctx, appointmentType: 'particular' },
@@ -1906,7 +1907,7 @@ function handleReagendarSemSlotsConvenio(
   // "3. Voltar ao menu"
   if (normalizedMsg === '3' || /(?:^|\D)3(?:\D|$)|menu|voltar/.test(normalizedMsg)) {
     return {
-      message: templates.menu(botSettings),
+      message: botSettings?.message_menu || templates.menu,
       nextState: 'menu',
       nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
     }
