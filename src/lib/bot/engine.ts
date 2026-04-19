@@ -183,6 +183,12 @@ export async function handleBotTurn(
     case 'reagendar_qual':
       return handleQualAppointment(userMessage, ctx, 'reagendar', botSettings, clinicId)
 
+    case 'reagendar_manter_tipo':
+      return handleReagendarManterTipo(userMessage, ctx, botSettings, clinicId)
+
+    case 'reagendar_convenio':
+      return handleReagendarConvenio(userMessage, ctx, botSettings, clinicId)
+
     case 'reagendar_tipo':
       return handleReagendarTipo(userMessage, ctx, botSettings, clinicId)
 
@@ -310,14 +316,21 @@ async function handleMenu(
       }
 
       if (appts.length === 1) {
-        // Only one — go straight to day selection
-        return showDayList({
-          clinicId,
-          botSettings,
-          ctx: { ...ctx, intent: 'reschedule', appointmentId: appts[0].id, appointments: appts, appointmentType: appts[0].appointmentType ?? ctx.appointmentType },
-          flow: 'reagendar',
-          offset: 0,
-        })
+        // Only one — ask to confirm/change type before showing days
+        const appt = appts[0]
+        const newCtx = { ...ctx, intent: 'reschedule' as const, appointmentId: appt.id, appointments: appts, appointmentType: appt.appointmentType ?? ctx.appointmentType }
+        if (appt.appointmentType) {
+          return {
+            message: templates.rescheduleConfirmType(appt.label, appt.appointmentType),
+            nextState: 'reagendar_manter_tipo',
+            nextContext: newCtx,
+          }
+        }
+        return {
+          message: templates.rescheduleConfirmTypeUnknown(appt.label),
+          nextState: 'reagendar_manter_tipo',
+          nextContext: { ...newCtx, appointmentType: undefined },
+        }
       }
 
       // Multiple — ask which one
@@ -628,6 +641,90 @@ function handleConvenioAguardandoCarteirinha(ctx: BotContext): BotResponse {
     conversationStatus: 'waiting_human',
     transferToHuman: true,
   }
+}
+
+// Convenio selection during reschedule
+async function handleReagendarConvenio(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const convenios = (botSettings?.convenios ?? []).filter((s: string) => s.trim() !== '')
+  const normalized = msg.trim().toLowerCase()
+  const byNumber = parseInt(normalized, 10)
+  let selected: string | undefined
+
+  if (!isNaN(byNumber) && byNumber >= 1 && byNumber <= convenios.length) {
+    selected = convenios[byNumber - 1]
+  } else {
+    selected = convenios.find((c: string) => c.toLowerCase().includes(normalized))
+  }
+
+  if (!selected) {
+    return {
+      message: templates.askConvenio(convenios),
+      nextState: 'reagendar_convenio',
+      nextContext: ctx,
+    }
+  }
+
+  const ctxWithConvenio = { ...ctx, selectedConvenio: selected, appointmentType: 'convenio' as const }
+  return showDayList({ clinicId, botSettings, ctx: ctxWithConvenio, flow: 'reagendar', offset: 0 })
+}
+
+// After user selected which appointment to reschedule, confirm or change its type
+async function handleReagendarManterTipo(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const normalized = msg.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+
+  // Current type (from selected appointment)
+  const currentType = ctx.appointmentType as 'particular' | 'convenio' | undefined
+  const outroTipo: 'particular' | 'convenio' = currentType === 'convenio' ? 'particular' : 'convenio'
+
+  let chosenType: 'particular' | 'convenio' | null = null
+
+  if (normalized === '1' || normalized.includes('manter') || normalized.includes('mesmo') || normalized.includes(currentType ?? '')) {
+    // Keep current type
+    chosenType = currentType ?? null
+  } else if (normalized === '2' || normalized.includes('mudar') || normalized.includes('trocar') || normalized.includes(outroTipo)) {
+    chosenType = outroTipo
+  } else if (normalized.includes('particular')) {
+    chosenType = 'particular'
+  } else if (normalized.includes('convenio') || normalized.includes('convênio') || normalized.includes('plano')) {
+    chosenType = 'convenio'
+  }
+
+  if (!chosenType) {
+    return withRetry({
+      message: currentType
+        ? templates.rescheduleConfirmType(ctx.appointmentId ? (ctx.appointments?.find(a => a.id === ctx.appointmentId)?.label ?? '') : '', currentType)
+        : templates.rescheduleConfirmTypeUnknown(ctx.appointments?.find(a => a.id === ctx.appointmentId)?.label ?? ''),
+      nextState: 'reagendar_manter_tipo',
+      nextContext: ctx,
+    }, ctx)
+  }
+
+  const newCtx = { ...ctx, appointmentType: chosenType }
+
+  // If convênio and clinic has convênios configured, ask which
+  if (chosenType === 'convenio') {
+    const convenios = (botSettings?.convenios ?? []).filter((s: string) => s.trim() !== '')
+    if (convenios.length > 0) {
+      return {
+        message: templates.askConvenio(convenios),
+        nextState: 'reagendar_convenio',
+        nextContext: newCtx,
+      }
+    }
+  }
+
+  // particular or convenio without list → show day list
+  return showDayList({ clinicId, botSettings, ctx: newCtx, flow: 'reagendar', offset: 0 })
 }
 
 async function handleReagendarTipo(
@@ -969,13 +1066,24 @@ async function handleQualAppointment(
     }
   }
 
-  return showDayList({
-    clinicId,
-    botSettings,
-    ctx: { ...ctx, appointmentId: chosen.id, appointmentType: chosen.appointmentType ?? ctx.appointmentType },
-    flow: 'reagendar',
-    offset: 0,
-  })
+  // reagendar — ask if they want to keep the same type or change
+  const newCtx = { ...ctx, appointmentId: chosen.id, appointmentType: chosen.appointmentType ?? ctx.appointmentType, appointments }
+  const tipo = chosen.appointmentType
+
+  if (tipo) {
+    return {
+      message: templates.rescheduleConfirmType(chosen.label, tipo),
+      nextState: 'reagendar_manter_tipo',
+      nextContext: newCtx,
+    }
+  }
+
+  // unknown type — ask
+  return {
+    message: templates.rescheduleConfirmTypeUnknown(chosen.label),
+    nextState: 'reagendar_manter_tipo',
+    nextContext: { ...newCtx, appointmentType: undefined },
+  }
 }
 
 function handleReagendarDia(msg: string, ctx: BotContext): BotResponse {

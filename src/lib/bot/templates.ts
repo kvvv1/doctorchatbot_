@@ -245,14 +245,25 @@ Qual o *novo horário*?
   // Escolha de consulta (quando paciente tem mais de uma)
   // -------------------------------------------------------------------------
   whichAppointmentCancel: (appointments: AppointmentSummary[]) => {
-    const lines = appointments.map((a, i) => `${i + 1}️⃣ ${a.label}`).join('\n')
+    const typeLabel = (a: AppointmentSummary) => a.appointmentType === 'convenio' ? ' · Convênio' : a.appointmentType === 'particular' ? ' · Particular' : ''
+    const lines = appointments.map((a, i) => `${i + 1}️⃣ ${a.label}${typeLabel(a)}`).join('\n')
     return withMenuOption(`Encontrei ${appointments.length} consulta(s) agendada(s). Qual deseja *cancelar*?\n\n${lines}`, appointments.length + 1)
   },
 
   whichAppointmentReschedule: (appointments: AppointmentSummary[]) => {
-    const lines = appointments.map((a, i) => `${i + 1}️⃣ ${a.label}`).join('\n')
+    const typeLabel = (a: AppointmentSummary) => a.appointmentType === 'convenio' ? ' · Convênio' : a.appointmentType === 'particular' ? ' · Particular' : ''
+    const lines = appointments.map((a, i) => `${i + 1}️⃣ ${a.label}${typeLabel(a)}`).join('\n')
     return withMenuOption(`Encontrei ${appointments.length} consulta(s) agendada(s). Qual deseja *remarcar*?\n\n${lines}`, appointments.length + 1)
   },
+
+  rescheduleConfirmType: (label: string, tipo: string) => {
+    const tipoLabel = tipo === 'convenio' ? 'Convênio' : 'Particular'
+    const outroTipo = tipo === 'convenio' ? 'Particular' : 'Convênio'
+    return withMenuOption(`Sua consulta é:\n📅 *${label}* · ${tipoLabel}\n\nDeseja remarcar como:\n\n1️⃣ Manter ${tipoLabel}\n2️⃣ Mudar para ${outroTipo}`, 3)
+  },
+
+  rescheduleConfirmTypeUnknown: (label: string) =>
+    withMenuOption(`Sua consulta:\n📅 *${label}*\n\nQual é o tipo do atendimento?\n\n1️⃣ Particular\n2️⃣ Convênio`, 3),
 
   invalidChoice: (max: number) =>
     withMenuHint(`Por favor, escolha uma das opções disponíveis (1 a ${max}).`),
