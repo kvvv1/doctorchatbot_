@@ -19,6 +19,16 @@ export function detectIntent(text: string): Intent {
   const normalized = text.toLowerCase().trim();
 
   // Schedule intent (1)
+  // Note: check for remarcar/reagendar first to avoid matching 'marcar' inside 'remarcar'
+  if (
+    normalized.includes('remarcar') ||
+    normalized.includes('reagendar') ||
+    normalized.includes('trocar') ||
+    normalized.match(/\b(3|tres|três)\b/)
+  ) {
+    return 'reschedule';
+  }
+
   if (
     normalized.includes('agendar') ||
     normalized.includes('marcar') ||
@@ -38,16 +48,6 @@ export function detectIntent(text: string): Intent {
     normalized.match(/\b(2|dois|duas)\b/)
   ) {
     return 'view_appointments';
-  }
-
-  // Reschedule intent (3)
-  if (
-    normalized.includes('remarcar') ||
-    normalized.includes('reagendar') ||
-    normalized.includes('trocar') ||
-    normalized.match(/\b(3|tres|três)\b/)
-  ) {
-    return 'reschedule';
   }
 
   // Cancel intent (4)
