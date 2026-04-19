@@ -35,6 +35,7 @@ export type BotState =
   | 'cancelar_encaixe'
   | 'atendente'
   | 'ver_agendamentos'
+  | 'ver_agendamento_selecionado'  // patient selected one appointment from list, choosing action
   | 'confirmar_presenca'
   | 'sem_horario'
 
@@ -100,6 +101,9 @@ export type BotContext = {
 
   // List of appointments shown to the patient (when > 1 exists)
   appointments?: AppointmentSummary[]
+
+  // Index of the appointment the patient selected from the list (0-based)
+  selectedAppointmentIndex?: number
 
   // Waitlist
   waitlistId?: string

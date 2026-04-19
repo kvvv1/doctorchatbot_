@@ -226,6 +226,9 @@ export async function handleBotTurn(
     case 'ver_agendamentos':
       return handleVerAgendamentosResposta(userMessage, ctx, botSettings, clinicId)
 
+    case 'ver_agendamento_selecionado':
+      return handleVerAgendamentoSelecionado(userMessage, ctx, botSettings, clinicId)
+
     case 'confirmar_presenca':
       return handleConfirmarPresenca(userMessage, ctx)
 
@@ -1048,35 +1051,54 @@ async function handleVerAgendamentosResposta(
   const intent = detectIntent(msg)
   const num = parseInt(msg.trim(), 10)
 
-  // 1 — Remarcar
-  if (intent === 'reschedule' || num === 1) {
-    if (ctx.appointments.length > 1) {
+  // Paciente clicou num item da lista (WhatsApp envia o label do botão)
+  const msgNorm = msg.trim().toLowerCase()
+  const clickedIndex = ctx.appointments.findIndex(
+    (a) => a.label.toLowerCase() === msgNorm || msgNorm.includes(a.label.toLowerCase().slice(0, 20)),
+  )
+  if (clickedIndex !== -1) {
+    return {
+      message: templates.viewAppointmentSelected(ctx.appointments[clickedIndex]),
+      nextState: 'ver_agendamento_selecionado',
+      nextContext: { ...ctx, selectedAppointmentIndex: clickedIndex },
+    }
+  }
+
+  // Paciente tem apenas 1 consulta — opções globais agem diretamente
+  if (ctx.appointments.length === 1) {
+    // 1 — Remarcar
+    if (intent === 'reschedule' || num === 1) {
       return {
         message: templates.whichAppointmentReschedule(ctx.appointments),
         nextState: 'reagendar_qual',
         nextContext: { ...ctx, intent: 'reschedule' },
       }
     }
-    return {
-      message: templates.whichAppointmentReschedule(ctx.appointments),
-      nextState: 'reagendar_qual',
-      nextContext: { ...ctx, intent: 'reschedule' },
+    // 2 — Cancelar
+    if (intent === 'cancel' || num === 2) {
+      return {
+        message: templates.cancelConfirmSingle(ctx.appointments[0].label),
+        nextState: 'cancelar_confirmar',
+        nextContext: { ...ctx, intent: 'cancel', appointmentId: ctx.appointments[0].id },
+      }
     }
   }
 
-  // 2 — Cancelar
-  if (intent === 'cancel' || num === 2) {
-    if (ctx.appointments.length > 1) {
+  // Paciente tem 2+ consultas — 1/2/3 globais pedem qual appointment
+  if (ctx.appointments.length > 1) {
+    if (intent === 'reschedule' || num === 1) {
+      return {
+        message: templates.whichAppointmentReschedule(ctx.appointments),
+        nextState: 'reagendar_qual',
+        nextContext: { ...ctx, intent: 'reschedule' },
+      }
+    }
+    if (intent === 'cancel' || num === 2) {
       return {
         message: templates.whichAppointmentCancel(ctx.appointments),
         nextState: 'cancelar_qual',
         nextContext: { ...ctx, intent: 'cancel' },
       }
-    }
-    return {
-      message: templates.cancelConfirmSingle(ctx.appointments[0].label),
-      nextState: 'cancelar_confirmar',
-      nextContext: { ...ctx, intent: 'cancel', appointmentId: ctx.appointments[0].id },
     }
   }
 
@@ -1085,6 +1107,62 @@ async function handleVerAgendamentosResposta(
     message: buildMenuMessage(botSettings),
     nextState: 'menu',
     nextContext: baseIdentityContext(ctx),
+  }
+}
+
+// ---- Agendamento selecionado ------------------------------------------------
+
+async function handleVerAgendamentoSelecionado(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const appointments = ctx.appointments ?? []
+  const idx = ctx.selectedAppointmentIndex ?? 0
+  const selected = appointments[idx]
+
+  if (!selected) {
+    return {
+      message: buildMenuMessage(botSettings),
+      nextState: 'menu',
+      nextContext: baseIdentityContext(ctx),
+    }
+  }
+
+  const intent = detectIntent(msg)
+  const num = parseInt(msg.trim(), 10)
+
+  // 1 — Remarcar
+  if (intent === 'reschedule' || num === 1) {
+    // Coloca o appointment selecionado como alvo e inicia o fluxo de reagendamento
+    const ctxWithTarget = { ...ctx, intent: 'reschedule' as const, appointmentId: selected.id, appointments: [selected] }
+    return showDayList({ clinicId, botSettings, ctx: ctxWithTarget, flow: 'reagendar', offset: 0 })
+  }
+
+  // 2 — Cancelar
+  if (intent === 'cancel' || num === 2) {
+    return {
+      message: templates.cancelConfirmSingle(selected.label),
+      nextState: 'cancelar_confirmar',
+      nextContext: { ...ctx, intent: 'cancel', appointmentId: selected.id },
+    }
+  }
+
+  // 3 — Voltar à lista
+  if (num === 3) {
+    return {
+      message: templates.viewAppointments(appointments),
+      nextState: 'ver_agendamentos',
+      nextContext: { ...ctx, selectedAppointmentIndex: undefined },
+    }
+  }
+
+  // Não reconhecido — repete a tela
+  return {
+    message: templates.viewAppointmentSelected(selected),
+    nextState: 'ver_agendamento_selecionado',
+    nextContext: ctx,
   }
 }
 
@@ -2081,6 +2159,7 @@ function getMenuChoiceIndex(state: BotState, ctx: BotContext): number | null {
   switch (state) {
     case 'sem_horario':
     case 'ver_agendamentos':
+    case 'ver_agendamento_selecionado':
     case 'agendar_confirmar':
     case 'agendar_alterar_campo':
     case 'cancelar_confirmar':

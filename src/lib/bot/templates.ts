@@ -279,6 +279,9 @@ O que deseja fazer?
     return `Seus próximos agendamentos: 📋\n\n${lines}\n\nO que deseja fazer?\n\n1️⃣ Remarcar consulta\n2️⃣ Cancelar consulta\n3️⃣ Menu principal`
   },
 
+  viewAppointmentSelected: (appointment: AppointmentSummary) =>
+    `📅 *${appointment.label}*\n\nO que deseja fazer com esta consulta?\n\n1️⃣ Remarcar\n2️⃣ Cancelar\n3️⃣ Voltar à lista`,
+
   viewAppointmentsNotFound: `Não encontrei consultas agendadas para o seu número. 🔍
 
 O que deseja fazer?

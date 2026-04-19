@@ -89,6 +89,7 @@ const BOT_STATE_LABELS: Record<BotState, string> = {
 	cancelar_encaixe: 'Lista de espera',
 	atendente: 'Transferido p/ atendente',
 	ver_agendamentos: 'Visualizando consultas',
+	ver_agendamento_selecionado: 'Consulta selecionada',
 	confirmar_presenca: 'Confirmando presença',
 	sem_horario: 'Sem horarios disponiveis',
 }
