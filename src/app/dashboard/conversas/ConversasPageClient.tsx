@@ -102,6 +102,7 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 	const {
 		messages,
 		loading: messagesLoading,
+		refetch: refetchMessages,
 		sendMessage,
 		retryMessage,
 	} = useMessages({
@@ -119,6 +120,22 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 	})
 
 	const loading = conversationsLoading || messagesLoading
+	const activeConversationLastMessageAtRef = useRef<string | null>(null)
+
+	useEffect(() => {
+		if (!activeConversationId) {
+			activeConversationLastMessageAtRef.current = null
+			return
+		}
+
+		const latestActivityAt = activeConversation?.last_message_at ?? null
+		if (!latestActivityAt) return
+
+		if (activeConversationLastMessageAtRef.current === latestActivityAt) return
+
+		activeConversationLastMessageAtRef.current = latestActivityAt
+		void refetchMessages()
+	}, [activeConversation?.last_message_at, activeConversationId, refetchMessages])
 
 	useEffect(() => {
 		if (didHydrateWorkspaceRef.current) return

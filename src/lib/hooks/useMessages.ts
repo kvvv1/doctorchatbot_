@@ -167,6 +167,20 @@ export function useMessages({
 					nextMessages = ((await response.json()) as Message[]).map(normalizeMessage)
 				} else {
 					const supabase = createClient()
+
+					// Verify session is valid — refresh if expired
+					const {
+						data: { session },
+						error: sessionError,
+					} = await supabase.auth.getSession()
+
+					if (!session || sessionError) {
+						const { error: refreshError } = await supabase.auth.refreshSession()
+						if (refreshError) {
+							throw new Error('Sessao expirada. Por favor, faca login novamente.')
+						}
+					}
+
 					const { data, error: fetchError } = await supabase
 						.from('messages')
 						.select('*')
