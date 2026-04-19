@@ -1049,11 +1049,16 @@ async function handleVerAgendamentosResposta(
     }
   }
 
-  const intent = detectIntent(msg)
   const num = parseInt(msg.trim(), 10)
+  const msgNorm = msg.trim().toLowerCase()
+
+  // Helper local — palavras-chave diretas, sem conflito com numeração do menu principal
+  const wantsConfirm = num === 1 || msgNorm.includes('confirmar')
+  const wantsReschedule = num === 2 || msgNorm.includes('remarcar') || msgNorm.includes('reagendar')
+  const wantsCancel = num === 3 || msgNorm.includes('cancelar') || msgNorm.includes('desmarcar')
+  const wantsMenu = num === 4 || msgNorm.includes('menu') || msgNorm.includes('voltar')
 
   // Paciente clicou num item da lista (WhatsApp envia o label do botão)
-  const msgNorm = msg.trim().toLowerCase()
   const clickedIndex = ctx.appointments.findIndex(
     (a) => a.label.toLowerCase() === msgNorm || msgNorm.includes(a.label.toLowerCase().slice(0, 20)),
   )
@@ -1070,7 +1075,7 @@ async function handleVerAgendamentosResposta(
     const selected = ctx.appointments[0]
 
     // 1 — Confirmar presença
-    if (intent === 'confirm_attendance' || num === 1) {
+    if (wantsConfirm) {
       if (!clinicId) {
         return {
           message: 'Não consegui identificar a clínica para confirmar presença. Pode tentar novamente?',
@@ -1097,15 +1102,16 @@ async function handleVerAgendamentosResposta(
     }
 
     // 2 — Remarcar
-    if (intent === 'reschedule' || num === 2) {
+    if (wantsReschedule) {
       return {
         message: templates.whichAppointmentReschedule(ctx.appointments),
         nextState: 'reagendar_qual',
         nextContext: { ...ctx, intent: 'reschedule' },
       }
     }
+
     // 3 — Cancelar
-    if (intent === 'cancel' || num === 3) {
+    if (wantsCancel) {
       return {
         message: templates.cancelConfirmSingle(selected.label),
         nextState: 'cancelar_confirmar',
@@ -1114,7 +1120,7 @@ async function handleVerAgendamentosResposta(
     }
 
     // 4 — Menu
-    if (num === 4) {
+    if (wantsMenu) {
       return {
         message: buildMenuMessage(botSettings),
         nextState: 'menu',
@@ -1125,21 +1131,21 @@ async function handleVerAgendamentosResposta(
 
   // Paciente tem 2+ consultas — confirmar exige selecionar item da lista
   if (ctx.appointments.length > 1) {
-    if (intent === 'confirm_attendance' || num === 1) {
+    if (wantsConfirm) {
       return {
         message: 'Para confirmar presença, selecione primeiro a consulta na lista acima.',
         nextState: 'ver_agendamentos',
         nextContext: ctx,
       }
     }
-    if (intent === 'reschedule' || num === 2) {
+    if (wantsReschedule) {
       return {
         message: templates.whichAppointmentReschedule(ctx.appointments),
         nextState: 'reagendar_qual',
         nextContext: { ...ctx, intent: 'reschedule' },
       }
     }
-    if (intent === 'cancel' || num === 3) {
+    if (wantsCancel) {
       return {
         message: templates.whichAppointmentCancel(ctx.appointments),
         nextState: 'cancelar_qual',
@@ -1147,7 +1153,7 @@ async function handleVerAgendamentosResposta(
       }
     }
 
-    if (num === 4) {
+    if (wantsMenu) {
       return {
         message: buildMenuMessage(botSettings),
         nextState: 'menu',
@@ -1156,11 +1162,11 @@ async function handleVerAgendamentosResposta(
     }
   }
 
-  // Entrada não reconhecida
+  // Entrada não reconhecida — redisplay
   return {
-    message: buildMenuMessage(botSettings),
-    nextState: 'menu',
-    nextContext: baseIdentityContext(ctx),
+    message: templates.viewAppointments(ctx.appointments),
+    nextState: 'ver_agendamentos',
+    nextContext: ctx,
   }
 }
 
@@ -1184,12 +1190,17 @@ async function handleVerAgendamentoSelecionado(
     }
   }
 
-  const intent = detectIntent(msg)
-  const num = parseInt(msg.trim(), 10)
-  const answer = detectYesNo(msg)
+  const numSel = parseInt(msg.trim(), 10)
+  const msgNormSel = msg.trim().toLowerCase()
+
+  // Detecção local — não usa detectIntent para evitar conflito com numeração do menu principal
+  const selWantsConfirm = numSel === 1 || msgNormSel.includes('confirmar') || msgNormSel.includes('confirmo')
+  const selWantsReschedule = numSel === 2 || msgNormSel.includes('remarcar') || msgNormSel.includes('reagendar')
+  const selWantsCancel = numSel === 3 || msgNormSel.includes('cancelar') || msgNormSel.includes('desmarcar')
+  const selWantsBack = numSel === 4 || msgNormSel.includes('voltar') || msgNormSel.includes('lista')
 
   // 1 — Confirmar presença
-  if (intent === 'confirm_attendance' || num === 1 || answer === 'yes') {
+  if (selWantsConfirm) {
     if (!clinicId) {
       return {
         message: 'Não consegui identificar a clínica para confirmar presença. Pode tentar novamente?',
@@ -1216,14 +1227,13 @@ async function handleVerAgendamentoSelecionado(
   }
 
   // 2 — Remarcar
-  if (intent === 'reschedule' || num === 2) {
-    // Coloca o appointment selecionado como alvo e inicia o fluxo de reagendamento
+  if (selWantsReschedule) {
     const ctxWithTarget = { ...ctx, intent: 'reschedule' as const, appointmentId: selected.id, appointments: [selected] }
     return showDayList({ clinicId, botSettings, ctx: ctxWithTarget, flow: 'reagendar', offset: 0 })
   }
 
   // 3 — Cancelar
-  if (intent === 'cancel' || num === 3 || answer === 'no') {
+  if (selWantsCancel) {
     return {
       message: templates.cancelConfirmSingle(selected.label),
       nextState: 'cancelar_confirmar',
@@ -1232,7 +1242,7 @@ async function handleVerAgendamentoSelecionado(
   }
 
   // 4 — Voltar à lista
-  if (num === 4) {
+  if (selWantsBack) {
     return {
       message: templates.viewAppointments(appointments),
       nextState: 'ver_agendamentos',
