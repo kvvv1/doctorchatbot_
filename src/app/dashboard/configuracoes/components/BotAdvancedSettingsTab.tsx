@@ -23,7 +23,10 @@ function buildPreviewMenuMessage(settings: BotSettings): string {
 	const options = settings.menu_options ?? {
 		schedule: true, view_appointments: true, reschedule: true, cancel: true, attendant: true, waitlist: false,
 	}
-	const order: string[] = settings.menu_order ?? DEFAULT_MENU_ORDER
+	// Merge stored order with any new keys not yet in the DB (e.g. 'waitlist' added later)
+	const storedOrder: string[] = settings.menu_order ?? DEFAULT_MENU_ORDER
+	const missingKeys = DEFAULT_MENU_ORDER.filter((k) => !storedOrder.includes(k))
+	const order: string[] = [...storedOrder, ...missingKeys]
 	const lines: string[] = []
 	for (const key of order) {
 		if (options[key as keyof typeof options] && MENU_OPTION_LABELS[key]) {

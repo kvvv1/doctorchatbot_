@@ -175,7 +175,13 @@ export default function BotMenuOptionsEditor({ settings, onChange }: BotMenuOpti
 	const [isOpen, setIsOpen] = useState(false)
 
 	const menuOptions = settings.menu_options ?? DEFAULT_OPTIONS
-	const menuOrder: MenuKey[] = (settings.menu_order as MenuKey[] | undefined) ?? DEFAULT_ORDER
+
+	// Merge stored order with any new keys added to MENU_OPTIONS_MAP that the clinic
+	// doesn't have yet in their saved menu_order (e.g. 'waitlist' added later).
+	const storedOrder: MenuKey[] = (settings.menu_order as MenuKey[] | undefined) ?? DEFAULT_ORDER
+	const allKnownKeys = Object.keys(MENU_OPTIONS_MAP) as MenuKey[]
+	const missingKeys = allKnownKeys.filter((k) => !storedOrder.includes(k))
+	const menuOrder: MenuKey[] = [...storedOrder, ...missingKeys]
 
 	// Build ordered list of option objects
 	const orderedOptions: MenuOption[] = menuOrder

@@ -1451,9 +1451,11 @@ export function buildMenuMessage(botSettings?: BotSettings | null): string {
     waitlist: false,
   }
 
-  // Default order if menu_order is not set
+  // Default order if menu_order is not set; also append any new keys missing from stored order
   const DEFAULT_ORDER = ['schedule', 'view_appointments', 'reschedule', 'cancel', 'attendant', 'waitlist']
-  const menuOrder: string[] = botSettings?.menu_order ?? DEFAULT_ORDER
+  const storedOrder: string[] = botSettings?.menu_order ?? DEFAULT_ORDER
+  const missingKeys = DEFAULT_ORDER.filter((k) => !storedOrder.includes(k))
+  const menuOrder: string[] = [...storedOrder, ...missingKeys]
 
   const OPTION_LABELS: Record<string, string> = {
     schedule: 'Agendar consulta',
