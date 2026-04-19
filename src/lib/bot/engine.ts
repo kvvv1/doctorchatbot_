@@ -1037,7 +1037,7 @@ async function handleVerAgendamentosResposta(
 
   // -----------------------------------------------------------------------
   // Subsequent entries: appointments já estão no contexto.
-  // O paciente está respondendo às opções: 1 Remarcar / 2 Cancelar / 3 Menu
+  // O paciente está respondendo às opções: 1 Confirmar / 2 Remarcar / 3 Cancelar / 4 Menu
   // -----------------------------------------------------------------------
 
   // Empty appointments edge case
@@ -1067,43 +1067,96 @@ async function handleVerAgendamentosResposta(
 
   // Paciente tem apenas 1 consulta — opções globais agem diretamente
   if (ctx.appointments.length === 1) {
-    // 1 — Remarcar
-    if (intent === 'reschedule' || num === 1) {
+    const selected = ctx.appointments[0]
+
+    // 1 — Confirmar presença
+    if (intent === 'confirm_attendance' || num === 1) {
+      if (!clinicId) {
+        return {
+          message: 'Não consegui identificar a clínica para confirmar presença. Pode tentar novamente?',
+          nextState: 'ver_agendamentos',
+          nextContext: ctx,
+        }
+      }
+
+      const confirmation = await confirmAppointmentAttendance(clinicId, selected.id)
+      if (!confirmation.success) {
+        return {
+          message: confirmation.message,
+          nextState: 'ver_agendamentos',
+          nextContext: ctx,
+        }
+      }
+
+      return {
+        message: confirmation.message,
+        nextState: 'menu',
+        nextContext: baseIdentityContext(ctx),
+        conversationStatus: 'scheduled',
+      }
+    }
+
+    // 2 — Remarcar
+    if (intent === 'reschedule' || num === 2) {
       return {
         message: templates.whichAppointmentReschedule(ctx.appointments),
         nextState: 'reagendar_qual',
         nextContext: { ...ctx, intent: 'reschedule' },
       }
     }
-    // 2 — Cancelar
-    if (intent === 'cancel' || num === 2) {
+    // 3 — Cancelar
+    if (intent === 'cancel' || num === 3) {
       return {
-        message: templates.cancelConfirmSingle(ctx.appointments[0].label),
+        message: templates.cancelConfirmSingle(selected.label),
         nextState: 'cancelar_confirmar',
-        nextContext: { ...ctx, intent: 'cancel', appointmentId: ctx.appointments[0].id },
+        nextContext: { ...ctx, intent: 'cancel', appointmentId: selected.id },
+      }
+    }
+
+    // 4 — Menu
+    if (num === 4) {
+      return {
+        message: buildMenuMessage(botSettings),
+        nextState: 'menu',
+        nextContext: baseIdentityContext(ctx),
       }
     }
   }
 
-  // Paciente tem 2+ consultas — 1/2/3 globais pedem qual appointment
+  // Paciente tem 2+ consultas — confirmar exige selecionar item da lista
   if (ctx.appointments.length > 1) {
-    if (intent === 'reschedule' || num === 1) {
+    if (intent === 'confirm_attendance' || num === 1) {
+      return {
+        message: 'Para confirmar presença, selecione primeiro a consulta na lista acima.',
+        nextState: 'ver_agendamentos',
+        nextContext: ctx,
+      }
+    }
+    if (intent === 'reschedule' || num === 2) {
       return {
         message: templates.whichAppointmentReschedule(ctx.appointments),
         nextState: 'reagendar_qual',
         nextContext: { ...ctx, intent: 'reschedule' },
       }
     }
-    if (intent === 'cancel' || num === 2) {
+    if (intent === 'cancel' || num === 3) {
       return {
         message: templates.whichAppointmentCancel(ctx.appointments),
         nextState: 'cancelar_qual',
         nextContext: { ...ctx, intent: 'cancel' },
       }
     }
+
+    if (num === 4) {
+      return {
+        message: buildMenuMessage(botSettings),
+        nextState: 'menu',
+        nextContext: baseIdentityContext(ctx),
+      }
+    }
   }
 
-  // 3 — Menu principal (ou qualquer outra entrada não reconhecida)
+  // Entrada não reconhecida
   return {
     message: buildMenuMessage(botSettings),
     nextState: 'menu',
@@ -2206,11 +2259,13 @@ function matchesChoiceSelection(message: string, choiceNumber: number): boolean 
 
 function getMenuChoiceIndex(state: BotState, ctx: BotContext): number | null {
   switch (state) {
+    case 'ver_agendamentos':
+      return 4
+
     case 'ver_agendamento_selecionado':
       return 4
 
     case 'sem_horario':
-    case 'ver_agendamentos':
     case 'agendar_confirmar':
     case 'agendar_alterar_campo':
     case 'cancelar_confirmar':
