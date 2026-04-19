@@ -76,6 +76,8 @@ const BOT_STATE_LABELS: Record<BotState, string> = {
 	agendar_alterar_campo: 'Escolhendo o que alterar',
 	agendar_alterar_paciente: 'Alterando paciente',
 	reagendar_qual: 'Selecionando consulta',
+	reagendar_manter_tipo: 'Confirmando tipo de atendimento',
+	reagendar_convenio: 'Selecionando convênio (remarcar)',
 	reagendar_tipo: 'Tipo de atendimento',
 	reagendar_dia: 'Remarcando — data',
 	reagendar_hora: 'Remarcando — horário',
