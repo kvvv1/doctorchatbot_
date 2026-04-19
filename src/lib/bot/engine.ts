@@ -224,7 +224,7 @@ export async function handleBotTurn(
       }
 
     case 'ver_agendamentos':
-      return handleVerAgendamentosResposta(userMessage, ctx)
+      return handleVerAgendamentosResposta(userMessage, ctx, botSettings, clinicId)
 
     case 'confirmar_presenca':
       return handleConfirmarPresenca(userMessage, ctx)
@@ -295,8 +295,10 @@ async function handleMenu(
         transferToHuman: true,
       }
 
-    case 'view_appointments':
-      // If appointments were pre-loaded by the webhook, show list immediately (no extra round-trip)
+    case 'view_appointments': {
+      // Always resolve appointments here so ver_agendamentos only handles responses.
+
+      // Pre-loaded and non-empty: show list directly
       if (ctx.appointments && ctx.appointments.length > 0) {
         return {
           message: templates.viewAppointments(ctx.appointments),
@@ -304,25 +306,30 @@ async function handleMenu(
           nextContext: { ...ctx, intent: 'view_appointments' },
         }
       }
-      if (ctx.appointments && ctx.appointments.length === 0) {
-        if (await shouldAskCpfForAppointmentLookup(ctx, clinicId)) {
-          return askForAppointmentCpf(ctx, 'view_appointments')
-        }
-        return {
-          message: templates.viewAppointmentsNotFound,
-          nextState: 'menu',
-          nextContext: baseIdentityContext(ctx),
-        }
-      }
-      // Fallback: no pre-load (shouldn't happen with new route logic)
+
+      // Pre-loaded empty, or no pre-load at all: check GestãoDS first
       if (await shouldAskCpfForAppointmentLookup(ctx, clinicId)) {
         return askForAppointmentCpf(ctx, 'view_appointments')
       }
+
+      // Sem GestãoDS: buscar por telefone agora
+      if (clinicId) {
+        const appointments = await getPatientAppointments(clinicId, ctx.patientPhone || '', ctx.patientCpf)
+        if (appointments.length > 0) {
+          return {
+            message: templates.viewAppointments(appointments),
+            nextState: 'ver_agendamentos',
+            nextContext: { ...ctx, intent: 'view_appointments', appointments },
+          }
+        }
+      }
+
       return {
         message: templates.viewAppointmentsNotFound,
         nextState: 'menu',
         nextContext: baseIdentityContext(ctx),
       }
+    }
 
     case 'confirm_attendance':
       return { message: templates.confirmAttendanceAsk, nextState: 'confirmar_presenca', nextContext: { ...ctx, intent: 'confirm_attendance' } }
@@ -983,26 +990,65 @@ async function handleCancelarEncaixe(
 
 async function handleVerAgendamentosResposta(
   msg: string,
-  ctx: BotContext
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
 ): Promise<BotResponse> {
-  // This state is entered right after "ver agendamentos" intent is detected.
-  // The FIRST call here should fetch and display appointments.
-  // Subsequent calls handle the patient's choice (remarcar / cancelar / menu).
-  //
-  // We detect this by checking if appointments are already in context.
+  // -----------------------------------------------------------------------
+  // First entry: ctx.appointments is not set yet — fetch now.
+  // This covers the fallback case where the webhook pre-load didn't run.
+  // -----------------------------------------------------------------------
   if (!ctx.appointments) {
-    // First entry — appointments haven't been fetched yet (fetched in the engine
-    // right before this state is reached, but we handle it here for safety).
+    if (!clinicId) {
+      return {
+        message: templates.viewAppointmentsNotFound,
+        nextState: 'menu',
+        nextContext: baseIdentityContext(ctx),
+      }
+    }
+
+    // Fluxo 2 (GestãoDS): pede CPF se ainda não temos
+    if (await shouldAskCpfForAppointmentLookup(ctx, clinicId)) {
+      return askForAppointmentCpf(ctx, 'view_appointments')
+    }
+
+    // Fluxo 1 (sem GestãoDS ou CPF já conhecido): busca por telefone / CPF
+    const appointments = await getPatientAppointments(clinicId, ctx.patientPhone || '', ctx.patientCpf)
+    const nextCtx = { ...ctx, appointments }
+
+    if (appointments.length === 0) {
+      return {
+        message: templates.viewAppointmentsNotFound,
+        nextState: 'menu',
+        nextContext: baseIdentityContext(nextCtx),
+      }
+    }
+
+    return {
+      message: templates.viewAppointments(appointments),
+      nextState: 'ver_agendamentos',
+      nextContext: { ...nextCtx, intent: 'view_appointments' },
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Subsequent entries: appointments já estão no contexto.
+  // O paciente está respondendo às opções: 1 Remarcar / 2 Cancelar / 3 Menu
+  // -----------------------------------------------------------------------
+
+  // Empty appointments edge case
+  if (ctx.appointments.length === 0) {
     return {
       message: templates.viewAppointmentsNotFound,
       nextState: 'menu',
-      nextContext: {},
+      nextContext: baseIdentityContext(ctx),
     }
   }
 
   const intent = detectIntent(msg)
   const num = parseInt(msg.trim(), 10)
 
+  // 1 — Remarcar
   if (intent === 'reschedule' || num === 1) {
     if (ctx.appointments.length > 1) {
       return {
@@ -1011,7 +1057,6 @@ async function handleVerAgendamentosResposta(
         nextContext: { ...ctx, intent: 'reschedule' },
       }
     }
-
     return {
       message: templates.whichAppointmentReschedule(ctx.appointments),
       nextState: 'reagendar_qual',
@@ -1019,6 +1064,7 @@ async function handleVerAgendamentosResposta(
     }
   }
 
+  // 2 — Cancelar
   if (intent === 'cancel' || num === 2) {
     if (ctx.appointments.length > 1) {
       return {
@@ -1027,7 +1073,6 @@ async function handleVerAgendamentosResposta(
         nextContext: { ...ctx, intent: 'cancel' },
       }
     }
-
     return {
       message: templates.cancelConfirmSingle(ctx.appointments[0].label),
       nextState: 'cancelar_confirmar',
@@ -1035,7 +1080,12 @@ async function handleVerAgendamentosResposta(
     }
   }
 
-  return { message: templates.menu, nextState: 'menu', nextContext: {} }
+  // 3 — Menu principal (ou qualquer outra entrada não reconhecida)
+  return {
+    message: buildMenuMessage(botSettings),
+    nextState: 'menu',
+    nextContext: baseIdentityContext(ctx),
+  }
 }
 
 // ---- Confirmar presença ----------------------------------------------------
