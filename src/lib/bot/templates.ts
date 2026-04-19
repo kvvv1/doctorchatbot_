@@ -276,7 +276,11 @@ O que deseja fazer?
       .map((a, i) => `${i + 1}. 📅 ${a.label} — ${statusLabel(a.status)}`)
       .join('\n')
 
-    return `Seus próximos agendamentos: 📋\n\n${lines}\n\nO que deseja fazer?\n\n1️⃣ Remarcar consulta\n2️⃣ Cancelar consulta\n3️⃣ Menu principal`
+    const footer = appointments.length > 1
+      ? `Toque em uma consulta para confirmar presença, remarcar ou cancelar.\n\nOu escolha uma ação para todas:\n\n2️⃣ Remarcar consulta\n3️⃣ Cancelar consulta\n4️⃣ Menu principal`
+      : `O que deseja fazer?\n\n1️⃣ Confirmar presença\n2️⃣ Remarcar consulta\n3️⃣ Cancelar consulta\n4️⃣ Menu principal`
+
+    return `Seus próximos agendamentos: 📋\n\n${lines}\n\n${footer}`
   },
 
   viewAppointmentSelected: (appointment: AppointmentSummary) =>
