@@ -259,7 +259,7 @@ Qual o *novo horário*?
   rescheduleConfirmType: (label: string, tipo: string) => {
     if (tipo === 'particular') {
       // Particular cannot change to convenio — just confirm
-      return withMenuOption(`Sua consulta é:\n📅 *${label}* · Particular\n\nDeseja remarcar este horário?\n\n1️⃣ Sim, remarcar\n2️⃣ Voltar ao menu`, 3)
+      return withMenuOption(`Sua consulta é:\n📅 *${label}* · Particular\n\nDeseja remarcar este horário?\n\n1️⃣ Sim, remarcar`, 2)
     }
     // Convenio can change to particular
     return withMenuOption(`Sua consulta é:\n📅 *${label}* · Convênio\n\nDeseja remarcar como:\n\n1️⃣ Manter Convênio\n2️⃣ Mudar para Particular`, 3)
