@@ -117,6 +117,7 @@ export default function BotAdvancedSettingsTab({
 						takeover_message_enabled: settings.takeover_message_enabled,
 						menu_options: settings.menu_options,
 						menu_order: settings.menu_order,
+						waitlist_notifications_enabled: settings.waitlist_notifications_enabled ?? true,
 						particular_days: settings.particular_days ?? [],
 						convenios: (settings.convenios ?? []).filter(s => s.trim() !== ''),
 						convenio_solicita_carteirinha: settings.convenio_solicita_carteirinha ?? false,							convenios_solicita_carteirinha: settings.convenios_solicita_carteirinha ?? [],					},
@@ -124,7 +125,9 @@ export default function BotAdvancedSettingsTab({
 			})
 
 			if (!response.ok) {
-				throw new Error('Failed to save settings')
+				const errData = await response.json().catch(() => ({}))
+				const detail = errData?.detail || errData?.error || 'Erro desconhecido'
+				throw new Error(detail)
 			}
 
 			const data = await response.json()
@@ -132,7 +135,7 @@ export default function BotAdvancedSettingsTab({
 			showToast('Configurações salvas com sucesso!', 'success')
 		} catch (error) {
 			console.error('Error saving bot settings:', error)
-			showToast('Erro ao salvar configurações. Tente novamente.', 'error')
+			showToast(`Erro: ${error instanceof Error ? error.message : 'Tente novamente.'}`, 'error')
 		} finally {
 			setIsSaving(false)
 		}

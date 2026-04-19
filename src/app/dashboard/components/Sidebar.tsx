@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { MessageSquare, Calendar, Settings, LayoutDashboard, X } from 'lucide-react'
+import { MessageSquare, Calendar, Settings, LayoutDashboard, X, ClipboardList } from 'lucide-react'
 import BrandMark from '@/components/BrandMark'
 import Tooltip from './Tooltip'
 
@@ -27,6 +27,11 @@ const menuItems = [
 		name: 'Agenda',
 		href: '/dashboard/agenda',
 		icon: Calendar,
+	},
+	{
+		name: 'Lista de Espera',
+		href: '/dashboard/lista-de-espera',
+		icon: ClipboardList,
 	},
 	{
 		name: 'Configurações',
@@ -78,7 +83,9 @@ export default function Sidebar({ isMobileOpen, isCollapsed, onClose }: SidebarP
 					<nav className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden transition-all duration-300 ${isCollapsed ? 'p-2' : 'p-4'}`}>
 						{menuItems.map((item) => {
 							const Icon = item.icon
-							const isActive = pathname === item.href
+							const isActive = item.href === '/dashboard'
+								? pathname === item.href
+								: pathname.startsWith(item.href)
 							const linkContent = (
 								<Link
 									key={item.href}

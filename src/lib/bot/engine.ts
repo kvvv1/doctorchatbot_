@@ -984,7 +984,7 @@ async function handleCancelarEncaixe(
   if (ctx.appointmentId && clinicId) {
     const cancelResult = await cancelAppointment(clinicId, ctx.appointmentId, botSettings?.message_confirm_cancel)
     // Non-blocking: notify first matching waitlist patient about the freed slot
-    if (cancelResult.success) {
+    if (cancelResult.success && (botSettings?.waitlist_notifications_enabled ?? true)) {
       notifyWaitlistOnSlotFree(clinicId, cancelResult.startsAt).catch((err) =>
         console.error('[bot] waitlist notify after cancel failed:', err)
       )

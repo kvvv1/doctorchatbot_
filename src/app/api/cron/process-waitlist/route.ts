@@ -61,6 +61,9 @@ export async function GET(request: NextRequest) {
         const botSettings = await getBotSettings(clinicId)
         if (!botSettings) continue
 
+        // Skip this clinic if the admin has disabled waitlist notifications
+        if (botSettings.waitlist_notifications_enabled === false) continue
+
         // Fetch all available slots for the next days
         const allSlots = await getAvailableSlots(clinicId, new Date(), botSettings, 1)
         if (allSlots.length === 0) continue

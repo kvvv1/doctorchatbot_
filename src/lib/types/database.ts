@@ -184,6 +184,8 @@ export interface BotSettings {
 	/** Ordered array of menu option keys. Controls display order in the bot menu.
 	 *  When undefined/null the engine falls back to the default hardcoded order. */
 	menu_order?: string[]
+	/** When false, the bot will NOT automatically notify waitlist patients when a slot is freed. */
+	waitlist_notifications_enabled?: boolean
 	/** Weekday keys reserved for Particular appointments (e.g. ["mon","wed"]).
 	 *  Convênio patients will not see these days in the available date list. */
 	particular_days?: string[]

@@ -34,7 +34,9 @@ export async function PUT(request: NextRequest) {
     // menu_order requires migration 028; particular_days requires migration 029; convenios requires migration 030.
     // message_takeover and takeover_message_enabled require migration 033.
     // convenio_solicita_carteirinha requires migration 034.
-    const { menu_order, particular_days, convenios, message_takeover, takeover_message_enabled, convenio_solicita_carteirinha, convenios_solicita_carteirinha, ...settingsWithoutNewCols } = settings ?? {}
+    // Strip columns added in migrations 026+ so the fallback can still save core settings
+    // when those migrations haven't been applied yet.
+    const { menu_options, menu_order, particular_days, convenios, message_takeover, takeover_message_enabled, convenio_solicita_carteirinha, convenios_solicita_carteirinha, waitlist_notifications_enabled, ...settingsWithoutNewCols } = settings ?? {}
     let settingsPayload = { ...settings, updated_at: now }
 
     const { data: updatedSettings, error: settingsError } = await supabase
@@ -52,8 +54,10 @@ export async function PUT(request: NextRequest) {
         settingsError.message?.includes('convenios') ||
         settingsError.message?.includes('message_takeover') ||
         settingsError.message?.includes('takeover_message_enabled') ||
+        settingsError.message?.includes('menu_options') ||
         settingsError.message?.includes('convenio_solicita_carteirinha') ||
         settingsError.message?.includes('convenios_solicita_carteirinha') ||
+        settingsError.message?.includes('waitlist_notifications_enabled') ||
         settingsError.code === '42703'
       ) {
         console.warn('[BotConfig] New column missing — retrying without new columns')
@@ -65,12 +69,12 @@ export async function PUT(request: NextRequest) {
           .single()
         if (fallbackError || !fallbackData) {
           console.error('[BotConfig] Failed to update bot_settings (fallback):', fallbackError)
-          return NextResponse.json({ error: 'Falha ao salvar configurações do bot' }, { status: 500 })
+          return NextResponse.json({ error: 'Falha ao salvar configurações do bot', detail: fallbackError?.message, code: fallbackError?.code }, { status: 500 })
         }
         settingsPayload = fallbackData
       } else {
         console.error('[BotConfig] Failed to update bot_settings:', settingsError)
-        return NextResponse.json({ error: 'Falha ao salvar configurações do bot' }, { status: 500 })
+        return NextResponse.json({ error: 'Falha ao salvar configurações do bot', detail: settingsError?.message, code: settingsError?.code }, { status: 500 })
       }
     }
 

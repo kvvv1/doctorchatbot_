@@ -22,7 +22,14 @@ export async function PUT(request: NextRequest) {
 			return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 		}
 
-		const updatedSettings = await updateBotSettings(clinicId, settings)
+		let updatedSettings = await updateBotSettings(clinicId, settings)
+
+		// Fallback: if the update failed, retry without columns added in newer migrations.
+		// menu_options/menu_order require migration 026/028; waitlist_notifications_enabled requires 038.
+		if (!updatedSettings) {
+			const { menu_options, menu_order, waitlist_notifications_enabled, ...settingsWithoutNewCols } = settings ?? {}
+			updatedSettings = await updateBotSettings(clinicId, settingsWithoutNewCols)
+		}
 
 		if (!updatedSettings) {
 			return NextResponse.json(

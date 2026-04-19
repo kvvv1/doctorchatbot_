@@ -52,6 +52,7 @@ export default function BotConfigPageClient({
 						message_confirm_cancel: settings.message_confirm_cancel,
 						menu_options: settings.menu_options,
 						menu_order: settings.menu_order,
+						waitlist_notifications_enabled: settings.waitlist_notifications_enabled ?? true,
 					},
 				}),
 			})

@@ -276,6 +276,45 @@ export default function BotMenuOptionsEditor({ settings, onChange }: BotMenuOpti
 							<strong>💡 Dica:</strong> A numeração no WhatsApp reflete a ordem e somente as opções ativadas.
 						</p>
 					</div>
+
+					{/* Waitlist notifications toggle — shown only when waitlist option is enabled */}
+					{!!menuOptions.waitlist && (
+						<div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+							<div className="flex items-start justify-between gap-3">
+								<div className="flex-1">
+									<p className="text-sm font-medium text-amber-900">
+										🔔 Notificações automáticas de encaixe
+									</p>
+									<p className="text-xs text-amber-700 mt-1">
+										Quando ativado, o bot notifica automaticamente o próximo paciente da lista de espera ao surgir um horário livre (cancelamento ou confirmação de presença).
+									</p>
+								</div>
+								<button
+									type="button"
+									onClick={() =>
+										onChange({
+											...settings,
+											waitlist_notifications_enabled:
+												!(settings.waitlist_notifications_enabled ?? true),
+										})
+									}
+									className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 mt-0.5 ${
+										(settings.waitlist_notifications_enabled ?? true)
+											? 'bg-amber-500'
+											: 'bg-slate-300'
+									}`}
+								>
+									<span
+										className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+											(settings.waitlist_notifications_enabled ?? true)
+												? 'translate-x-[18px]'
+												: 'translate-x-[3px]'
+										}`}
+									/>
+								</button>
+							</div>
+						</div>
+					)}
 				</div>
 			)}
 		</div>
