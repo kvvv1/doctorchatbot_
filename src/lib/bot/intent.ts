@@ -31,6 +31,7 @@ export function detectIntent(text: string): Intent {
     normalized.includes('ver consulta') ||
     normalized.includes('minha consulta') ||
     normalized.includes('meu agendamento') ||
+    normalized.includes('meus agendamento') ||
     normalized.includes('ver agendamento') ||
     normalized.includes('minhas consultas') ||
     normalized.match(/\b(2|dois|duas)\b/)
