@@ -422,14 +422,24 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 		if (!activeConversationId) return
 
 		const supabase = createClient()
+
+		// When concluding, re-enable the bot so the next patient message is handled automatically
+		const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() }
+		if (status === 'done') {
+			patch.bot_enabled = true
+			patch.bot_state = 'menu'
+			patch.bot_context = {}
+		}
+
 		updateConversation(activeConversationId, {
 			status,
+			...(status === 'done' ? { bot_enabled: true, bot_state: 'menu', bot_context: {} } : {}),
 			updated_at: new Date().toISOString(),
 		})
 
 		supabase
 			.from('conversations')
-			.update({ status, updated_at: new Date().toISOString() })
+			.update(patch)
 			.eq('id', activeConversationId)
 			.then((res: { error: unknown }) => {
 				if (res.error) console.error('Error updating status:', res.error)
