@@ -10,8 +10,9 @@ export const dynamic = 'force-dynamic'
  */
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   const session = await getSessionProfile()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -20,7 +21,7 @@ export async function DELETE(
   const { error } = await supabase
     .from('conversations')
     .update({ status: 'open', updated_at: new Date().toISOString() })
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('clinic_id', session.clinic.id)
 
   if (error) {
