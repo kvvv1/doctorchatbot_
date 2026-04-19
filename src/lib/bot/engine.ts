@@ -682,28 +682,40 @@ async function handleReagendarManterTipo(
 ): Promise<BotResponse> {
   const normalized = msg.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
 
-  // Current type (from selected appointment)
   const currentType = ctx.appointmentType as 'particular' | 'convenio' | undefined
-  const outroTipo: 'particular' | 'convenio' = currentType === 'convenio' ? 'particular' : 'convenio'
 
   let chosenType: 'particular' | 'convenio' | null = null
 
-  if (normalized === '1' || normalized.includes('manter') || normalized.includes('mesmo') || normalized.includes(currentType ?? '')) {
-    // Keep current type
-    chosenType = currentType ?? null
-  } else if (normalized === '2' || normalized.includes('mudar') || normalized.includes('trocar') || normalized.includes(outroTipo)) {
-    chosenType = outroTipo
-  } else if (normalized.includes('particular')) {
-    chosenType = 'particular'
-  } else if (normalized.includes('convenio') || normalized.includes('convênio') || normalized.includes('plano')) {
-    chosenType = 'convenio'
+  if (currentType) {
+    // Known type: 1 = keep current, 2 = change to other
+    const otherType: 'particular' | 'convenio' = currentType === 'convenio' ? 'particular' : 'convenio'
+    const otherLabel = otherType === 'convenio' ? 'convenio' : 'particular'
+    const currentLabel = currentType === 'convenio' ? 'convenio' : 'particular'
+
+    if (normalized === '1' || normalized.includes('manter') || normalized.includes('mesmo') || normalized === currentLabel) {
+      chosenType = currentType
+    } else if (normalized === '2' || normalized.includes('mudar') || normalized.includes('trocar') || normalized === otherLabel) {
+      chosenType = otherType
+    } else if (normalized.includes('particular')) {
+      chosenType = 'particular'
+    } else if (normalized.includes('convenio') || normalized.includes('plano')) {
+      chosenType = 'convenio'
+    }
+  } else {
+    // Unknown type: 1 = Particular, 2 = Convênio
+    if (normalized === '1' || normalized.includes('particular')) {
+      chosenType = 'particular'
+    } else if (normalized === '2' || normalized.includes('convenio') || normalized.includes('plano')) {
+      chosenType = 'convenio'
+    }
   }
 
   if (!chosenType) {
+    const apptLabel = ctx.appointments?.find(a => a.id === ctx.appointmentId)?.label ?? ''
     return withRetry({
       message: currentType
-        ? templates.rescheduleConfirmType(ctx.appointmentId ? (ctx.appointments?.find(a => a.id === ctx.appointmentId)?.label ?? '') : '', currentType)
-        : templates.rescheduleConfirmTypeUnknown(ctx.appointments?.find(a => a.id === ctx.appointmentId)?.label ?? ''),
+        ? templates.rescheduleConfirmType(apptLabel, currentType)
+        : templates.rescheduleConfirmTypeUnknown(apptLabel),
       nextState: 'reagendar_manter_tipo',
       nextContext: ctx,
     }, ctx)
@@ -723,7 +735,6 @@ async function handleReagendarManterTipo(
     }
   }
 
-  // particular or convenio without list → show day list
   return showDayList({ clinicId, botSettings, ctx: newCtx, flow: 'reagendar', offset: 0 })
 }
 
