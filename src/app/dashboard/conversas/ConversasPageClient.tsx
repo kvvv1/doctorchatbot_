@@ -404,7 +404,7 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 				bot_enabled: true,
 				bot_state: 'menu',
 				bot_context: {},
-				status: 'open',
+				status: 'in_progress',
 				updated_at: new Date().toISOString(),
 			})
 			.eq('id', activeConversationId)
@@ -413,7 +413,7 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 			bot_enabled: true,
 			bot_state: 'menu',
 			bot_context: {},
-			status: 'open',
+			status: 'in_progress',
 			updated_at: new Date().toISOString(),
 		})
 
