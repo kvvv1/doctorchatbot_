@@ -179,6 +179,7 @@ export interface BotSettings {
 		reschedule: boolean
 		cancel: boolean
 		attendant: boolean
+		waitlist?: boolean
 	}
 	/** Ordered array of menu option keys. Controls display order in the bot menu.
 	 *  When undefined/null the engine falls back to the default hardcoded order. */

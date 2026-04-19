@@ -60,6 +60,11 @@ const MENU_OPTIONS_MAP: Record<MenuKey, Omit<MenuOption, 'key'>> = {
 		description: 'Pacientes podem solicitar atendimento humano',
 		emoji: '👤',
 	},
+	waitlist: {
+		label: 'Lista de espera',
+		description: 'Pacientes podem entrar na lista de espera por horários',
+		emoji: '📋',
+	},
 }
 
 const DEFAULT_ORDER: MenuKey[] = [
@@ -68,6 +73,7 @@ const DEFAULT_ORDER: MenuKey[] = [
 	'reschedule',
 	'cancel',
 	'attendant',
+	'waitlist',
 ]
 
 const DEFAULT_OPTIONS: NonNullable<BotSettings['menu_options']> = {
@@ -76,6 +82,7 @@ const DEFAULT_OPTIONS: NonNullable<BotSettings['menu_options']> = {
 	reschedule: true,
 	cancel: true,
 	attendant: true,
+	waitlist: false,
 }
 
 // ---------------------------------------------------------------------------

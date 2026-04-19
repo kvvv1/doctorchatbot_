@@ -14,13 +14,14 @@ const MENU_OPTION_LABELS: Record<string, string> = {
 	reschedule: 'Remarcar consulta',
 	cancel: 'Cancelar consulta',
 	attendant: 'Falar com secretária',
+	waitlist: 'Lista de espera',
 }
-const DEFAULT_MENU_ORDER = ['schedule', 'view_appointments', 'reschedule', 'cancel', 'attendant']
-const NUMBER_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣']
+const DEFAULT_MENU_ORDER = ['schedule', 'view_appointments', 'reschedule', 'cancel', 'attendant', 'waitlist']
+const NUMBER_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣']
 
 function buildPreviewMenuMessage(settings: BotSettings): string {
 	const options = settings.menu_options ?? {
-		schedule: true, view_appointments: true, reschedule: true, cancel: true, attendant: true,
+		schedule: true, view_appointments: true, reschedule: true, cancel: true, attendant: true, waitlist: false,
 	}
 	const order: string[] = settings.menu_order ?? DEFAULT_MENU_ORDER
 	const lines: string[] = []

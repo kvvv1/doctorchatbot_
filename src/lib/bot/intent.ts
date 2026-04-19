@@ -9,6 +9,7 @@ export type Intent =
   | 'attendant'
   | 'view_appointments'
   | 'confirm_attendance'
+  | 'waitlist'
   | 'other';
 
 /**
@@ -71,15 +72,24 @@ export function detectIntent(text: string): Intent {
     return 'attendant';
   }
 
-  // Confirm attendance intent (6)
+  // Confirm attendance intent
   if (
     normalized.includes('confirmar presença') ||
     normalized.includes('confirmar presenca') ||
     normalized.includes('vou comparecer') ||
-    normalized.includes('estarei lá') ||
-    normalized.match(/\b(6|seis)\b/)
+    normalized.includes('estarei lá')
   ) {
     return 'confirm_attendance';
+  }
+
+  // Waitlist intent (6)
+  if (
+    normalized.includes('lista de espera') ||
+    normalized.includes('lista espera') ||
+    normalized.includes('entrar na lista') ||
+    normalized.match(/\b(6|seis)\b/)
+  ) {
+    return 'waitlist';
   }
 
   return 'other';

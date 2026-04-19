@@ -111,7 +111,7 @@ export async function handleBotTurn(
     if (isBackToMenu) {
       return {
         preambleMessage: undefined,
-        message: botSettings?.message_menu || templates.menu,
+        message: buildMenuMessage(botSettings),
         nextState: 'menu',
         nextContext: baseIdentityContext(ctx),
       }
@@ -243,7 +243,7 @@ export async function handleBotTurn(
 
     default:
       return {
-        message: botSettings?.message_fallback || templates.notUnderstood,
+        message: botSettings?.message_fallback || buildMenuMessage(botSettings),
         nextState: 'menu',
         nextContext: {},
       }
@@ -342,6 +342,13 @@ async function handleMenu(
 
     case 'confirm_attendance':
       return { message: templates.confirmAttendanceAsk, nextState: 'confirmar_presenca', nextContext: { ...ctx, intent: 'confirm_attendance' } }
+
+    case 'waitlist':
+      return {
+        message: templates.waitlistAskPreference,
+        nextState: 'lista_espera_faixa',
+        nextContext: { ...ctx, intent: 'waitlist', waitlistAppointmentType: ctx.appointmentType },
+      }
 
     default:
       return {
@@ -1394,7 +1401,7 @@ function handleSemHorario(msg: string, ctx: BotContext, botSettings?: BotSetting
 
   if (wantsMenu) {
     return {
-      message: botSettings?.message_menu || templates.menu,
+      message: buildMenuMessage(botSettings),
       nextState: 'menu',
       nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
     }
@@ -1441,10 +1448,11 @@ export function buildMenuMessage(botSettings?: BotSettings | null): string {
     reschedule: true,
     cancel: true,
     attendant: true,
+    waitlist: false,
   }
 
   // Default order if menu_order is not set
-  const DEFAULT_ORDER = ['schedule', 'view_appointments', 'reschedule', 'cancel', 'attendant']
+  const DEFAULT_ORDER = ['schedule', 'view_appointments', 'reschedule', 'cancel', 'attendant', 'waitlist']
   const menuOrder: string[] = botSettings?.menu_order ?? DEFAULT_ORDER
 
   const OPTION_LABELS: Record<string, string> = {
@@ -1453,9 +1461,10 @@ export function buildMenuMessage(botSettings?: BotSettings | null): string {
     reschedule: 'Remarcar consulta',
     cancel: 'Cancelar consulta',
     attendant: 'Falar com secretária',
+    waitlist: '📋 Lista de espera',
   }
 
-  const NUMBER_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣']
+  const NUMBER_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣']
 
   const preamble = 'Como posso te ajudar? 😊'
   const options: string[] = []
@@ -2056,10 +2065,10 @@ async function handleAgendarSemSlotsConvenio(
     }
   }
 
-  // "3. Voltar ao menu"
+  // "3. Voltar ao menu" (handleAgendarSemSlotsConvenio)
   if (normalizedMsg === '3' || /(?:^|\D)3(?:\D|$)|menu|voltar/.test(normalizedMsg)) {
     return {
-      message: botSettings?.message_menu || templates.menu,
+      message: buildMenuMessage(botSettings),
       nextState: 'menu',
       nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
     }
@@ -2213,10 +2222,10 @@ async function handleReagendarSemSlotsConvenio(
     }
   }
 
-  // "3. Voltar ao menu"
+  // "3. Voltar ao menu" (handleReagendarSemSlotsConvenio)
   if (normalizedMsg === '3' || /(?:^|\D)3(?:\D|$)|menu|voltar/.test(normalizedMsg)) {
     return {
-      message: botSettings?.message_menu || templates.menu,
+      message: buildMenuMessage(botSettings),
       nextState: 'menu',
       nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
     }
