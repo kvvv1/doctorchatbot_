@@ -36,7 +36,7 @@ export async function PUT(request: NextRequest) {
     // convenio_solicita_carteirinha requires migration 034.
     // Strip columns added in migrations 026+ so the fallback can still save core settings
     // when those migrations haven't been applied yet.
-    const { menu_options, menu_order, particular_days, convenios, message_takeover, takeover_message_enabled, convenio_solicita_carteirinha, convenios_solicita_carteirinha, waitlist_notifications_enabled, ...settingsWithoutNewCols } = settings ?? {}
+    const { menu_options, menu_order, particular_days, convenios, message_takeover, takeover_message_enabled, convenio_solicita_carteirinha, convenios_solicita_carteirinha, waitlist_notifications_enabled, bot_handles_reschedule, bot_handles_cancel, ...settingsWithoutNewCols } = settings ?? {}
     let settingsPayload = { ...settings, updated_at: now }
 
     const { data: updatedSettings, error: settingsError } = await supabase
@@ -58,6 +58,8 @@ export async function PUT(request: NextRequest) {
         settingsError.message?.includes('convenio_solicita_carteirinha') ||
         settingsError.message?.includes('convenios_solicita_carteirinha') ||
         settingsError.message?.includes('waitlist_notifications_enabled') ||
+        settingsError.message?.includes('bot_handles_reschedule') ||
+        settingsError.message?.includes('bot_handles_cancel') ||
         settingsError.code === '42703'
       ) {
         console.warn('[BotConfig] New column missing — retrying without new columns')

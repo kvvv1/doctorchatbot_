@@ -250,3 +250,55 @@ export function isWithinWorkingHours(
 
   return currentMinutes >= startMinutes && currentMinutes < endMinutes
 }
+
+/**
+ * Returns a human-friendly label for the next working moment.
+ * e.g. "segunda-feira às 8h" or "hoje às 14h"
+ */
+export function getNextWorkingTime(settings: BotSettings, now: Date = new Date()): string {
+  if (!settings.working_hours_enabled || !settings.working_hours) return ''
+
+  const { working_hours } = settings
+  const tz = working_hours.timezone || 'America/Sao_Paulo'
+
+  const DAY_ORDER = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+  const DAY_LABELS: Record<string, string> = {
+    sun: 'domingo', mon: 'segunda-feira', tue: 'terça-feira',
+    wed: 'quarta-feira', thu: 'quinta-feira', fri: 'sexta-feira', sat: 'sábado',
+  }
+
+  // Get current weekday index in clinic timezone
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+  const parts = formatter.formatToParts(now)
+  const weekdayStr = parts.find(p => p.type === 'weekday')?.value ?? ''
+  const hourStr = parts.find(p => p.type === 'hour')?.value ?? '00'
+  const minuteStr = parts.find(p => p.type === 'minute')?.value ?? '00'
+
+  const dayMap: Record<string, string> = {
+    Mon: 'mon', Tue: 'tue', Wed: 'wed', Thu: 'thu', Fri: 'fri', Sat: 'sat', Sun: 'sun',
+  }
+  const todayKey = dayMap[weekdayStr]
+  const todayIndex = DAY_ORDER.indexOf(todayKey)
+  const currentMinutes = parseInt(hourStr) * 60 + parseInt(minuteStr)
+
+  // Check today first (might be before opening), then the next 7 days
+  for (let offset = 0; offset <= 7; offset++) {
+    const idx = (todayIndex + offset) % 7
+    const dayKey = DAY_ORDER[idx]
+    const dayConfig = working_hours.days.find(d => d.day === dayKey)
+    if (!dayConfig?.enabled) continue
+
+    const [startHour, startMinute] = dayConfig.start.split(':').map(Number)
+    const startMinutes = startHour * 60 + startMinute
+
+    // If today, only valid if we haven't passed the opening yet
+    if (offset === 0 && currentMinutes >= startMinutes) continue
+
+    const label = offset === 0 ? 'hoje' : offset === 1 ? 'amanhã' : DAY_LABELS[dayKey]
+    return `${label} às ${dayConfig.start.replace(':', 'h')}`
+  }
+
+  return ''
+}

@@ -4,7 +4,7 @@ import { parseConnectionStatusWebhook, parseWebhookPayload, shouldProcessWebhook
 import { handleIncomingMessage, logWebhookActivity } from '@/lib/services/inboxService'
 import { handleBotTurn, sendBotResponse, buildMenuMessage, type BotState, type BotContext } from '@/lib/bot/engine'
 import { getPatientAppointments } from '@/lib/bot/actions'
-import { getBotSettings, isWithinWorkingHours } from '@/lib/services/botSettingsService'
+import { getBotSettings, isWithinWorkingHours, getNextWorkingTime } from '@/lib/services/botSettingsService'
 import { sendInternalZapiMessage } from '@/lib/zapi/internalSend'
 
 /**
@@ -320,8 +320,13 @@ async function triggerBotResponse(
 
     if (outsideHours) {
       console.log('[Bot] Outside working hours, sending out-of-hours message')
+      const nextTime = getNextWorkingTime(botSettings)
+      const baseMessage = botSettings.message_out_of_hours
+      const outOfHoursMessage = nextTime
+        ? `${baseMessage}\n\n🕐 Retornaremos no atendimento *${nextTime}*.`
+        : baseMessage
       const outOfHoursResponse = {
-        message: botSettings.message_out_of_hours,
+        message: outOfHoursMessage,
         nextState: conversation.bot_state as BotState || 'menu',
         nextContext: conversation.bot_context as BotContext || {},
       }

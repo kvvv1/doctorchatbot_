@@ -60,6 +60,28 @@ Seu atendimento é:
 1️⃣ Particular
 2️⃣ Convênio`),
 
+  // Shown when bot_handles_reschedule = false
+  rescheduleToHuman: `Para *remarcar* sua consulta, nossa secretária vai te ajudar pessoalmente. 👩‍⚕️
+
+⏳ Aguarde um momento, alguém da nossa equipe entrará em contato em breve.`,
+
+  // Shown when bot_handles_cancel = false
+  cancelToHuman: `Para *cancelar* sua consulta, nossa secretária vai te ajudar. 👩‍⚕️
+
+⏳ Aguarde um momento, alguém da nossa equipe entrará em contato em breve.`,
+
+  // Shown when patient wants to reschedule/cancel but has no appointments
+  rescheduleNoAppointments: `Não encontrei consultas agendadas para o seu número. 🔍
+
+Para remarcar, você precisa ter uma consulta ativa. Posso ajudar com:
+
+1️⃣ Agendar uma consulta
+2️⃣ Falar com a secretária`,
+
+  cancelNoAppointmentsInfo: `Não encontrei consultas agendadas para o seu número. 🔍
+
+Não há nada para cancelar no momento.`,
+
   particularTransfer: `Para consultas *Particulares*, nossa secretária cuida do agendamento pessoalmente. 👩‍⚕️
 
 Vou te transferir agora!`,

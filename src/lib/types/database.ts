@@ -186,6 +186,10 @@ export interface BotSettings {
 	menu_order?: string[]
 	/** When false, the bot will NOT automatically notify waitlist patients when a slot is freed. */
 	waitlist_notifications_enabled?: boolean
+	/** When false, bot transfers to human immediately when patient wants to reschedule. Default: true */
+	bot_handles_reschedule?: boolean
+	/** When false, bot transfers to human immediately when patient wants to cancel. Default: true */
+	bot_handles_cancel?: boolean
 	/** Weekday keys reserved for Particular appointments (e.g. ["mon","wed"]).
 	 *  Convênio patients will not see these days in the available date list. */
 	particular_days?: string[]

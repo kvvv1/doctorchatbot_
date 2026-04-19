@@ -120,7 +120,9 @@ export default function BotAdvancedSettingsTab({
 						waitlist_notifications_enabled: settings.waitlist_notifications_enabled ?? true,
 						particular_days: settings.particular_days ?? [],
 						convenios: (settings.convenios ?? []).filter(s => s.trim() !== ''),
-						convenio_solicita_carteirinha: settings.convenio_solicita_carteirinha ?? false,							convenios_solicita_carteirinha: settings.convenios_solicita_carteirinha ?? [],					},
+						convenio_solicita_carteirinha: settings.convenio_solicita_carteirinha ?? false,							convenios_solicita_carteirinha: settings.convenios_solicita_carteirinha ?? [],							bot_handles_reschedule: settings.bot_handles_reschedule ?? true,
+						bot_handles_cancel: settings.bot_handles_cancel ?? true,
+						},
 				}),
 			})
 
@@ -535,6 +537,61 @@ export default function BotAdvancedSettingsTab({
 									className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
 								/>
 							)}
+						</div>
+
+						{/* ── Cancelar / Reagendar ── */}
+						<div>
+							<p className="text-sm font-semibold text-neutral-800 mb-1">
+								Cancelamento e Reagendamento
+							</p>
+							<p className="text-xs text-neutral-400 mb-3">
+								Defina se o bot gerencia esses fluxos automaticamente ou redireciona para a secretária.
+							</p>
+							<div className="space-y-3">
+								<label className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 p-3 cursor-pointer hover:bg-neutral-50">
+									<div>
+										<p className="text-sm font-medium text-neutral-800">🔄 Bot gerencia reagendamento</p>
+										<p className="text-xs text-neutral-500 mt-0.5">
+											{(settings.bot_handles_reschedule ?? true)
+												? 'O bot mostra os horários disponíveis e remarca automaticamente'
+												: 'Ao pedir reagendamento, o paciente é transferido para a secretária'}
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => setSettings({ ...settings, bot_handles_reschedule: !(settings.bot_handles_reschedule ?? true) })}
+										className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+											(settings.bot_handles_reschedule ?? true) ? 'bg-sky-600' : 'bg-neutral-300'
+										}`}
+									>
+										<span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+											(settings.bot_handles_reschedule ?? true) ? 'translate-x-6' : 'translate-x-1'
+										}`} />
+									</button>
+								</label>
+
+								<label className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 p-3 cursor-pointer hover:bg-neutral-50">
+									<div>
+										<p className="text-sm font-medium text-neutral-800">❌ Bot gerencia cancelamento</p>
+										<p className="text-xs text-neutral-500 mt-0.5">
+											{(settings.bot_handles_cancel ?? true)
+												? 'O bot confirma e processa o cancelamento automaticamente'
+												: 'Ao pedir cancelamento, o paciente é transferido para a secretária'}
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => setSettings({ ...settings, bot_handles_cancel: !(settings.bot_handles_cancel ?? true) })}
+										className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+											(settings.bot_handles_cancel ?? true) ? 'bg-sky-600' : 'bg-neutral-300'
+										}`}
+									>
+										<span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+											(settings.bot_handles_cancel ?? true) ? 'translate-x-6' : 'translate-x-1'
+										}`} />
+									</button>
+								</label>
+							</div>
 						</div>
 					</div>
 

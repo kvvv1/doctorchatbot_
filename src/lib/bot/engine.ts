@@ -280,19 +280,97 @@ async function handleMenu(
         nextContext: { ...ctx, intent: 'schedule' },
       }
 
-    case 'reschedule':
-      return {
-        message: templates.askRescheduleType,
-        nextState: 'reagendar_tipo',
-        nextContext: { ...ctx, intent: 'reschedule' },
+    case 'reschedule': {
+      // If clinic configured bot not to handle reschedule → transfer to human immediately
+      if (botSettings?.bot_handles_reschedule === false) {
+        return {
+          message: botSettings.message_takeover && botSettings.takeover_message_enabled
+            ? botSettings.message_takeover
+            : templates.rescheduleToHuman,
+          nextState: 'atendente',
+          nextContext: { ...ctx, intent: 'reschedule' },
+          conversationStatus: 'waiting_human',
+          transferToHuman: true,
+        }
       }
 
-    case 'cancel':
-      return {
-        message: templates.askCancelType,
-        nextState: 'cancelar_tipo',
-        nextContext: { ...ctx, intent: 'cancel' },
+      // Fetch appointments and go straight to the list
+      const appts = ctx.appointments && ctx.appointments.length > 0
+        ? ctx.appointments
+        : clinicId
+          ? await getPatientAppointments(clinicId, ctx.patientPhone || '', ctx.patientCpf)
+          : []
+
+      if (appts.length === 0) {
+        return {
+          message: templates.rescheduleNoAppointments,
+          nextState: 'menu',
+          nextContext: baseIdentityContext(ctx),
+        }
       }
+
+      if (appts.length === 1) {
+        // Only one — go straight to day selection
+        return showDayList({
+          clinicId,
+          botSettings,
+          ctx: { ...ctx, intent: 'reschedule', appointmentId: appts[0].id, appointments: appts },
+          flow: 'reagendar',
+          offset: 0,
+        })
+      }
+
+      // Multiple — ask which one
+      return {
+        message: templates.whichAppointmentReschedule(appts),
+        nextState: 'reagendar_qual',
+        nextContext: { ...ctx, intent: 'reschedule', appointments: appts },
+      }
+    }
+
+    case 'cancel': {
+      // If clinic configured bot not to handle cancellation → transfer to human immediately
+      if (botSettings?.bot_handles_cancel === false) {
+        return {
+          message: botSettings.message_takeover && botSettings.takeover_message_enabled
+            ? botSettings.message_takeover
+            : templates.cancelToHuman,
+          nextState: 'atendente',
+          nextContext: { ...ctx, intent: 'cancel' },
+          conversationStatus: 'waiting_human',
+          transferToHuman: true,
+        }
+      }
+
+      // Fetch appointments
+      const appts = ctx.appointments && ctx.appointments.length > 0
+        ? ctx.appointments
+        : clinicId
+          ? await getPatientAppointments(clinicId, ctx.patientPhone || '', ctx.patientCpf)
+          : []
+
+      if (appts.length === 0) {
+        return {
+          message: templates.cancelNoAppointmentsInfo,
+          nextState: 'menu',
+          nextContext: baseIdentityContext(ctx),
+        }
+      }
+
+      if (appts.length === 1) {
+        return {
+          message: templates.cancelConfirmSingle(appts[0].label),
+          nextState: 'cancelar_confirmar',
+          nextContext: { ...ctx, intent: 'cancel', appointmentId: appts[0].id, appointments: appts },
+        }
+      }
+
+      return {
+        message: templates.whichAppointmentCancel(appts),
+        nextState: 'cancelar_qual',
+        nextContext: { ...ctx, intent: 'cancel', appointments: appts },
+      }
+    }
 
     case 'attendant':
       return {
@@ -341,8 +419,29 @@ async function handleMenu(
       }
     }
 
-    case 'confirm_attendance':
-      return { message: templates.confirmAttendanceAsk, nextState: 'confirmar_presenca', nextContext: { ...ctx, intent: 'confirm_attendance' } }
+    case 'confirm_attendance': {
+      // Load appointments so handleConfirmarPresenca has an appointmentId
+      const appts = ctx.appointments && ctx.appointments.length > 0
+        ? ctx.appointments
+        : clinicId
+          ? await getPatientAppointments(clinicId, ctx.patientPhone || '', ctx.patientCpf)
+          : []
+
+      if (appts.length === 0) {
+        return {
+          message: templates.viewAppointmentsNotFound,
+          nextState: 'menu',
+          nextContext: baseIdentityContext(ctx),
+        }
+      }
+
+      const appointmentId = appts.length === 1 ? appts[0].id : ctx.appointmentId
+      return {
+        message: templates.confirmAttendanceAsk,
+        nextState: 'confirmar_presenca',
+        nextContext: { ...ctx, intent: 'confirm_attendance', appointments: appts, appointmentId },
+      }
+    }
 
     case 'waitlist':
       return {
