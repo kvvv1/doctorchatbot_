@@ -17,6 +17,7 @@ import {
   formatSlotLabel,
   createAppointment,
   createAppointmentFromSlot,
+  confirmAppointmentAttendance,
   cancelAppointment,
   rescheduleAppointment,
   addToWaitlist,
@@ -230,7 +231,7 @@ export async function handleBotTurn(
       return handleVerAgendamentoSelecionado(userMessage, ctx, botSettings, clinicId)
 
     case 'confirmar_presenca':
-      return handleConfirmarPresenca(userMessage, ctx)
+      return await handleConfirmarPresenca(userMessage, ctx, clinicId)
 
     case 'sem_horario':
       return handleSemHorario(userMessage, ctx, botSettings)
@@ -1132,16 +1133,44 @@ async function handleVerAgendamentoSelecionado(
 
   const intent = detectIntent(msg)
   const num = parseInt(msg.trim(), 10)
+  const answer = detectYesNo(msg)
 
-  // 1 — Remarcar
-  if (intent === 'reschedule' || num === 1) {
+  // 1 — Confirmar presença
+  if (intent === 'confirm_attendance' || num === 1 || answer === 'yes') {
+    if (!clinicId) {
+      return {
+        message: 'Não consegui identificar a clínica para confirmar presença. Pode tentar novamente?',
+        nextState: 'ver_agendamento_selecionado',
+        nextContext: ctx,
+      }
+    }
+
+    const result = await confirmAppointmentAttendance(clinicId, selected.id)
+    if (!result.success) {
+      return {
+        message: result.message,
+        nextState: 'ver_agendamento_selecionado',
+        nextContext: ctx,
+      }
+    }
+
+    return {
+      message: result.message,
+      nextState: 'menu',
+      nextContext: baseIdentityContext(ctx),
+      conversationStatus: 'scheduled',
+    }
+  }
+
+  // 2 — Remarcar
+  if (intent === 'reschedule' || num === 2) {
     // Coloca o appointment selecionado como alvo e inicia o fluxo de reagendamento
     const ctxWithTarget = { ...ctx, intent: 'reschedule' as const, appointmentId: selected.id, appointments: [selected] }
     return showDayList({ clinicId, botSettings, ctx: ctxWithTarget, flow: 'reagendar', offset: 0 })
   }
 
-  // 2 — Cancelar
-  if (intent === 'cancel' || num === 2) {
+  // 3 — Cancelar
+  if (intent === 'cancel' || num === 3 || answer === 'no') {
     return {
       message: templates.cancelConfirmSingle(selected.label),
       nextState: 'cancelar_confirmar',
@@ -1149,8 +1178,8 @@ async function handleVerAgendamentoSelecionado(
     }
   }
 
-  // 3 — Voltar à lista
-  if (num === 3) {
+  // 4 — Voltar à lista
+  if (num === 4) {
     return {
       message: templates.viewAppointments(appointments),
       nextState: 'ver_agendamentos',
@@ -1168,10 +1197,30 @@ async function handleVerAgendamentoSelecionado(
 
 // ---- Confirmar presença ----------------------------------------------------
 
-function handleConfirmarPresenca(msg: string, ctx: BotContext): BotResponse {
+async function handleConfirmarPresenca(msg: string, ctx: BotContext, clinicId?: string): Promise<BotResponse> {
   const answer = detectYesNo(msg)
 
   if (answer === 'yes') {
+    const fallbackId = ctx.appointmentId || (ctx.appointments && ctx.appointments.length === 1 ? ctx.appointments[0].id : undefined)
+
+    if (clinicId && fallbackId) {
+      const confirmation = await confirmAppointmentAttendance(clinicId, fallbackId)
+      if (!confirmation.success) {
+        return {
+          message: confirmation.message,
+          nextState: 'confirmar_presenca',
+          nextContext: ctx,
+        }
+      }
+
+      return {
+        message: confirmation.message,
+        nextState: 'menu',
+        nextContext: {},
+        conversationStatus: 'scheduled',
+      }
+    }
+
     return {
       message: templates.confirmAttendanceSuccess,
       nextState: 'menu',
@@ -2157,9 +2206,11 @@ function matchesChoiceSelection(message: string, choiceNumber: number): boolean 
 
 function getMenuChoiceIndex(state: BotState, ctx: BotContext): number | null {
   switch (state) {
+    case 'ver_agendamento_selecionado':
+      return 4
+
     case 'sem_horario':
     case 'ver_agendamentos':
-    case 'ver_agendamento_selecionado':
     case 'agendar_confirmar':
     case 'agendar_alterar_campo':
     case 'cancelar_confirmar':

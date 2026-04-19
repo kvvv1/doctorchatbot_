@@ -335,6 +335,55 @@ export async function cancelExternalAppointment(params: {
   }
 }
 
+export async function confirmExternalAppointment(params: {
+  supabase: SupabaseClient
+  clinicId: string
+  provider: string
+  providerReferenceId?: string | null
+}): Promise<{ synced: boolean; error?: string }> {
+  if (params.provider === 'gestaods') {
+    if (!params.providerReferenceId) {
+      return {
+        synced: false,
+        error: 'Agendamento GestãoDS sem referência externa para confirmação.',
+      }
+    }
+
+    const resolution = await resolveClinicIntegration(params.supabase, params.clinicId)
+    if (resolution.provider !== 'gestaods' || !resolution.gestaods) {
+      return {
+        synced: false,
+        error: 'Integração GestãoDS não configurada para confirmação.',
+      }
+    }
+
+    try {
+      const gestaoService = new GestaoDSService(
+        resolution.gestaods.apiToken,
+        resolution.gestaods.isDev
+      )
+
+      const confirmation = await gestaoService.confirmAppointment(params.providerReferenceId)
+      if (!confirmation.success) {
+        return {
+          synced: false,
+          error: confirmation.error || 'Falha ao confirmar presença no GestãoDS.',
+        }
+      }
+
+      return { synced: true }
+    } catch (error) {
+      return {
+        synced: false,
+        error: error instanceof Error ? error.message : 'Falha ao confirmar presença no GestãoDS.',
+      }
+    }
+  }
+
+  // Google/Manual: sem endpoint de confirmação de presença, tratamos como sucesso local.
+  return { synced: true }
+}
+
 async function resolveClinicIntegration(
   supabase: SupabaseClient,
   clinicId: string

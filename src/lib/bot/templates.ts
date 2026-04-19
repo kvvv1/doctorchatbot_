@@ -280,7 +280,7 @@ O que deseja fazer?
   },
 
   viewAppointmentSelected: (appointment: AppointmentSummary) =>
-    `📅 *${appointment.label}*\n\nO que deseja fazer com esta consulta?\n\n1️⃣ Remarcar\n2️⃣ Cancelar\n3️⃣ Voltar à lista`,
+    `📅 *${appointment.label}*\n\nO que deseja fazer com esta consulta?\n\n1️⃣ Confirmar presença\n2️⃣ Remarcar\n3️⃣ Cancelar\n4️⃣ Voltar à lista`,
 
   viewAppointmentsNotFound: `Não encontrei consultas agendadas para o seu número. 🔍
 

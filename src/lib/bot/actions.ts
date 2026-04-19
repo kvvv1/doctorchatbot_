@@ -13,6 +13,7 @@ import {
   normalizeBrazilianPhone,
 } from '@/lib/utils/phone'
 import {
+  confirmExternalAppointment,
   cancelExternalAppointment,
   createExternalAppointment,
   updateExternalAppointment,
@@ -408,6 +409,75 @@ export async function cancelAppointment(
     id: appointmentId,
     message: cancelMessage,
   }
+}
+
+/**
+ * Confirm attendance for an appointment.
+ */
+export async function confirmAppointmentAttendance(
+  clinicId: string,
+  appointmentId: string,
+): Promise<ActionResult> {
+  const supabase = createAdminClient()
+
+  const { data: appointment } = await supabase
+    .from('appointments')
+    .select('provider, provider_reference_id, starts_at, patient_name')
+    .eq('id', appointmentId)
+    .eq('clinic_id', clinicId)
+    .maybeSingle()
+
+  if (!appointment) {
+    return {
+      success: false,
+      message: 'Não encontrei esse agendamento para confirmar.',
+      error: 'appointment_not_found',
+    }
+  }
+
+  if (appointment.provider && appointment.provider !== 'manual') {
+    const externalResult = await confirmExternalAppointment({
+      supabase,
+      clinicId,
+      provider: appointment.provider,
+      providerReferenceId: appointment.provider_reference_id,
+    })
+
+    if (!externalResult.synced) {
+      return {
+        success: false,
+        message: externalResult.error || 'Não consegui confirmar presença na agenda integrada.',
+        error: externalResult.error || 'external_confirm_failed',
+      }
+    }
+  }
+
+  const { error } = await supabase
+    .from('appointments')
+    .update({ status: 'confirmed', updated_at: new Date().toISOString() })
+    .eq('id', appointmentId)
+    .eq('clinic_id', clinicId)
+
+  if (error) {
+    console.error('[bot/actions] confirmAppointmentAttendance error:', error)
+    return {
+      success: false,
+      message: 'Não consegui confirmar presença agora. Pode tentar novamente?',
+      error: error.message,
+    }
+  }
+
+  return {
+    success: true,
+    id: appointmentId,
+    message: templatesNotAvailableFallbackConfirmMessage(appointment.starts_at),
+  }
+}
+
+function templatesNotAvailableFallbackConfirmMessage(startsAt: string | null): string {
+  if (!startsAt) return '✅ Presença confirmada com sucesso!'
+  const d = new Date(startsAt)
+  return `✅ Presença confirmada!\n\n📅 ${format(d, "EEE, dd/MM 'às' HH:mm", { locale: ptBR })}`
 }
 
 /**
