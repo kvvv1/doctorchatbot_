@@ -152,15 +152,9 @@ export async function updateExternalAppointment(params: {
   startsAt: Date
   endsAt: Date
   description?: string | null
+  appointmentType?: 'particular' | 'convenio' | null
 }): Promise<{ synced: boolean; error?: string; providerReferenceId?: string }> {
   if (params.provider === 'gestaods') {
-    if (!params.providerReferenceId) {
-      return {
-        synced: false,
-        error: 'Agendamento GestãoDS sem referência externa para atualização.',
-      }
-    }
-
     const resolution = await resolveClinicIntegration(params.supabase, params.clinicId)
     if (resolution.provider !== 'gestaods' || !resolution.gestaods) {
       return {
@@ -175,7 +169,7 @@ export async function updateExternalAppointment(params: {
       patientPhone: params.patientPhone,
     })
 
-    if (!cpf) {
+    if (!cpf && params.providerReferenceId) {
       cpf = await resolveGestaoDSPatientCpfFromAppointment(
         params.providerReferenceId,
         resolution.gestaods.apiToken,
@@ -196,26 +190,37 @@ export async function updateExternalAppointment(params: {
         resolution.gestaods.isDev
       )
 
-      const startsAtFormatted = await gestaoService.formatDateForApi(params.startsAt)
-      const endsAtFormatted = await gestaoService.formatDateForApi(params.endsAt)
-
-      const reschedule = await gestaoService.rescheduleAppointment({
-        currentAppointmentId: params.providerReferenceId,
-        cpf,
-        newStartDate: startsAtFormatted,
-        newEndDate: endsAtFormatted,
-        reason: 'Remarcado via Doctor Chat Bot',
-        primeiroAtendimento: false,
-      })
-
-      if (!reschedule.success) {
-        return {
-          synced: false,
-          error: reschedule.error || 'Falha ao remarcar no GestãoDS.',
+      // Cancel the existing appointment if we have a reference
+      if (params.providerReferenceId) {
+        const cancelResult = await gestaoService.cancelAppointment(
+          params.providerReferenceId,
+          'Remarcado via Doctor Chat Bot'
+        )
+        if (!cancelResult.success) {
+          console.warn('[GestaoDS] Cancel before reschedule failed:', cancelResult.error, '— proceeding with new booking anyway')
         }
       }
 
-      const newProviderReferenceId = reschedule.data?.newAppointmentId || null
+      // Create new appointment
+      const startsAtFormatted = await gestaoService.formatDateForApi(params.startsAt)
+      const endsAtFormatted = await gestaoService.formatDateForApi(params.endsAt)
+
+      const bookingResult = await gestaoService.bookAppointment({
+        cpf,
+        data_agendamento: startsAtFormatted,
+        data_fim_agendamento: endsAtFormatted,
+        primeiro_atendimento: false,
+        tipo_consulta: params.appointmentType || 'particular',
+      })
+
+      if (!bookingResult.success) {
+        return {
+          synced: false,
+          error: bookingResult.error || 'Falha ao criar novo agendamento no GestãoDS.',
+        }
+      }
+
+      const newProviderReferenceId = GestaoDSServiceHelpers.extractAppointmentId(bookingResult.data)
       if (!newProviderReferenceId) {
         return {
           synced: false,

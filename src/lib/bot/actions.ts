@@ -497,7 +497,7 @@ export async function rescheduleAppointment(params: {
 
   const { data: appointment } = await supabase
     .from('appointments')
-    .select('provider, provider_reference_id, patient_name, patient_phone')
+    .select('provider, provider_reference_id, patient_name, patient_phone, appointment_type')
     .eq('id', params.appointmentId)
     .eq('clinic_id', params.clinicId)
     .maybeSingle()
@@ -515,6 +515,7 @@ export async function rescheduleAppointment(params: {
       startsAt: new Date(params.slot.startsAt),
       endsAt: new Date(params.slot.endsAt),
       description: 'Remarcado via WhatsApp',
+      appointmentType: (appointment.appointment_type as 'particular' | 'convenio' | null) ?? null,
     })
 
     if (!externalResult.synced) {
