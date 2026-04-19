@@ -8,6 +8,7 @@ import { addDays, setHours, setMinutes, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { interpolate } from './interpolate'
+import { zapiSendText } from '@/lib/zapi/client'
 import {
   getBrazilianPhoneLookupCandidates,
   normalizeBrazilianPhone,
@@ -30,6 +31,8 @@ export type ActionResult = {
   message: string
   id?: string
   error?: string
+  /** ISO datetime of the freed appointment slot (set by cancelAppointment) */
+  startsAt?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -407,6 +410,7 @@ export async function cancelAppointment(
   return {
     success: true,
     id: appointmentId,
+    startsAt: appointment?.starts_at,
     message: cancelMessage,
   }
 }
@@ -993,4 +997,87 @@ export async function getWaitlistConversations(clinicId: string) {
     .order('updated_at', { ascending: true })
 
   return data ?? []
+}
+
+/**
+ * When a slot is freed (cancel or refused confirmation), immediately check the
+ * waitlist for the clinic and notify the first patient whose time preference
+ * matches the freed slot.
+ *
+ * This is called in a non-blocking fire-and-forget pattern from the bot engine
+ * so it never slows down the patient-facing response.
+ *
+ * @param clinicId   - clinic to search waitlist for
+ * @param startsAt   - ISO datetime of the freed slot (optional — if present,
+ *                     only patients whose preferred window covers that hour are
+ *                     considered; if absent, the first patient in queue is used)
+ */
+export async function notifyWaitlistOnSlotFree(
+  clinicId: string,
+  startsAt?: string,
+): Promise<void> {
+  const supabase = createAdminClient()
+
+  const waitlist = await getWaitlistConversations(clinicId)
+  if (waitlist.length === 0) return
+
+  // Find the first patient whose time preference matches the freed slot hour
+  const freedHour = startsAt ? new Date(startsAt).getHours() : null
+
+  const target = waitlist.find((entry) => {
+    if (freedHour === null) return true  // no slot time — notify first in queue
+    const start = entry.waitlist_preferred_time_start ? parseInt(entry.waitlist_preferred_time_start, 10) : null
+    const end   = entry.waitlist_preferred_time_end   ? parseInt(entry.waitlist_preferred_time_end, 10)   : null
+    if (start === null || end === null) return true  // no preference — any slot works
+    return freedHour >= start && freedHour < end
+  })
+
+  if (!target) return  // no waitlist patient matches this slot's time
+
+  // Get WhatsApp instance for the clinic
+  const { data: instance } = await supabase
+    .from('whatsapp_instances')
+    .select('instance_id, token, client_token, status')
+    .eq('clinic_id', clinicId)
+    .eq('provider', 'zapi')
+    .single()
+
+  if (!instance?.instance_id || !instance?.token || instance.status !== 'connected') return
+
+  const patientName = target.patient_name || 'Paciente'
+  const slotLabel = startsAt
+    ? format(new Date(startsAt), "EEE, dd/MM 'às' HH'h'mm", { locale: ptBR })
+    : 'em breve'
+
+  const message = `Oi, ${patientName}! 👋\n\nUma vaga acabou de abrir na agenda:\n📅 *${slotLabel}*\n\nEsse horário está dentro da sua preferência! Quer agendar? Responda com *Agendar* para confirmar. 😊`
+
+  try {
+    await zapiSendText(
+      {
+        instanceId: instance.instance_id,
+        token: instance.token,
+        clientToken: instance.client_token || undefined,
+      },
+      target.patient_phone,
+      message,
+    )
+
+    await supabase
+      .from('conversations')
+      .update({ status: 'waiting_patient', updated_at: new Date().toISOString() })
+      .eq('id', target.id)
+
+    await supabase.from('notifications').insert({
+      clinic_id: clinicId,
+      type: 'conversation_waiting',
+      title: 'Vaga liberada — paciente da lista de espera notificado',
+      message: `${patientName} foi avisado(a) sobre a vaga que abriu às ${slotLabel}.`,
+      link: `/dashboard/conversas?id=${target.id}`,
+      conversation_id: target.id,
+    })
+
+    console.log(`[waitlist] Notified ${target.patient_phone} about freed slot ${slotLabel}`)
+  } catch (err) {
+    console.error('[waitlist] Failed to notify waitlist on slot free:', err)
+  }
 }

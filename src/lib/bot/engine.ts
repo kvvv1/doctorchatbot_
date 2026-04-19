@@ -22,6 +22,7 @@ import {
   rescheduleAppointment,
   addToWaitlist,
   addToWaitlistWithPreference,
+  notifyWaitlistOnSlotFree,
   getPatientAppointments,
   hasGestaoDSIntegration,
   normalizeCpf,
@@ -981,7 +982,13 @@ async function handleCancelarEncaixe(
 
   // Cancel the appointment in DB
   if (ctx.appointmentId && clinicId) {
-    await cancelAppointment(clinicId, ctx.appointmentId, botSettings?.message_confirm_cancel)
+    const cancelResult = await cancelAppointment(clinicId, ctx.appointmentId, botSettings?.message_confirm_cancel)
+    // Non-blocking: notify first matching waitlist patient about the freed slot
+    if (cancelResult.success) {
+      notifyWaitlistOnSlotFree(clinicId, cancelResult.startsAt).catch((err) =>
+        console.error('[bot] waitlist notify after cancel failed:', err)
+      )
+    }
   }
 
   if (answer === 'yes') {
