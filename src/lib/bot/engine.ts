@@ -687,19 +687,24 @@ async function handleReagendarManterTipo(
   let chosenType: 'particular' | 'convenio' | null = null
 
   if (currentType) {
-    // Known type: 1 = keep current, 2 = change to other
-    const otherType: 'particular' | 'convenio' = currentType === 'convenio' ? 'particular' : 'convenio'
-    const otherLabel = otherType === 'convenio' ? 'convenio' : 'particular'
-    const currentLabel = currentType === 'convenio' ? 'convenio' : 'particular'
-
-    if (normalized === '1' || normalized.includes('manter') || normalized.includes('mesmo') || normalized === currentLabel) {
-      chosenType = currentType
-    } else if (normalized === '2' || normalized.includes('mudar') || normalized.includes('trocar') || normalized === otherLabel) {
-      chosenType = otherType
-    } else if (normalized.includes('particular')) {
-      chosenType = 'particular'
-    } else if (normalized.includes('convenio') || normalized.includes('plano')) {
-      chosenType = 'convenio'
+    if (currentType === 'particular') {
+      // Particular: 1 = confirm reschedule, 2 = back to menu
+      if (normalized === '1' || normalized.includes('sim') || normalized.includes('remarcar') || normalized.includes('confirmar')) {
+        chosenType = 'particular'
+      } else if (normalized === '2' || normalized.includes('voltar') || normalized.includes('menu') || normalized.includes('nao') || normalized.includes('não')) {
+        return {
+          message: buildMenuMessage(botSettings),
+          nextState: 'menu',
+          nextContext: baseIdentityContext(ctx),
+        }
+      }
+    } else {
+      // Convenio: 1 = keep convenio, 2 = change to particular
+      if (normalized === '1' || normalized.includes('manter') || normalized.includes('mesmo') || normalized === 'convenio') {
+        chosenType = 'convenio'
+      } else if (normalized === '2' || normalized.includes('mudar') || normalized.includes('trocar') || normalized.includes('particular')) {
+        chosenType = 'particular'
+      }
     }
   } else {
     // Unknown type: 1 = Particular, 2 = Convênio

@@ -257,9 +257,12 @@ Qual o *novo horário*?
   },
 
   rescheduleConfirmType: (label: string, tipo: string) => {
-    const tipoLabel = tipo === 'convenio' ? 'Convênio' : 'Particular'
-    const outroTipo = tipo === 'convenio' ? 'Particular' : 'Convênio'
-    return withMenuOption(`Sua consulta é:\n📅 *${label}* · ${tipoLabel}\n\nDeseja remarcar como:\n\n1️⃣ Manter ${tipoLabel}\n2️⃣ Mudar para ${outroTipo}`, 3)
+    if (tipo === 'particular') {
+      // Particular cannot change to convenio — just confirm
+      return withMenuOption(`Sua consulta é:\n📅 *${label}* · Particular\n\nDeseja remarcar este horário?\n\n1️⃣ Sim, remarcar\n2️⃣ Voltar ao menu`, 3)
+    }
+    // Convenio can change to particular
+    return withMenuOption(`Sua consulta é:\n📅 *${label}* · Convênio\n\nDeseja remarcar como:\n\n1️⃣ Manter Convênio\n2️⃣ Mudar para Particular`, 3)
   },
 
   rescheduleConfirmTypeUnknown: (label: string) =>
