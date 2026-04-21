@@ -290,9 +290,7 @@ async function handleMenu(
       // If clinic configured bot not to handle reschedule → transfer to human immediately
       if (botSettings?.bot_handles_reschedule === false) {
         return {
-          message: botSettings.message_takeover && botSettings.takeover_message_enabled
-            ? botSettings.message_takeover
-            : templates.rescheduleToHuman,
+          message: templates.rescheduleToHuman,
           nextState: 'atendente',
           nextContext: { ...ctx, intent: 'reschedule' },
           conversationStatus: 'waiting_human',
@@ -345,9 +343,7 @@ async function handleMenu(
       // If clinic configured bot not to handle cancellation → transfer to human immediately
       if (botSettings?.bot_handles_cancel === false) {
         return {
-          message: botSettings.message_takeover && botSettings.takeover_message_enabled
-            ? botSettings.message_takeover
-            : templates.cancelToHuman,
+          message: templates.cancelToHuman,
           nextState: 'atendente',
           nextContext: { ...ctx, intent: 'cancel' },
           conversationStatus: 'waiting_human',
