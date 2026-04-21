@@ -112,6 +112,16 @@ export function formatSlotLabel(date: Date): string {
 }
 
 // ---------------------------------------------------------------------------
+// Clinic helpers
+// ---------------------------------------------------------------------------
+
+async function getClinicAddress(clinicId: string): Promise<string | null> {
+  const supabase = createAdminClient()
+  const { data } = await supabase.from('clinics').select('address').eq('id', clinicId).maybeSingle()
+  return (data?.address as string | null | undefined) || null
+}
+
+// ---------------------------------------------------------------------------
 // Appointment operations
 // ---------------------------------------------------------------------------
 
@@ -255,9 +265,11 @@ export async function createAppointment(params: {
   const label = formatSlotLabel(startsAt)
   const dataStr = format(startsAt, "EEE, dd/MM", { locale: ptBR })
   const horarioStr = format(startsAt, "HH'h'mm", { locale: ptBR })
+  const clinicAddress = await getClinicAddress(params.clinicId)
+  const addressLine = clinicAddress ? `\n\n📍 ${clinicAddress}` : ''
   const successMessage = params.confirmTemplate
-    ? interpolate(params.confirmTemplate, { nome: params.patientName, data: dataStr, horario: horarioStr })
-    : `✅ Agendamento confirmado!\n\n📅 ${label}\n👤 ${params.patientName}\n\nVocê receberá um lembrete antes da consulta. Para cancelar ou remarcar, é só me avisar. 😊`
+    ? interpolate(params.confirmTemplate, { nome: params.patientName, data: dataStr, horario: horarioStr }) + addressLine
+    : `✅ Agendamento confirmado!\n\n📅 ${label}\n👤 ${params.patientName}\n\nVocê receberá um lembrete antes da consulta. Para cancelar ou remarcar, é só me avisar. 😊${addressLine}\n\n0. Menu principal`
   return {
     success: true,
     id: data.id,
@@ -347,9 +359,11 @@ export async function createAppointmentFromSlot(params: {
   const slotDate = new Date(params.slot.startsAt)
   const dataStr = format(slotDate, "EEE, dd/MM", { locale: ptBR })
   const horarioStr = format(slotDate, "HH'h'mm", { locale: ptBR })
+  const clinicAddress = await getClinicAddress(params.clinicId)
+  const addressLine = clinicAddress ? `\n\n📍 ${clinicAddress}` : ''
   const successMessage = params.confirmTemplate
-    ? interpolate(params.confirmTemplate, { nome: params.patientName, data: dataStr, horario: horarioStr })
-    : `✅ Agendamento confirmado!\n\n📅 ${params.slot.label}\n👤 ${params.patientName}\n\nVocê receberá um lembrete antes da consulta. Para cancelar ou remarcar, é só me avisar. 😊`
+    ? interpolate(params.confirmTemplate, { nome: params.patientName, data: dataStr, horario: horarioStr }) + addressLine
+    : `✅ Agendamento confirmado!\n\n📅 ${params.slot.label}\n👤 ${params.patientName}\n\nVocê receberá um lembrete antes da consulta. Para cancelar ou remarcar, é só me avisar. 😊${addressLine}\n\n0. Menu principal`
   return {
     success: true,
     id: data.id,
@@ -482,17 +496,19 @@ export async function confirmAppointmentAttendance(
     }
   }
 
+  const clinicAddress = await getClinicAddress(clinicId)
+  const addressLine = clinicAddress ? `\n\n📍 ${clinicAddress}` : ''
   return {
     success: true,
     id: appointmentId,
-    message: templatesNotAvailableFallbackConfirmMessage(appointment.starts_at),
+    message: templatesNotAvailableFallbackConfirmMessage(appointment.starts_at, addressLine),
   }
 }
 
-function templatesNotAvailableFallbackConfirmMessage(startsAt: string | null): string {
-  if (!startsAt) return '✅ Presença confirmada com sucesso!\n\n0. Menu principal'
+function templatesNotAvailableFallbackConfirmMessage(startsAt: string | null, addressLine = ''): string {
+  if (!startsAt) return `✅ Presença confirmada com sucesso!${addressLine}\n\n0. Menu principal`
   const d = new Date(startsAt)
-  return `✅ Presença confirmada!\n\n📅 ${format(d, "EEE, dd/MM 'às' HH:mm", { locale: ptBR })}\n\n0. Menu principal`
+  return `✅ Presença confirmada!\n\n📅 ${format(d, "EEE, dd/MM 'às' HH:mm", { locale: ptBR })}${addressLine}\n\n0. Menu principal`
 }
 
 /**
@@ -567,6 +583,8 @@ export async function rescheduleAppointment(params: {
   // Ignore the old default template that says "encaminhar solicitação para equipe" —
   // that was written for the mode where the bot did NOT handle rescheduling.
   // When the bot successfully reschedules, always show a proper confirmation.
+  const clinicAddress = await getClinicAddress(params.clinicId)
+  const addressLine = clinicAddress ? `\n\n📍 ${clinicAddress}` : ''
   const isLegacyTransferTemplate =
     params.confirmTemplate?.includes('encaminhar') ||
     params.confirmTemplate?.includes('equipe')
@@ -575,8 +593,8 @@ export async function rescheduleAppointment(params: {
         nome: appointment?.patient_name ?? '',
         data: dataStr,
         horario: horarioStr,
-      }) + '\n\n0. Menu principal'
-    : `✅ Consulta remarcada!\n\n📅 ${params.slot.label}\n\nSe precisar alterar novamente, é só me avisar. 😊\n\n0. Menu principal`
+      }) + addressLine + '\n\n0. Menu principal'
+    : `✅ Consulta remarcada!\n\n📅 ${params.slot.label}\n\nSe precisar alterar novamente, é só me avisar. 😊${addressLine}\n\n0. Menu principal`
   return {
     success: true,
     id: params.appointmentId,
