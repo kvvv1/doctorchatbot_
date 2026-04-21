@@ -75,61 +75,67 @@ async function getAdditionalMetrics(clinicId: string) {
 		.eq('clinic_id', clinicId)
 		.neq('status', 'done')
 
-	// Buscar IDs das conversas da clínica primeiro
+	// Confirmações de presença neste mês (substitui no-show mock)
+	const startOfMonth = new Date()
+	startOfMonth.setDate(1)
+	startOfMonth.setHours(0, 0, 0, 0)
+	const { count: confirmedThisMonth } = await supabase
+		.from('appointments')
+		.select('id', { count: 'exact', head: true })
+		.eq('clinic_id', clinicId)
+		.eq('status', 'confirmed')
+		.gte('starts_at', startOfMonth.toISOString())
+
+	// Tempo médio de resposta da equipe (mensagens humanas)
+	// Busca pares: mensagem do paciente → próxima resposta não-paciente
 	const { data: clinicConversations } = await supabase
 		.from('conversations')
 		.select('id')
 		.eq('clinic_id', clinicId)
-		.limit(100)
+		.limit(50)
 
-	const conversationIds =
-		clinicConversations?.map((c: { id: string }) => c.id) || []
-
-	// Tempo médio de resposta (calculado das últimas mensagens)
-	const { data: recentMessages } =
-		conversationIds.length > 0
-			? await supabase
-				.from('messages')
-				.select('id, conversation_id, sender, created_at')
-				.in('conversation_id', conversationIds)
-				.order('created_at', { ascending: false })
-				.limit(100)
-			: { data: null }
+	const conversationIds = clinicConversations?.map((c: { id: string }) => c.id) || []
 
 	let avgResponseTime = '—'
-	if (recentMessages && recentMessages.length > 0) {
-		const responseTimes: number[] = []
-		for (let i = 0; i < recentMessages.length - 1; i++) {
-			const current = recentMessages[i]
-			const next = recentMessages[i + 1]
+	if (conversationIds.length > 0) {
+		const { data: recentMessages } = await supabase
+			.from('messages')
+			.select('conversation_id, sender, created_at')
+			.in('conversation_id', conversationIds)
+			.order('created_at', { ascending: true })
+			.limit(200)
 
-			if (
-				current.conversation_id === next.conversation_id &&
-				current.sender !== 'patient' &&
-				next.sender === 'patient'
-			) {
-				const diff =
-					new Date(current.created_at).getTime() -
-					new Date(next.created_at).getTime()
-				if (diff > 0 && diff < 3600000) {
-					responseTimes.push(diff)
+		if (recentMessages && recentMessages.length > 1) {
+			const responseTimes: number[] = []
+			// Group by conversation
+			const byConv: Record<string, typeof recentMessages> = {}
+			for (const m of recentMessages) {
+				if (!byConv[m.conversation_id]) byConv[m.conversation_id] = []
+				byConv[m.conversation_id].push(m)
+			}
+			for (const msgs of Object.values(byConv)) {
+				for (let i = 0; i < msgs.length - 1; i++) {
+					// Find patient message followed by staff/bot reply
+					if (msgs[i].sender === 'patient' && msgs[i + 1].sender !== 'patient') {
+						const diff = new Date(msgs[i + 1].created_at).getTime() - new Date(msgs[i].created_at).getTime()
+						// Only count responses under 2 hours
+						if (diff > 0 && diff < 7200000) responseTimes.push(diff)
+					}
 				}
 			}
-		}
-
-		if (responseTimes.length > 0) {
-			const avg =
-				responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
-			const minutes = Math.floor(avg / 60000)
-			const seconds = Math.floor((avg % 60000) / 1000)
-			avgResponseTime = `${minutes}m ${seconds}s`
+			if (responseTimes.length > 0) {
+				const avg = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+				const minutes = Math.floor(avg / 60000)
+				const seconds = Math.floor((avg % 60000) / 1000)
+				avgResponseTime = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`
+			}
 		}
 	}
 
 	return {
 		openConversations: openCount || 0,
 		avgResponseTime,
-		noShowAvoided: 0, // Mock por enquanto
+		confirmedThisMonth: confirmedThisMonth || 0,
 	}
 }
 
@@ -146,41 +152,46 @@ async function getRecentConversations(clinicId: string) {
 	return (data || []) as Conversation[]
 }
 
-function getRecentNotifications() {
-	// Mock de notificações por enquanto
-	const now = new Date()
-	return [
-		{
-			id: '1',
-			text: 'Nova conversa iniciada',
-			time: new Date(now.getTime() - 300000).toISOString(),
-			type: 'message' as const,
-		},
-		{
-			id: '2',
-			text: 'Atendimento agendado confirmado',
-			time: new Date(now.getTime() - 900000).toISOString(),
-			type: 'calendar' as const,
-		},
-		{
-			id: '3',
-			text: 'Paciente respondeu mensagem',
-			time: new Date(now.getTime() - 1800000).toISOString(),
-			type: 'message' as const,
-		},
-		{
-			id: '4',
-			text: 'Conversa finalizada',
-			time: new Date(now.getTime() - 3600000).toISOString(),
-			type: 'check' as const,
-		},
-		{
-			id: '5',
-			text: 'Nova mensagem recebida',
-			time: new Date(now.getTime() - 7200000).toISOString(),
-			type: 'message' as const,
-		},
-	]
+async function getRecentNotifications(clinicId: string) {
+	const supabase = await createClient()
+	const { data } = await supabase
+		.from('conversations')
+		.select('id, patient_name, status, last_message_at, created_at')
+		.eq('clinic_id', clinicId)
+		.order('last_message_at', { ascending: false, nullsFirst: false })
+		.limit(5)
+
+	if (!data || data.length === 0) return []
+
+	const statusTextMap: Record<string, string> = {
+		new: 'Nova conversa iniciada',
+		in_progress: 'Conversa em andamento',
+		waiting_patient: 'Aguardando resposta do paciente',
+		scheduled: 'Consulta agendada',
+		reschedule: 'Solicitação de remarcação',
+		canceled: 'Consulta cancelada',
+		waitlist: 'Paciente na lista de espera',
+		done: 'Conversa finalizada',
+		waiting_human: 'Aguardando atendente',
+	}
+	const statusTypeMap: Record<string, 'message' | 'calendar' | 'alert' | 'check'> = {
+		new: 'message',
+		in_progress: 'message',
+		waiting_patient: 'message',
+		scheduled: 'calendar',
+		reschedule: 'calendar',
+		canceled: 'alert',
+		waitlist: 'alert',
+		done: 'check',
+		waiting_human: 'alert',
+	}
+
+	return data.map((c: { id: string; patient_name: string | null; status: string; last_message_at: string | null; created_at: string }) => ({
+		id: c.id,
+		text: `${c.patient_name || 'Paciente'} — ${statusTextMap[c.status] ?? c.status}`,
+		time: c.last_message_at || c.created_at,
+		type: (statusTypeMap[c.status] ?? 'message') as 'message' | 'calendar' | 'alert' | 'check',
+	}))
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -244,12 +255,12 @@ export default async function DashboardPage() {
 	// Get subscription info for plan badge
 	const subscription = await checkSubscription(clinic.id)
 
-	const [metrics, additionalMetrics, recentConversations] = await Promise.all([
+	const [metrics, additionalMetrics, recentConversations, notifications] = await Promise.all([
 		getMetrics(clinic.id),
 		getAdditionalMetrics(clinic.id),
 		getRecentConversations(clinic.id),
+		getRecentNotifications(clinic.id),
 	])
-	const notifications = getRecentNotifications()
 
 	const cards = [
 		{
@@ -292,8 +303,8 @@ export default async function DashboardPage() {
 			color: 'text-indigo-600',
 		},
 		{
-			title: 'No-show evitado',
-			value: additionalMetrics.noShowAvoided,
+			title: 'Presenças confirmadas',
+			value: additionalMetrics.confirmedThisMonth,
 			icon: UserCheck,
 			color: 'text-teal-600',
 		},

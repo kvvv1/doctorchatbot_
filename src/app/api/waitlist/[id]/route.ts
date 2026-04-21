@@ -20,7 +20,7 @@ export async function DELETE(
 
   const { error } = await supabase
     .from('conversations')
-    .update({ status: 'open', updated_at: new Date().toISOString() })
+    .update({ status: 'done', updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('clinic_id', session.clinic.id)
 

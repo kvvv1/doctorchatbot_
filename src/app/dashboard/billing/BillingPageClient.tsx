@@ -123,7 +123,7 @@ export default function BillingPageClient({ subscription, subscriptionCheck }: B
 					)}
 
 					{/* Cancelar */}
-					{isActive && subscription?.stripe_subscription_id && (
+				{isActive && subscription?.status !== 'canceled' && (
 						<div className="mt-5 pt-4 border-t border-neutral-100">
 							<button
 								onClick={handleCancel}

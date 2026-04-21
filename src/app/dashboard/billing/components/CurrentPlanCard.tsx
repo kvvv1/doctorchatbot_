@@ -214,7 +214,7 @@ export default function CurrentPlanCard({
 				)}
 
 				{/* Ações */}
-				{isActive && subscription?.stripe_subscription_id && (
+				{isActive && subscription?.status !== 'canceled' && (
 					<div className="pt-2 border-t border-neutral-100">
 						{cancelSuccess ? (
 							<div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
