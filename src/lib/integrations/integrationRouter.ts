@@ -103,6 +103,26 @@ export async function createExternalAppointment(params: {
       resolution.gestaods.isDev
     )
 
+    // Ensure patient exists in GestãoDS: look up by CPF, register if not found
+    const patientResult = await gestaoService.getPatient(cpf)
+    if (!patientResult.success) {
+      // Patient not found — register with available info
+      const registerResult = await gestaoService.registerPatient({
+        cpf,
+        nome_completo: params.patientName,
+        email: '',
+        celular: params.patientPhone || '',
+        enviar_whatsapp_lembrete: true,
+      })
+      if (!registerResult.success) {
+        console.warn('[integrationRouter] registerPatient failed — proceeding with booking anyway:', registerResult.error)
+      } else {
+        console.log('[integrationRouter] Patient registered in GestãoDS:', { cpf, name: params.patientName })
+      }
+    } else {
+      console.log('[integrationRouter] Patient found in GestãoDS:', { cpf })
+    }
+
     const startsAtFormatted = await gestaoService.formatDateForApi(params.startsAt)
     const endsAtFormatted = await gestaoService.formatDateForApi(params.endsAt)
 
