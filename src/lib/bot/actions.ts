@@ -448,11 +448,14 @@ export async function confirmAppointmentAttendance(
     })
 
     if (!externalResult.synced) {
-      return {
-        success: false,
-        message: externalResult.error || 'Não consegui confirmar presença na agenda integrada.',
-        error: externalResult.error || 'external_confirm_failed',
-      }
+      // Soft-fail: if the external system doesn't find the appointment (e.g. it was
+      // created manually or the reference ID is stale), still confirm it locally so
+      // the patient doesn't see a raw HTTP error.  Log a warning for the clinic owner.
+      console.warn(
+        '[bot/actions] External confirm failed — confirming locally only:',
+        externalResult.error,
+        { clinicId, appointmentId, provider: appointment.provider },
+      )
     }
   }
 
@@ -553,7 +556,13 @@ export async function rescheduleAppointment(params: {
   const slotDate = new Date(params.slot.startsAt)
   const dataStr = format(slotDate, "EEE, dd/MM", { locale: ptBR })
   const horarioStr = format(slotDate, "HH'h'mm", { locale: ptBR })
-  const rescheduleMessage = params.confirmTemplate
+  // Ignore the old default template that says "encaminhar solicitação para equipe" —
+  // that was written for the mode where the bot did NOT handle rescheduling.
+  // When the bot successfully reschedules, always show a proper confirmation.
+  const isLegacyTransferTemplate =
+    params.confirmTemplate?.includes('encaminhar') ||
+    params.confirmTemplate?.includes('equipe')
+  const rescheduleMessage = (params.confirmTemplate && !isLegacyTransferTemplate)
     ? interpolate(params.confirmTemplate, {
         nome: appointment?.patient_name ?? '',
         data: dataStr,

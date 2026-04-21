@@ -217,7 +217,7 @@ export async function handleBotTurn(
       return handleCancelarTipo(userMessage, ctx, botSettings, clinicId)
 
     case 'cancelar_confirmar':
-      return handleCancelarConfirmar(userMessage, ctx)
+      return handleCancelarConfirmar(userMessage, ctx, clinicId, botSettings)
 
     case 'cancelar_encaixe':
       return handleCancelarEncaixe(conversationId, userMessage, ctx, clinicId, botSettings)
@@ -1172,14 +1172,39 @@ async function handleReagendarHora(
 
 // ---- Cancelar --------------------------------------------------------------
 
-function handleCancelarConfirmar(msg: string, ctx: BotContext): BotResponse {
+async function handleCancelarConfirmar(
+  msg: string,
+  ctx: BotContext,
+  clinicId?: string,
+  botSettings?: BotSettings | null,
+): Promise<BotResponse> {
   const answer = detectYesNo(msg)
 
   if (answer === 'yes') {
+    // Cancel immediately so the slot is freed even if the patient never replies
+    // to the waitlist question (Bug fix: cancelamento deve ocorrer aqui).
+    let canceledStartsAt: string | undefined
+    if (ctx.appointmentId && clinicId) {
+      const cancelResult = await cancelAppointment(clinicId, ctx.appointmentId, botSettings?.message_confirm_cancel)
+      if (!cancelResult.success) {
+        return {
+          message: cancelResult.message,
+          nextState: 'cancelar_confirmar',
+          nextContext: ctx,
+        }
+      }
+      canceledStartsAt = cancelResult.startsAt
+      // Non-blocking: notify waitlist about the freed slot right away
+      if (botSettings?.waitlist_notifications_enabled ?? true) {
+        notifyWaitlistOnSlotFree(clinicId, canceledStartsAt).catch((err) =>
+          console.error('[bot] waitlist notify after cancel failed:', err)
+        )
+      }
+    }
     return {
       message: templates.cancelAskWaitlist,
       nextState: 'cancelar_encaixe',
-      nextContext: ctx,
+      nextContext: { ...ctx, canceledStartsAt },
     }
   }
 
@@ -1203,16 +1228,8 @@ async function handleCancelarEncaixe(
     return { message: templates.cancelAskWaitlist, nextState: 'cancelar_encaixe', nextContext: ctx }
   }
 
-  // Cancel the appointment in DB
-  if (ctx.appointmentId && clinicId) {
-    const cancelResult = await cancelAppointment(clinicId, ctx.appointmentId, botSettings?.message_confirm_cancel)
-    // Non-blocking: notify first matching waitlist patient about the freed slot
-    if (cancelResult.success && (botSettings?.waitlist_notifications_enabled ?? true)) {
-      notifyWaitlistOnSlotFree(clinicId, cancelResult.startsAt).catch((err) =>
-        console.error('[bot] waitlist notify after cancel failed:', err)
-      )
-    }
-  }
+  // Appointment was already canceled in handleCancelarConfirmar.
+  // Nothing to do here except handle the waitlist preference.
 
   if (answer === 'yes') {
     if (clinicId) await addToWaitlist(clinicId, conversationId)

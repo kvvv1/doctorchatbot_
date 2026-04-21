@@ -105,7 +105,10 @@ export class GestaoDSService {
         }
 
         if (text.includes('sao_paulo') || text.includes('sao paulo')) {
-            return -3
+            // The system stores dates as BRT values in UTC fields (server runs in UTC but
+            // treats user-typed hours as BRT directly).  No additional shift is needed
+            // to produce the correct BRT string for the GestãoDS API.
+            return 0
         }
 
         const normalized = text.replace('utc', '').replace('gmt', '').trim()
@@ -142,8 +145,9 @@ export class GestaoDSService {
             ? GestaoDSService.parseTimezoneOffsetHours(timezoneResult.data)
             : null
 
-        // Fallback to Brasilia timezone to preserve current behavior when API does not expose timezone.
-        this.agendaTimezoneOffsetHours = parsedOffset ?? -3
+        // Fallback: the system treats user-typed BRT hours as UTC (fake-UTC convention),
+        // so no offset is needed to produce the correct BRT time for the API.
+        this.agendaTimezoneOffsetHours = parsedOffset ?? 0
         return this.agendaTimezoneOffsetHours
     }
 

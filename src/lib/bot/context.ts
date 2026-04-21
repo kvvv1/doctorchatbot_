@@ -118,4 +118,6 @@ export type BotContext = {
   // General
   intent?: string
   retryCount?: number
+  /** ISO datetime of the appointment slot that was just canceled (set by handleCancelarConfirmar) */
+  canceledStartsAt?: string
 }
