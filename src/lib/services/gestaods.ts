@@ -140,15 +140,14 @@ export class GestaoDSService {
             return this.agendaTimezoneOffsetHours
         }
 
-        const timezoneResult = await this.getAgendaTimezone()
-        const parsedOffset = timezoneResult.success
-            ? GestaoDSService.parseTimezoneOffsetHours(timezoneResult.data)
-            : null
-
-        // Fallback: the system treats user-typed BRT hours as UTC (fake-UTC convention),
-        // so no offset is needed to produce the correct BRT time for the API.
-        this.agendaTimezoneOffsetHours = parsedOffset ?? 0
-        return this.agendaTimezoneOffsetHours
+        // The Vercel server runs in UTC, but throughout this codebase BRT times are
+        // stored/created as if they were UTC (naive convention: setHours(date, 15) on
+        // a UTC server gives "15:00 UTC", which in the UI is read as "15:00 BRT").
+        // Therefore formatDateForApi must NOT apply any timezone shift — the Date value
+        // already holds the intended BRT digits.  Ignoring the GestãoDS timezone API
+        // avoids a -3h subtraction that would turn "15:00" into "12:00".
+        this.agendaTimezoneOffsetHours = 0
+        return 0
     }
 
     async formatDateForApi(date: Date): Promise<string> {
