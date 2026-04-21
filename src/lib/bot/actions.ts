@@ -268,7 +268,7 @@ export async function createAppointment(params: {
   const clinicAddress = await getClinicAddress(params.clinicId)
   const addressLine = clinicAddress ? `\n\n📍 ${clinicAddress}` : ''
   const successMessage = params.confirmTemplate
-    ? interpolate(params.confirmTemplate, { nome: params.patientName, data: dataStr, horario: horarioStr }) + addressLine
+    ? interpolate(params.confirmTemplate, { nome: params.patientName, data: dataStr, horario: horarioStr })
     : `✅ Agendamento confirmado!\n\n📅 ${label}\n👤 ${params.patientName}\n\nVocê receberá um lembrete antes da consulta. Para cancelar ou remarcar, é só me avisar. 😊${addressLine}\n\n0. Menu principal`
   return {
     success: true,
@@ -362,7 +362,7 @@ export async function createAppointmentFromSlot(params: {
   const clinicAddress = await getClinicAddress(params.clinicId)
   const addressLine = clinicAddress ? `\n\n📍 ${clinicAddress}` : ''
   const successMessage = params.confirmTemplate
-    ? interpolate(params.confirmTemplate, { nome: params.patientName, data: dataStr, horario: horarioStr }) + addressLine
+    ? interpolate(params.confirmTemplate, { nome: params.patientName, data: dataStr, horario: horarioStr })
     : `✅ Agendamento confirmado!\n\n📅 ${params.slot.label}\n👤 ${params.patientName}\n\nVocê receberá um lembrete antes da consulta. Para cancelar ou remarcar, é só me avisar. 😊${addressLine}\n\n0. Menu principal`
   return {
     success: true,
@@ -593,7 +593,7 @@ export async function rescheduleAppointment(params: {
         nome: appointment?.patient_name ?? '',
         data: dataStr,
         horario: horarioStr,
-      }) + addressLine + '\n\n0. Menu principal'
+      }) + '\n\n0. Menu principal'
     : `✅ Consulta remarcada!\n\n📅 ${params.slot.label}\n\nSe precisar alterar novamente, é só me avisar. 😊${addressLine}\n\n0. Menu principal`
   return {
     success: true,
