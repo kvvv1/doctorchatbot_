@@ -471,7 +471,7 @@ export default async function DashboardPage() {
 						</h2>
 					</div>
 					<div className="divide-y divide-neutral-200">
-						{notifications.map((notification) => {
+					{notifications.map((notification: { id: string; text: string; time: string; type: 'message' | 'calendar' | 'alert' | 'check' }) => {
 							const Icon = getNotificationIcon(notification.type)
 							return (
 								<div
