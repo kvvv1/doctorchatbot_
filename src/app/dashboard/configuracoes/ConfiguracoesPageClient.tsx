@@ -461,22 +461,12 @@ function ClinicaTab({
 								<span className="text-sm text-neutral-500">min</span>
 							</div>
 						</div>
-						<div className="mt-3 flex items-center gap-3">
-							<button
-								type="button"
-								onClick={saveDuration}
-								disabled={isSavingDuration}
-								className="rounded-lg bg-sky-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 transition-colors"
-							>
-								{isSavingDuration ? 'Salvando...' : 'Salvar duração'}
-							</button>
-							<p className="text-xs text-neutral-500">
+						<p className="mt-2 text-xs text-neutral-500">
 								Padrão usado quando o tipo de consulta não tiver duração específica.
 							</p>
-						</div>
 					</div>
 
-					{/* Duração por tipo */}
+					{/* Duração por tipo */
 					<div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 space-y-4">
 						<p className="text-sm font-medium text-neutral-700">
 							Duração por tipo de consulta <span className="text-neutral-400 font-normal">(opcional — sobrepõe o padrão)</span>
@@ -559,11 +549,21 @@ function ClinicaTab({
 								</div>
 							</div>
 						</div>
+						<div className="mt-4 flex items-center gap-3">
+							<button
+								type="button"
+								onClick={saveDuration}
+								disabled={isSavingDuration}
+								className="rounded-lg bg-sky-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 transition-colors"
+							>
+								{isSavingDuration ? 'Salvando...' : 'Salvar duração'}
+							</button>
+						</div>
 					</div>
 				</div>
 			</div>
 
-			{/* Horário de Funcionamento */}
+			{/* Horário de Funcionamento */
 			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
 				<div className="flex items-start justify-between mb-4">
 					<div>
