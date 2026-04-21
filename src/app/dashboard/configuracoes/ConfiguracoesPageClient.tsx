@@ -466,7 +466,7 @@ function ClinicaTab({
 							</p>
 					</div>
 
-					{/* Duração por tipo */
+				{/* Duração por tipo */}
 					<div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 space-y-4">
 						<p className="text-sm font-medium text-neutral-700">
 							Duração por tipo de consulta <span className="text-neutral-400 font-normal">(opcional — sobrepõe o padrão)</span>
