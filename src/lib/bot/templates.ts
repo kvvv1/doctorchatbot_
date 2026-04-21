@@ -288,11 +288,15 @@ Gostaria de entrar na *lista de espera* caso surja um horário mais cedo?
 
   cancelWithWaitlist: `✅ Consulta cancelada com sucesso.
 
-Você foi adicionado à *lista de espera*. Avisaremos assim que surgir um horário disponível! 📲`,
+Você foi adicionado à *lista de espera*. Avisaremos assim que surgir um horário disponível! 📲
+
+0. Menu principal`,
 
   cancelWithoutWaitlist: `✅ Consulta cancelada.
 
-Se precisar agendar novamente no futuro, é só chamar! Obrigado. 😊`,
+Se precisar agendar novamente no futuro, é só chamar! Obrigado. 😊
+
+0. Menu principal`,
 
   // -------------------------------------------------------------------------
   // Lista de espera por preferência de horário
@@ -363,7 +367,9 @@ O que deseja fazer?
 
   confirmAttendanceSuccess: `✅ *Presença confirmada!*
 
-Obrigado! Te esperamos. 🏥`,
+Obrigado! Te esperamos. 🏥
+
+0. Menu principal`,
 
   confirmAttendanceCancel: `Entendido. O que deseja fazer?
 

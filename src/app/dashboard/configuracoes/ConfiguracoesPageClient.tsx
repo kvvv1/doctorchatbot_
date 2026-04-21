@@ -129,6 +129,8 @@ export default function ConfiguracoesPageClient({
 	clinicId,
 	initialBotSettings,
 	initialDefaultDurationMinutes,
+	initialParticularDurationMinutes,
+	initialConvenioDurationMinutes,
 	planKey,
 	hasCustomFlows,
 	hasCalendarIntegrationAccess,
@@ -137,6 +139,8 @@ export default function ConfiguracoesPageClient({
 	clinicId: string
 	initialBotSettings: BotSettings | null
 	initialDefaultDurationMinutes: number
+	initialParticularDurationMinutes: number | null
+	initialConvenioDurationMinutes: number | null
 	planKey: PlanKey | null
 	hasCustomFlows: boolean
 	hasCalendarIntegrationAccess: boolean
@@ -231,6 +235,8 @@ export default function ConfiguracoesPageClient({
 							clinicId={clinicId}
 							initialClinicName={initialClinicName}
 							initialDefaultDurationMinutes={initialDefaultDurationMinutes}
+							initialParticularDurationMinutes={initialParticularDurationMinutes}
+							initialConvenioDurationMinutes={initialConvenioDurationMinutes}
 							initialBotSettings={initialBotSettings}
 						/>
 					)}
@@ -270,16 +276,22 @@ function ClinicaTab({
 	clinicId,
 	initialClinicName,
 	initialDefaultDurationMinutes,
+	initialParticularDurationMinutes,
+	initialConvenioDurationMinutes,
 	initialBotSettings,
 }: {
 	clinicId: string
 	initialClinicName: string
 	initialDefaultDurationMinutes: number
+	initialParticularDurationMinutes: number | null
+	initialConvenioDurationMinutes: number | null
 	initialBotSettings: BotSettings | null
 }) {
 	const router = useRouter()
 	const [clinicName, setClinicName] = useState(initialClinicName)
 	const [defaultDurationMinutes, setDefaultDurationMinutes] = useState(initialDefaultDurationMinutes)
+	const [particularDurationMinutes, setParticularDurationMinutes] = useState<number | null>(initialParticularDurationMinutes)
+	const [convenioDurationMinutes, setConvenioDurationMinutes] = useState<number | null>(initialConvenioDurationMinutes)
 	const [workingHoursEnabled, setWorkingHoursEnabled] = useState(
 		initialBotSettings?.working_hours_enabled ?? true
 	)
@@ -296,7 +308,9 @@ function ClinicaTab({
 	// Sync local state when server refreshes parent props (e.g. after router.refresh())
 	useEffect(() => {
 		setDefaultDurationMinutes(initialDefaultDurationMinutes)
-	}, [initialDefaultDurationMinutes])
+		setParticularDurationMinutes(initialParticularDurationMinutes)
+		setConvenioDurationMinutes(initialConvenioDurationMinutes)
+	}, [initialDefaultDurationMinutes, initialParticularDurationMinutes, initialConvenioDurationMinutes])
 
 	const showToast = (message: string, type: 'success' | 'error') => {
 		setToast({ message, type })
@@ -310,11 +324,17 @@ function ClinicaTab({
 			const res = await fetch('/api/appointment-settings', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ defaultDurationMinutes }),
+				body: JSON.stringify({
+					defaultDurationMinutes,
+					particularDurationMinutes,
+					convenioDurationMinutes,
+				}),
 			})
 			const data = await res.json().catch(() => null)
 			if (!res.ok) throw new Error(data?.error || 'Falha ao salvar')
 			if (data?.defaultDurationMinutes) setDefaultDurationMinutes(data.defaultDurationMinutes)
+			if (data?.particularDurationMinutes !== undefined) setParticularDurationMinutes(data.particularDurationMinutes)
+			if (data?.convenioDurationMinutes !== undefined) setConvenioDurationMinutes(data.convenioDurationMinutes)
 			showToast('Duração salva com sucesso!', 'success')
 			router.refresh()
 		} catch (err) {
@@ -451,8 +471,93 @@ function ClinicaTab({
 								{isSavingDuration ? 'Salvando...' : 'Salvar duração'}
 							</button>
 							<p className="text-xs text-neutral-500">
-								Usado pelo bot e pela agenda para novos agendamentos.
+								Padrão usado quando o tipo de consulta não tiver duração específica.
 							</p>
+						</div>
+					</div>
+
+					{/* Duração por tipo */}
+					<div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 space-y-4">
+						<p className="text-sm font-medium text-neutral-700">
+							Duração por tipo de consulta <span className="text-neutral-400 font-normal">(opcional — sobrepõe o padrão)</span>
+						</p>
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+							{/* Particular */}
+							<div>
+								<label className="block text-sm font-medium text-neutral-700 mb-1">
+									🏥 Particular
+								</label>
+								<div className="flex flex-wrap gap-1.5">
+									{[15, 20, 30, 40, 45, 60].map((min) => (
+										<button
+											key={min}
+											type="button"
+											onClick={() => setParticularDurationMinutes(particularDurationMinutes === min ? null : min)}
+											className={`rounded-lg border px-2.5 py-1 text-sm font-medium transition-colors ${
+												particularDurationMinutes === min
+													? 'border-sky-500 bg-sky-600 text-white'
+													: 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+											}`}
+										>
+											{min} min
+										</button>
+									))}
+									<div className="flex items-center gap-1">
+										<input
+											type="number"
+											min={5}
+											max={480}
+											step={5}
+											placeholder="Outro"
+											value={particularDurationMinutes ?? ''}
+											onChange={(e) => {
+												const v = e.target.value === '' ? null : Number(e.target.value)
+												setParticularDurationMinutes(v && v >= 5 && v <= 480 ? v : null)
+											}}
+											className="w-16 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+										/>
+										<span className="text-xs text-neutral-400">min</span>
+									</div>
+								</div>
+							</div>
+							{/* Convênio */}
+							<div>
+								<label className="block text-sm font-medium text-neutral-700 mb-1">
+									📋 Convênio
+								</label>
+								<div className="flex flex-wrap gap-1.5">
+									{[15, 20, 30, 40, 45, 60].map((min) => (
+										<button
+											key={min}
+											type="button"
+											onClick={() => setConvenioDurationMinutes(convenioDurationMinutes === min ? null : min)}
+											className={`rounded-lg border px-2.5 py-1 text-sm font-medium transition-colors ${
+												convenioDurationMinutes === min
+													? 'border-sky-500 bg-sky-600 text-white'
+													: 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+											}`}
+										>
+											{min} min
+										</button>
+									))}
+									<div className="flex items-center gap-1">
+										<input
+											type="number"
+											min={5}
+											max={480}
+											step={5}
+											placeholder="Outro"
+											value={convenioDurationMinutes ?? ''}
+											onChange={(e) => {
+												const v = e.target.value === '' ? null : Number(e.target.value)
+												setConvenioDurationMinutes(v && v >= 5 && v <= 480 ? v : null)
+											}}
+											className="w-16 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-neutral-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+										/>
+										<span className="text-xs text-neutral-400">min</span>
+									</div>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>

@@ -46,11 +46,11 @@ function parseHHMM(value: string): { hours: number; minutes: number } {
  * Only selects columns that are guaranteed to exist (migration 022).
  * buffer_time_minutes and min_advance_booking_hours are added by migration 023.
  */
-async function getSettings(clinicId: string) {
+async function getSettings(clinicId: string, appointmentType?: 'particular' | 'convenio' | null) {
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('appointment_settings')
-    .select('default_duration_minutes, buffer_time_minutes, min_advance_booking_hours')
+    .select('default_duration_minutes, buffer_time_minutes, min_advance_booking_hours, particular_duration_minutes, convenio_duration_minutes')
     .eq('clinic_id', clinicId)
     .maybeSingle()
 
@@ -68,8 +68,16 @@ async function getSettings(clinicId: string) {
     }
   }
 
+  const defaultDuration = data?.default_duration_minutes ?? 30
+  let durationMinutes = defaultDuration
+  if (appointmentType === 'particular' && data?.particular_duration_minutes) {
+    durationMinutes = data.particular_duration_minutes
+  } else if (appointmentType === 'convenio' && data?.convenio_duration_minutes) {
+    durationMinutes = data.convenio_duration_minutes
+  }
+
   return {
-    durationMinutes: data?.default_duration_minutes ?? 30,
+    durationMinutes,
     bufferMinutes: data?.buffer_time_minutes ?? 0,
     minAdvanceHours: data?.min_advance_booking_hours ?? 2,
   }
@@ -122,10 +130,11 @@ export async function checkSlotAvailable(
   clinicId: string,
   startsAt: Date,
   endsAt: Date,
-  botSettings: BotSettings
+  botSettings: BotSettings,
+  appointmentType?: 'particular' | 'convenio' | null
 ): Promise<boolean> {
   // 1. Past check
-  const settings = await getSettings(clinicId)
+  const settings = await getSettings(clinicId, appointmentType)
   const earliest = new Date(Date.now() + settings.minAdvanceHours * 3_600_000)
   if (startsAt < earliest) return false
 
@@ -157,14 +166,15 @@ export async function getAvailableSlots(
   clinicId: string,
   targetDate: Date,
   botSettings: BotSettings,
-  count = 3
+  count = 3,
+  appointmentType?: 'particular' | 'convenio' | null
 ): Promise<Slot[]> {
   const external = await getExternalAvailableSlots(clinicId, targetDate, count)
   if (external.length > 0) {
     return external
   }
 
-  const settings = await getSettings(clinicId)
+  const settings = await getSettings(clinicId, appointmentType)
   const { durationMinutes, bufferMinutes } = settings
   const stepMinutes = durationMinutes + bufferMinutes
 
@@ -208,7 +218,7 @@ export async function getAvailableSlots(
         const slotEnd = addMinutes(slotStart, durationMinutes)
         if (slotEnd > dayEnd) break
 
-        const available = await checkSlotAvailable(clinicId, slotStart, slotEnd, botSettings)
+        const available = await checkSlotAvailable(clinicId, slotStart, slotEnd, botSettings, appointmentType)
         if (available) {
           slots.push({
             startsAt: slotStart.toISOString(),
@@ -332,6 +342,7 @@ export async function getAvailableDays(
   limit = 8,
   offset = 0,
   excludeWeekdays: string[] = [],
+  appointmentType?: 'particular' | 'convenio' | null,
 ): Promise<DayOption[]> {
   const gestaoDSService = await getGestaoDSService(clinicId)
 
@@ -349,7 +360,7 @@ export async function getAvailableDays(
   while (days.length < limit && daysChecked < maxDaysAhead) {
     const dayKey = JS_DAY_TO_KEY[getDay(cursor)]
     if (isDayWorking(botSettings, cursor) && !excludeWeekdays.includes(dayKey)) {
-      const slots = await getSlotsForDayInternal(clinicId, cursor, botSettings, 1)
+      const slots = await getSlotsForDayInternal(clinicId, cursor, botSettings, 1, appointmentType)
       if (slots.length > 0) {
         if (found >= offset) {
           const dateStr = format(cursor, 'yyyy-MM-dd')
@@ -437,6 +448,7 @@ export async function getSlotsForDay(
   day: string,
   botSettings: BotSettings,
   limit = 9,
+  appointmentType?: 'particular' | 'convenio' | null
 ): Promise<Slot[]> {
   const date = startOfDay(parseISO(day))
 
@@ -445,7 +457,7 @@ export async function getSlotsForDay(
     return getSlotsForDayExternal(clinicId, date, botSettings, limit, service)
   }
 
-  return getSlotsForDayInternal(clinicId, date, botSettings, limit)
+  return getSlotsForDayInternal(clinicId, date, botSettings, limit, appointmentType)
 }
 
 async function getSlotsForDayInternal(
@@ -453,8 +465,9 @@ async function getSlotsForDayInternal(
   date: Date,
   botSettings: BotSettings,
   limit: number,
+  appointmentType?: 'particular' | 'convenio' | null
 ): Promise<Slot[]> {
-  const settings = await getSettings(clinicId)
+  const settings = await getSettings(clinicId, appointmentType)
   const { durationMinutes, bufferMinutes } = settings
   const stepMinutes = durationMinutes + bufferMinutes
 

@@ -121,11 +121,11 @@ export function formatSlotLabel(date: Date): string {
  * Only selects columns that are guaranteed to exist (migration 022).
  * buffer_time_minutes and min_advance_booking_hours are added by migration 023.
  */
-async function getAppointmentSettings(clinicId: string) {
+async function getAppointmentSettings(clinicId: string, appointmentType?: 'particular' | 'convenio' | null) {
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('appointment_settings')
-    .select('default_duration_minutes, buffer_time_minutes, min_advance_booking_hours')
+    .select('default_duration_minutes, buffer_time_minutes, min_advance_booking_hours, particular_duration_minutes, convenio_duration_minutes')
     .eq('clinic_id', clinicId)
     .maybeSingle()
 
@@ -143,8 +143,16 @@ async function getAppointmentSettings(clinicId: string) {
     }
   }
 
+  const defaultDuration = data?.default_duration_minutes ?? 30
+  let durationMinutes = defaultDuration
+  if (appointmentType === 'particular' && data?.particular_duration_minutes) {
+    durationMinutes = data.particular_duration_minutes
+  } else if (appointmentType === 'convenio' && data?.convenio_duration_minutes) {
+    durationMinutes = data.convenio_duration_minutes
+  }
+
   return {
-    durationMinutes: data?.default_duration_minutes ?? 30,
+    durationMinutes,
     bufferMinutes: data?.buffer_time_minutes ?? 0,
     minAdvanceHours: data?.min_advance_booking_hours ?? 2,
   }
@@ -482,9 +490,9 @@ export async function confirmAppointmentAttendance(
 }
 
 function templatesNotAvailableFallbackConfirmMessage(startsAt: string | null): string {
-  if (!startsAt) return '✅ Presença confirmada com sucesso!'
+  if (!startsAt) return '✅ Presença confirmada com sucesso!\n\n0. Menu principal'
   const d = new Date(startsAt)
-  return `✅ Presença confirmada!\n\n📅 ${format(d, "EEE, dd/MM 'às' HH:mm", { locale: ptBR })}`
+  return `✅ Presença confirmada!\n\n📅 ${format(d, "EEE, dd/MM 'às' HH:mm", { locale: ptBR })}\n\n0. Menu principal`
 }
 
 /**

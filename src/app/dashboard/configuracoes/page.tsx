@@ -25,10 +25,12 @@ export default async function ConfiguracoesPage() {
 	const supabase = createAdminClient()
 	const { data: appointmentSettings } = await supabase
 		.from('appointment_settings')
-		.select('default_duration_minutes')
+		.select('default_duration_minutes, particular_duration_minutes, convenio_duration_minutes')
 		.eq('clinic_id', clinic.id)
 		.maybeSingle()
 	const initialDefaultDurationMinutes = appointmentSettings?.default_duration_minutes ?? 30
+	const initialParticularDurationMinutes: number | null = appointmentSettings?.particular_duration_minutes ?? null
+	const initialConvenioDurationMinutes: number | null = appointmentSettings?.convenio_duration_minutes ?? null
 	const hasCustomFlows = hasFeatureAccess(
 		subscription.planKey,
 		PlanFeature.BOT_CUSTOM_FLOWS
@@ -43,6 +45,8 @@ export default async function ConfiguracoesPage() {
 			clinicId={clinic.id}
 			initialBotSettings={botSettings}
 			initialDefaultDurationMinutes={initialDefaultDurationMinutes}
+			initialParticularDurationMinutes={initialParticularDurationMinutes}
+			initialConvenioDurationMinutes={initialConvenioDurationMinutes}
 			planKey={subscription.planKey}
 			hasCustomFlows={hasCustomFlows}
 			hasCalendarIntegrationAccess={hasCalendarIntegrationAccess}

@@ -12,7 +12,7 @@ export async function GET() {
     const supabase = createAdminClient()
     const { data, error } = await supabase
       .from('appointment_settings')
-      .select('default_duration_minutes')
+      .select('default_duration_minutes, particular_duration_minutes, convenio_duration_minutes')
       .eq('clinic_id', session.clinic.id)
       .maybeSingle()
 
@@ -23,6 +23,8 @@ export async function GET() {
 
     return NextResponse.json({
       defaultDurationMinutes: data?.default_duration_minutes ?? 30,
+      particularDurationMinutes: data?.particular_duration_minutes ?? null,
+      convenioDurationMinutes: data?.convenio_duration_minutes ?? null,
     })
   } catch (err) {
     console.error('[AppointmentSettings GET] unexpected', err)
@@ -36,7 +38,11 @@ export async function PATCH(request: NextRequest) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()
-    const { defaultDurationMinutes } = body as { defaultDurationMinutes?: unknown }
+    const { defaultDurationMinutes, particularDurationMinutes, convenioDurationMinutes } = body as {
+      defaultDurationMinutes?: unknown
+      particularDurationMinutes?: unknown
+      convenioDurationMinutes?: unknown
+    }
 
     const parsed = Number(defaultDurationMinutes)
     if (!Number.isFinite(parsed) || parsed < 1 || parsed > 480) {
@@ -45,6 +51,15 @@ export async function PATCH(request: NextRequest) {
         { status: 400 },
       )
     }
+
+    const parseDuration = (val: unknown): number | null => {
+      if (val === null || val === undefined || val === '') return null
+      const n = Number(val)
+      return Number.isFinite(n) && n >= 1 && n <= 480 ? n : null
+    }
+
+    const parsedParticular = parseDuration(particularDurationMinutes)
+    const parsedConvenio = parseDuration(convenioDurationMinutes)
 
     const supabase = createAdminClient()
     const clinicId = session.clinic.id
@@ -67,18 +82,25 @@ export async function PATCH(request: NextRequest) {
 
     let saveError: { message: string; code?: string } | null = null
 
+    const updatePayload = {
+      default_duration_minutes: parsed,
+      particular_duration_minutes: parsedParticular,
+      convenio_duration_minutes: parsedConvenio,
+      updated_at: now,
+    }
+
     if (existing) {
       // UPDATE existing row
       const { error } = await supabase
         .from('appointment_settings')
-        .update({ default_duration_minutes: parsed, updated_at: now })
+        .update(updatePayload)
         .eq('clinic_id', clinicId)
       saveError = error
     } else {
       // INSERT new row
       const { error } = await supabase
         .from('appointment_settings')
-        .insert({ clinic_id: clinicId, default_duration_minutes: parsed, created_at: now, updated_at: now })
+        .insert({ clinic_id: clinicId, ...updatePayload, created_at: now })
       saveError = error
     }
 
@@ -90,7 +112,11 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ defaultDurationMinutes: parsed })
+    return NextResponse.json({
+      defaultDurationMinutes: parsed,
+      particularDurationMinutes: parsedParticular,
+      convenioDurationMinutes: parsedConvenio,
+    })
   } catch (err) {
     console.error('[AppointmentSettings PATCH] unexpected', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -1955,6 +1955,7 @@ async function showDayList(params: {
     DAY_LIST_PAGE_SIZE + 1,
     params.offset,
     excludeWeekdays,
+    params.ctx.appointmentType ?? null,
   )
 
   if (days.length === 0) {
@@ -2027,7 +2028,7 @@ async function handleAgendarDiaLista(
   }
 
   const selectedDay = days[choice]
-  const slots = await getSlotsForDay(clinicId, selectedDay.date, botSettings)
+  const slots = await getSlotsForDay(clinicId, selectedDay.date, botSettings, 9, ctx.appointmentType ?? null)
 
   if (slots.length === 0) {
     // If searching in convênio and no slots, offer particular
@@ -2226,7 +2227,7 @@ async function handleAgendarAlterarCampo(
     })
   }
 
-  const slots = await getSlotsForDay(clinicId, scheduleDay.selectedDay, botSettings)
+  const slots = await getSlotsForDay(clinicId, scheduleDay.selectedDay, botSettings, 9, ctx.appointmentType ?? null)
 
   if (slots.length === 0) {
     return {
@@ -2367,7 +2368,7 @@ async function handleReagendarDiaLista(
   }
 
   const selectedDay = days[choice]
-  const slots = await getSlotsForDay(clinicId, selectedDay.date, botSettings)
+  const slots = await getSlotsForDay(clinicId, selectedDay.date, botSettings, 9, ctx.appointmentType ?? null)
 
   if (slots.length === 0) {
     // If searching in convênio and no slots, offer particular
