@@ -563,7 +563,7 @@ function ClinicaTab({
 				</div>
 			</div>
 
-			{/* Horário de Funcionamento */
+		{/* Horário de Funcionamento */}
 			<div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
 				<div className="flex items-start justify-between mb-4">
 					<div>
