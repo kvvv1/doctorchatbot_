@@ -62,7 +62,7 @@ export async function sendInternalZapiMessage(
 
   try {
     const result =
-      params.choices && params.choices.length >= 2
+      params.choices && params.choices.length >= 1
         ? await zapiSendChoices(
             credentials,
             params.phone,
