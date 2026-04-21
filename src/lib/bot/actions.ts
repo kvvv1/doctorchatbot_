@@ -567,8 +567,8 @@ export async function rescheduleAppointment(params: {
         nome: appointment?.patient_name ?? '',
         data: dataStr,
         horario: horarioStr,
-      })
-    : `✅ Consulta remarcada!\n\n📅 ${params.slot.label}\n\nSe precisar alterar novamente, é só me avisar. 😊`
+      }) + '\n\n0. Menu principal'
+    : `✅ Consulta remarcada!\n\n📅 ${params.slot.label}\n\nSe precisar alterar novamente, é só me avisar. 😊\n\n0. Menu principal`
   return {
     success: true,
     id: params.appointmentId,
