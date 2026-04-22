@@ -168,6 +168,12 @@ export async function saveFromMeMessage(data: {
 }): Promise<void> {
   const { supabase, clinicId, phone, text, zapiMessageId, timestamp } = data
   try {
+    // Skip empty messages — Z-API fires fromMe webhooks for interactive button/list
+    // messages where the body text is empty (the content is in the button structure).
+    // These are not real secretary messages and should be silently ignored.
+    const cleanText = (text || '').trim()
+    if (!cleanText || cleanText === '[Mensagem sem texto]') return
+
     // If we have a message ID, check if it was already saved by the bot sender —
     // Z-API fires a fromMe webhook for every outgoing message (bot or human).
     // Bot messages are already inserted with that same zapi_message_id, so skip them.
@@ -197,14 +203,13 @@ export async function saveFromMeMessage(data: {
       ? new Date(timestamp * 1000).toISOString()
       : new Date().toISOString()
 
-    const content = text || '[Mensagem sem texto]'
-    const preview = content.substring(0, 80)
+    const preview = cleanText.substring(0, 80)
 
     await Promise.all([
       supabase.from('messages').insert({
         conversation_id: conversation.id,
         sender: 'human',
-        content,
+        content: cleanText,
         zapi_message_id: zapiMessageId || null,
         message_type: 'text',
         delivery_status: 'sent',
