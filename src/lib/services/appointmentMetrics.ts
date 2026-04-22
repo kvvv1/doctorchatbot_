@@ -26,7 +26,7 @@ export interface MonthAppointmentStats {
   completed: number
   canceled: number
   noShow: number
-  confirmationRate: number // % de agendamentos confirmados (sobre agendados no mês)
+  confirmationRate: number // % de agendamentos confirmados/atendidos (sobre agendados no mês)
   noShowRate: number // % de faltas (sobre atendimentos marcados/realizados)
 }
 
@@ -63,17 +63,21 @@ export async function getAppointmentMetrics(clinicId: string): Promise<Appointme
   const safeToday: AppointmentMetricRow[] = todayAppointments || []
   const safeMonth: AppointmentMetricRow[] = monthAppointments || []
 
+  // Completed appointments represent confirmed attendance in practice,
+  // so they should count as confirmed for dashboard confirmation metrics.
+  const isConfirmedLike = (status: string) => status === 'confirmed' || status === 'completed'
+
   const today: TodayAppointmentStats = {
     total: safeToday.length,
     scheduled: safeToday.filter((a: AppointmentMetricRow) => a.status === 'scheduled').length,
-    confirmed: safeToday.filter((a: AppointmentMetricRow) => a.status === 'confirmed').length,
+    confirmed: safeToday.filter((a: AppointmentMetricRow) => isConfirmedLike(a.status)).length,
     completed: safeToday.filter((a: AppointmentMetricRow) => a.status === 'completed').length,
     canceled: safeToday.filter((a: AppointmentMetricRow) => a.status === 'canceled').length,
     noShow: safeToday.filter((a: AppointmentMetricRow) => a.status === 'no_show').length,
   }
 
   const monthTotal = safeMonth.length
-  const monthConfirmed = safeMonth.filter((a: AppointmentMetricRow) => a.status === 'confirmed').length
+  const monthConfirmed = safeMonth.filter((a: AppointmentMetricRow) => isConfirmedLike(a.status)).length
   const monthCompleted = safeMonth.filter((a: AppointmentMetricRow) => a.status === 'completed').length
   const monthCanceled = safeMonth.filter((a: AppointmentMetricRow) => a.status === 'canceled').length
   const monthNoShow = safeMonth.filter((a: AppointmentMetricRow) => a.status === 'no_show').length
