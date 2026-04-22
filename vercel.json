@@ -3,14 +3,6 @@
     {
       "path": "/api/cron/send-reminders",
       "schedule": "*/10 * * * *"
-    },
-    {
-      "path": "/api/cron/sync-gestaods",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/process-waitlist",
-      "schedule": "*/10 * * * *"
     }
   ]
 }
