@@ -97,6 +97,7 @@ const BOT_STATE_LABELS: Record<BotState, string> = {
 	confirmar_presenca: 'Confirmando presença',
 	lista_espera_faixa: 'Lista de espera - preferência',
 	sem_horario: 'Sem horarios disponiveis',
+	audio_recebido: 'Áudio recebido',
 }
 
 function getDeliveryLabel(message: Message) {
