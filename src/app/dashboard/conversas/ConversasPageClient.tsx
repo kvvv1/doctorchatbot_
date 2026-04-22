@@ -509,7 +509,7 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 			</nav>
 
 			{/* Lista de conversas */}
-			<aside className="hidden h-full w-full border-r border-neutral-200 md:flex md:w-[360px] shrink-0">
+			<aside className="hidden h-full w-full border-r border-neutral-200 md:flex md:w-[440px] shrink-0">
 				<ConversationList
 					conversations={filteredConversations}
 					selectedId={activeConversationId}
