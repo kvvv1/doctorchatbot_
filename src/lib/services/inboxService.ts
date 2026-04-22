@@ -154,6 +154,64 @@ export async function handleIncomingMessage(
 }
 
 /**
+ * Saves a message sent by the secretary from their own WhatsApp phone (fromMe=true).
+ * Only persists the message to an existing conversation — never creates a new one
+ * and never triggers the bot.
+ */
+export async function saveFromMeMessage(data: {
+  supabase: ReturnType<typeof createAdminClient>
+  clinicId: string
+  phone: string
+  text: string
+  zapiMessageId?: string | null
+  timestamp?: number | null
+}): Promise<void> {
+  const { supabase, clinicId, phone, text, zapiMessageId, timestamp } = data
+  try {
+    // Find the existing conversation (do NOT create one)
+    const { data: conversation } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('clinic_id', clinicId)
+      .eq('patient_phone', phone)
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!conversation) return // No conversation yet — silently skip
+
+    const messageTimestamp = timestamp
+      ? new Date(timestamp * 1000).toISOString()
+      : new Date().toISOString()
+
+    const content = text || '[Mensagem sem texto]'
+    const preview = content.substring(0, 80)
+
+    await Promise.all([
+      supabase.from('messages').insert({
+        conversation_id: conversation.id,
+        sender: 'human',
+        content,
+        zapi_message_id: zapiMessageId || null,
+        message_type: 'text',
+        delivery_status: 'sent',
+        metadata: { source: 'zapi_from_me' },
+        created_at: messageTimestamp,
+        updated_at: messageTimestamp,
+      }),
+      supabase.from('conversations').update({
+        last_message_at: messageTimestamp,
+        last_message_preview: preview,
+        updated_at: new Date().toISOString(),
+      }).eq('id', conversation.id),
+    ])
+  } catch (err) {
+    console.error('[InboxService] Error saving fromMe message:', err)
+  }
+}
+
+/**
  * Finds an existing conversation or creates a new one.
  */
 async function findOrCreateConversation(
@@ -216,6 +274,21 @@ async function findOrCreateConversation(
     .single()
 
   if (createError) {
+    // Could be a unique constraint violation from a race condition — re-fetch the winner row.
+    const { data: existing } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('clinic_id', clinicId)
+      .eq('patient_phone', phone)
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (existing) {
+      return { conversation: existing as Conversation, created: false }
+    }
+
     console.error('[InboxService] Error creating conversation:', createError)
     return { conversation: null, created: false }
   }

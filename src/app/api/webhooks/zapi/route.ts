@@ -1,7 +1,7 @@
 import { after, NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseConnectionStatusWebhook, parseWebhookPayload, shouldProcessWebhook } from '@/lib/zapi/webhookParser'
-import { handleIncomingMessage, logWebhookActivity } from '@/lib/services/inboxService'
+import { handleIncomingMessage, saveFromMeMessage, logWebhookActivity } from '@/lib/services/inboxService'
 import { handleBotTurn, sendBotResponse, buildMenuMessage, type BotState, type BotContext } from '@/lib/bot/engine'
 import { getPatientAppointments } from '@/lib/bot/actions'
 import { getBotSettings, isWithinWorkingHours, getNextWorkingTime } from '@/lib/services/botSettingsService'
@@ -105,11 +105,33 @@ export async function POST(request: NextRequest) {
 
     // 4. Check if we should process this webhook
     if (!shouldProcessWebhook(parsed)) {
-      console.log('[Z-API Webhook] Skipping webhook (fromMe or invalid):', {
-        instanceId: parsed.instanceId,
-        phone: parsed.phone,
-        isFromMe: parsed.isFromMe,
-      })
+      // If this is a message sent from the secretary's own phone (fromMe),
+      // save it to the existing conversation so it appears in the chat.
+      if (parsed.isFromMe && parsed.phone && parsed.phone.length >= 8) {
+        const supabaseFromMe = createAdminClient()
+        const { data: instanceFromMe } = await supabaseFromMe
+          .from('whatsapp_instances')
+          .select('clinic_id')
+          .eq('instance_id', parsed.instanceId)
+          .single()
+
+        if (instanceFromMe?.clinic_id) {
+          await saveFromMeMessage({
+            supabase: supabaseFromMe,
+            clinicId: instanceFromMe.clinic_id,
+            phone: parsed.phone,
+            text: parsed.messageText,
+            zapiMessageId: parsed.messageId,
+            timestamp: parsed.timestamp,
+          })
+        }
+      } else {
+        console.log('[Z-API Webhook] Skipping webhook (fromMe or invalid):', {
+          instanceId: parsed.instanceId,
+          phone: parsed.phone,
+          isFromMe: parsed.isFromMe,
+        })
+      }
       return NextResponse.json({ ok: true, skipped: true })
     }
 

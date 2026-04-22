@@ -272,7 +272,7 @@ export default function MessageInput({
 			
 			<form
 				onSubmit={handleSubmit}
-				className="flex items-end gap-2 border-t border-neutral-200 bg-white px-3 py-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)]"
+				className="flex items-end gap-2 border-t border-neutral-200 bg-white px-3 py-2.5"
 			>
 				{waitingHuman ? (
 					// Banner blocking input — secretary must click Assumir first
