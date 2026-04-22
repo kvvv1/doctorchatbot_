@@ -32,6 +32,7 @@ export default function DashboardLayoutClient({
 }: DashboardLayoutClientProps) {
 	const pathname = usePathname()
 	const isConversas = pathname.startsWith('/dashboard/conversas')
+	const isFullScreen = isConversas || pathname.startsWith('/dashboard/agenda')
 	const [isMobileOpen, setIsMobileOpen] = useState(false)
 	const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 	const [whatsappStatus, setWhatsappStatus] = useState<WhatsAppStatus>(initialWhatsappStatus)
@@ -130,7 +131,7 @@ export default function DashboardLayoutClient({
 			style={{ height: 'calc(100dvh - env(safe-area-inset-top, 0px))' }}
 		>
 			{/* Subscription Banner no topo absoluto na página de conversas */}
-			{isConversas ? (
+			{isFullScreen ? (
 				<div className="flex h-full w-full overflow-hidden">
 					{!isSubscriptionActive && (
 						<div className="absolute top-0 left-0 right-0 z-50 bg-yellow-50 border-b border-yellow-200 px-4 py-2 flex items-center justify-between">

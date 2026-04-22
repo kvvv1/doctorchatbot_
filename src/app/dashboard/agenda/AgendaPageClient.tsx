@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import { View } from 'react-big-calendar'
-import { Plus, RefreshCw, CheckCircle, Clock, UserX, CalendarDays, TrendingUp, AlertCircle, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, RefreshCw, CheckCircle, Clock, UserX, CalendarDays, TrendingUp, AlertCircle, X, ChevronLeft, ChevronRight, LayoutDashboard, MessageSquare, Calendar, Users, Settings } from 'lucide-react'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, subDays, addMonths, subMonths, addYears, subYears, format, isToday, isSameDay, isSameMonth, getDaysInMonth, getDay, startOfDay, endOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
@@ -285,7 +286,52 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
   }
 
   return (
-    <div className="space-y-5">
+    <div className="flex h-full min-h-0 w-full">
+      {/* Strip de ícones estilo WhatsApp Web — desktop only */}
+      <nav className="hidden md:flex flex-col items-center justify-between w-[56px] shrink-0 bg-[#f0f2f5] border-r border-neutral-200 py-3">
+        <div className="flex flex-col items-center gap-1">
+          <Link
+            href="/dashboard"
+            className="flex items-center justify-center rounded-xl p-2.5 text-neutral-500 transition-colors hover:bg-neutral-200"
+            title="Dashboard"
+          >
+            <LayoutDashboard className="size-5" />
+          </Link>
+          <Link
+            href="/dashboard/conversas"
+            className="flex items-center justify-center rounded-xl p-2.5 text-neutral-500 transition-colors hover:bg-neutral-200"
+            title="Conversas"
+          >
+            <MessageSquare className="size-5" />
+          </Link>
+          <span
+            className="flex items-center justify-center rounded-xl p-2.5 bg-white text-sky-600 shadow-sm"
+            title="Agenda"
+          >
+            <Calendar className="size-5" />
+          </span>
+          <Link
+            href="/dashboard/lista-espera"
+            className="flex items-center justify-center rounded-xl p-2.5 text-neutral-500 transition-colors hover:bg-neutral-200"
+            title="Lista de Espera"
+          >
+            <Users className="size-5" />
+          </Link>
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <Link
+            href="/dashboard/configuracoes"
+            className="flex items-center justify-center rounded-xl p-2.5 text-neutral-500 transition-colors hover:bg-neutral-200"
+            title="Configurações"
+          >
+            <Settings className="size-5" />
+          </Link>
+        </div>
+      </nav>
+
+      {/* Main content area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-5">
       {/* Toast notifications */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
         {toasts.map((t) => (
@@ -687,6 +733,9 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
           }}
         />
       )}
+    </div>
+        </div>
+      </div>
     </div>
   )
 }
