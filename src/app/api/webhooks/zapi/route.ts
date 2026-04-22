@@ -233,6 +233,10 @@ export async function POST(request: NextRequest) {
       (!botInput.startsWith('[') || botInput === '[Áudio]' || botInput === '[Vídeo]')
 
     if (shouldTriggerBot) {
+      // Capture the message ID so triggerBotResponse can verify it's still
+      // the latest patient message before responding (flood/debounce guard).
+      const triggerMessageId = result.messageId
+
       after(async () => {
         console.log('[Z-API Webhook] Running deferred bot response:', {
           conversationId,
@@ -245,7 +249,8 @@ export async function POST(request: NextRequest) {
           parsed.phone,
           botInput,
           clinicId,
-          result.createdConversation ?? false
+          result.createdConversation ?? false,
+          triggerMessageId,
         )
       })
     }
@@ -272,9 +277,28 @@ async function triggerBotResponse(
   phone: string,
   messageText: string,
   clinicId: string,
-  isFirstContact = false
+  isFirstContact = false,
+  triggerMessageId?: string,
 ): Promise<void> {
   const supabase = createAdminClient()
+
+  // Debounce guard: if a newer patient message arrived after this one was
+  // enqueued, abort — the newer message's triggerBotResponse will respond instead.
+  if (triggerMessageId) {
+    const { data: latestMsg } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .eq('sender', 'patient')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (latestMsg && latestMsg.id !== triggerMessageId) {
+      console.log('[Bot] Debounce: newer message arrived, skipping response for', triggerMessageId)
+      return
+    }
+  }
 
   try {
     // 1. Get bot settings for the clinic
