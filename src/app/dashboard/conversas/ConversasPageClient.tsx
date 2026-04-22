@@ -7,7 +7,6 @@ import { useMessages } from '@/lib/hooks/useMessages'
 import { createClient } from '@/lib/supabase/client'
 import ConversationList from './components/ConversationList'
 import ChatPanel from './components/ChatPanel'
-import ConversationTabs from './components/ConversationTabs'
 import type { ConversationStatus } from '@/lib/types/database'
 import {
 	buildConversationSearchParams,
@@ -484,12 +483,6 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 
 			<main className="hidden h-full min-h-0 flex-1 md:flex">
 				<div className="flex min-h-0 flex-1 flex-col">
-					<ConversationTabs
-						conversations={openConversations}
-						activeId={activeConversationId}
-						onSelect={handleActivateConversation}
-						onClose={handleCloseConversationTab}
-					/>
 					<div className="min-h-0 flex-1">
 						<ChatPanel
 							conversation={activeConversation}
