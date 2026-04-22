@@ -78,6 +78,16 @@ export async function handleBotTurn(
   const state = currentState || 'menu'
   const ctx: BotContext = { ...currentContext, patientPhone: patientPhone ?? currentContext.patientPhone }
 
+  // Media intercept — audio/video cannot be processed by the bot.
+  // Respond with a friendly message offering menu or human attendant.
+  if (userMessage === '[Áudio]' || userMessage === '[Vídeo]') {
+    return {
+      message: templates.audioReceived,
+      nextState: state === 'atendente' ? 'atendente' : 'audio_recebido',
+      nextContext: ctx,
+    }
+  }
+
   // Universal escape hatch — runs in ANY non-terminal state.
   // Handles two cases:
   //   a) "Voltar ao menu" / "menu" / "voltar" → go to menu
@@ -227,6 +237,25 @@ export async function handleBotTurn(
 
     case 'cancelar_encaixe':
       return handleCancelarEncaixe(conversationId, userMessage, ctx, clinicId, botSettings)
+
+    case 'audio_recebido': {
+      const escapedAudio = userMessage.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+      // "2" or keywords → transfer to human
+      if (escapedAudio === '2' || /secretaria|atendente|aguardar|humano/.test(escapedAudio)) {
+        return {
+          message: templates.attendantTransfer,
+          nextState: 'atendente',
+          nextContext: ctx,
+          transferToHuman: true,
+        }
+      }
+      // "1" or menu keywords → go to menu
+      return {
+        message: buildMenuMessage(botSettings),
+        nextState: 'menu',
+        nextContext: baseIdentityContext(ctx),
+      }
+    }
 
     case 'atendente':
       // Bot already handed off to human — acknowledge the message silently.

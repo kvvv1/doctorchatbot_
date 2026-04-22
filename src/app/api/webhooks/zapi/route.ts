@@ -230,7 +230,7 @@ export async function POST(request: NextRequest) {
       !!conversationId &&
       !!botInput &&
       botInput !== '[Mensagem sem texto]' &&
-      !botInput.startsWith('[')
+      (!botInput.startsWith('[') || botInput === '[Áudio]' || botInput === '[Vídeo]')
 
     if (shouldTriggerBot) {
       after(async () => {

@@ -37,6 +37,7 @@ export type BotState =
   | 'cancelar_tipo'           // patient picks Particular or Convênio before cancel
   | 'cancelar_confirmar'
   | 'cancelar_encaixe'
+  | 'audio_recebido'      // patient sent audio/video — offered menu or human
   | 'atendente'
   | 'ver_agendamentos'
   | 'ver_agendamento_selecionado'  // patient selected one appointment from list, choosing action

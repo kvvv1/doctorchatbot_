@@ -402,6 +402,15 @@ Obrigado! Te esperamos. 🏥
 3️⃣ Voltar ao menu`,
 
   // -------------------------------------------------------------------------
+  // Mensagens de mídia (áudio, vídeo)
+  // -------------------------------------------------------------------------
+  audioReceived: withMenuHint(`Olá! 😊 Recebi seu áudio, mas estou como *assistente virtual* e ainda não consigo escutar mensagens de voz.
+
+Como posso te ajudar?
+
+1️⃣ Continuar pelo menu (agendar, remarcar, cancelar...)
+2️⃣ Aguardar uma secretária`),
+
   // Atendente humano
   // -------------------------------------------------------------------------
   attendantTransfer: `Certo! Vou transferir você para uma de nossas *secretárias*. 👨‍⚕️
