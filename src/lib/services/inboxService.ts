@@ -162,13 +162,18 @@ async function findOrCreateConversation(
   phone: string,
   name: string | null
 ): Promise<{ conversation: Conversation | null; created: boolean }> {
-  // Try to find existing conversation
+  // Try to find existing conversation — use limit(1) + maybeSingle to avoid
+  // crashing when multiple rows exist (which would cause .single() to error and
+  // create yet another duplicate conversation).
   const { data: existing, error: findError } = await supabase
     .from('conversations')
     .select('*')
     .eq('clinic_id', clinicId)
     .eq('patient_phone', phone)
-    .single()
+    .order('last_message_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
   if (existing && !findError) {
     // Update name if provided and different
