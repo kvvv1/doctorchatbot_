@@ -132,6 +132,12 @@ export async function handleBotTurn(
     case 'menu':
       return handleMenu(userMessage, ctx, botSettings, clinicId)
 
+    case 'agendar_para_quem':
+      return handleAgendarParaQuem(userMessage, ctx)
+
+    case 'agendar_quantos':
+      return handleAgendarQuantos(userMessage, ctx)
+
     case 'agendar_tipo':
       return handleAgendarTipo(userMessage, ctx, botSettings, clinicId)
 
@@ -281,8 +287,8 @@ async function handleMenu(
   switch (intent) {
     case 'schedule':
       return {
-        message: templates.askScheduleType,
-        nextState: 'agendar_tipo',
+        message: templates.askScheduleForWhom,
+        nextState: 'agendar_para_quem',
         nextContext: { ...ctx, intent: 'schedule' },
       }
 
@@ -508,6 +514,75 @@ function parseAppointmentType(msg: string): 'particular' | 'convenio' | null {
   return null
 }
 
+async function handleAgendarParaQuem(
+  msg: string,
+  ctx: BotContext,
+): Promise<BotResponse> {
+  const n = msg.trim().toLowerCase()
+
+  // Option 1 — for me / para mim
+  if (/^1$|para mim|eu mesmo|pra mim/i.test(n)) {
+    return {
+      message: templates.askScheduleType,
+      nextState: 'agendar_tipo',
+      nextContext: { ...ctx, multiBookingTotal: 1, multiBookingCurrent: 1 },
+    }
+  }
+
+  // Option 2 — for someone else / para outra pessoa
+  if (/^2$|outra pessoa|outro|pra outra|para outra/i.test(n)) {
+    return {
+      message: templates.askScheduleType,
+      nextState: 'agendar_tipo',
+      nextContext: { ...ctx, multiBookingTotal: 1, multiBookingCurrent: 1 },
+    }
+  }
+
+  // Option 3 — for more than one person / para mais de uma pessoa
+  if (/^3$|mais de uma|mais de 1|v[aá]rias pessoas|m[uú]ltiplas/i.test(n)) {
+    return {
+      message: templates.askScheduleHowMany,
+      nextState: 'agendar_quantos',
+      nextContext: ctx,
+    }
+  }
+
+  // Unknown input — repeat question
+  return {
+    message: templates.askScheduleForWhom,
+    nextState: 'agendar_para_quem',
+    nextContext: ctx,
+  }
+}
+
+async function handleAgendarQuantos(
+  msg: string,
+  ctx: BotContext,
+): Promise<BotResponse> {
+  const n = msg.trim().toLowerCase()
+
+  let total: number | null = null
+
+  if (/^2$|duas pessoas|2 pessoas/i.test(n)) total = 2
+  else if (/^3$|tr[eê]s pessoas|3 pessoas/i.test(n)) total = 3
+  else if (/^4$|quatro pessoas|4 pessoas/i.test(n)) total = 4
+
+  if (total) {
+    return {
+      message: templates.askScheduleType,
+      nextState: 'agendar_tipo',
+      nextContext: { ...ctx, multiBookingTotal: total, multiBookingCurrent: 1 },
+    }
+  }
+
+  // Unknown input — repeat question
+  return {
+    message: templates.askScheduleHowMany,
+    nextState: 'agendar_quantos',
+    nextContext: ctx,
+  }
+}
+
 async function handleAgendarTipo(
   msg: string,
   ctx: BotContext,
@@ -517,6 +592,14 @@ async function handleAgendarTipo(
   const tipo = parseAppointmentType(msg)
 
   if (tipo === 'particular') {
+    if (botSettings?.bot_handles_particular === true) {
+      // Bot handles particular — continue scheduling flow
+      return {
+        message: templates.scheduleAskName,
+        nextState: 'agendar_nome',
+        nextContext: { ...ctx, appointmentType: 'particular' },
+      }
+    }
     return {
       message: templates.particularTransfer,
       nextState: 'atendente',
@@ -2158,11 +2241,40 @@ async function handleAgendarConfirmar(
     appointmentType: ctx.appointmentType || 'particular',
   })
 
+  if (!result.success) {
+    return {
+      message: result.message,
+      nextState: 'agendar_confirmar',
+      nextContext: ctx,
+    }
+  }
+
+  // Multi-booking: check if there are more people to book for
+  const current = ctx.multiBookingCurrent ?? 1
+  const total = ctx.multiBookingTotal ?? 1
+
+  if (current < total) {
+    const next = current + 1
+    const ordinal = next === 2 ? '2ª' : next === 3 ? '3ª' : `${next}ª`
+    return {
+      message: `✅ *Agendamento ${current} de ${total} confirmado!*\n\nAgora vou agendar para a *${ordinal} pessoa*.\n\nQual o nome completo?`,
+      nextState: 'agendar_nome',
+      nextContext: {
+        patientPhone: ctx.patientPhone,
+        appointmentType: ctx.appointmentType,
+        selectedConvenio: ctx.selectedConvenio,
+        multiBookingTotal: total,
+        multiBookingCurrent: next,
+        intent: ctx.intent,
+      },
+    }
+  }
+
   return {
     message: result.message,
-    nextState: result.success ? 'menu' : 'agendar_confirmar',
-    nextContext: result.success ? {} : ctx,
-    conversationStatus: result.success ? 'scheduled' : undefined,
+    nextState: 'menu',
+    nextContext: {},
+    conversationStatus: 'scheduled',
   }
 }
 

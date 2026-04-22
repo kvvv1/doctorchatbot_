@@ -39,6 +39,18 @@ Como posso te ajudar hoje?
   // -------------------------------------------------------------------------
   // Tipo de atendimento (Particular / Convênio)
   // -------------------------------------------------------------------------
+  askScheduleForWhom: withMenuHint(`Para quem é essa consulta? 👥
+
+1️⃣ Para mim
+2️⃣ Para outra pessoa
+3️⃣ Para mais de uma pessoa`),
+
+  askScheduleHowMany: withMenuHint(`Quantas pessoas gostaria de agendar?
+
+2️⃣ Duas pessoas
+3️⃣ Três pessoas
+4️⃣ Quatro pessoas`),
+
   askScheduleType: withMenuHint(`Vou agendar sua consulta! 😊
 
 Seu atendimento será:

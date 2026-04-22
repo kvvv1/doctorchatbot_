@@ -122,6 +122,7 @@ export default function BotAdvancedSettingsTab({
 						convenios: (settings.convenios ?? []).filter(s => s.trim() !== ''),
 						convenio_solicita_carteirinha: settings.convenio_solicita_carteirinha ?? false,							convenios_solicita_carteirinha: settings.convenios_solicita_carteirinha ?? [],							bot_handles_reschedule: settings.bot_handles_reschedule ?? true,
 						bot_handles_cancel: settings.bot_handles_cancel ?? true,
+						bot_handles_particular: settings.bot_handles_particular ?? false,
 						},
 				}),
 			})
@@ -588,6 +589,28 @@ export default function BotAdvancedSettingsTab({
 									>
 										<span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
 											(settings.bot_handles_cancel ?? true) ? 'translate-x-6' : 'translate-x-1'
+										}`} />
+									</button>
+								</label>
+
+								<label className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 p-3 cursor-pointer hover:bg-neutral-50">
+									<div>
+										<p className="text-sm font-medium text-neutral-800">💰 Bot gerencia agendamento Particular</p>
+										<p className="text-xs text-neutral-500 mt-0.5">
+											{(settings.bot_handles_particular ?? false)
+												? 'O bot agenda consultas particulares automaticamente'
+												: 'Ao escolher Particular, o paciente é transferido para a secretária'}
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => setSettings({ ...settings, bot_handles_particular: !(settings.bot_handles_particular ?? false) })}
+										className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+											(settings.bot_handles_particular ?? false) ? 'bg-sky-600' : 'bg-neutral-300'
+										}`}
+									>
+										<span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+											(settings.bot_handles_particular ?? false) ? 'translate-x-6' : 'translate-x-1'
 										}`} />
 									</button>
 								</label>

@@ -5,7 +5,8 @@
 
 export type BotState =
   | 'menu'
-  | 'agendar_tipo'           // patient picks Particular or Convênio before scheduling
+  | 'agendar_para_quem'        // patient picks: for me / for someone else / for more than one
+  | 'agendar_quantos'          // patient picks how many people (2, 3 or 4) after "para mais de uma"
   | 'agendar_convenio'       // patient selects which insurance plan they have
   | 'convenio_sem_cadastro'   // no insurance plans configured — offer secretária or menu
   | 'convenio_aguardando_carteirinha' // waiting for patient to send photo of insurance card
@@ -120,4 +121,8 @@ export type BotContext = {
   retryCount?: number
   /** ISO datetime of the appointment slot that was just canceled (set by handleCancelarConfirmar) */
   canceledStartsAt?: string
+
+  // Multi-booking flow (scheduling for multiple people)
+  multiBookingTotal?: number    // total number of people to book for
+  multiBookingCurrent?: number  // current person index (1-based)
 }
