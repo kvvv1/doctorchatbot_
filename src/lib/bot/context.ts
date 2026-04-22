@@ -70,6 +70,7 @@ export type AppointmentSummary = {
   label: string     // e.g. "Segunda, 14/04 às 10h00"
   status: string
   appointmentType?: 'particular' | 'convenio' | null
+  patientName?: string | null
 }
 
 /**

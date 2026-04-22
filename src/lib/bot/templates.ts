@@ -262,13 +262,15 @@ Qual o *novo horário*?
   // -------------------------------------------------------------------------
   whichAppointmentCancel: (appointments: AppointmentSummary[]) => {
     const typeLabel = (a: AppointmentSummary) => a.appointmentType === 'convenio' ? ' · Convênio' : a.appointmentType === 'particular' ? ' · Particular' : ''
-    const lines = appointments.map((a, i) => `${i + 1}️⃣ ${a.label}${typeLabel(a)}`).join('\n')
+    const nameLabel = (a: AppointmentSummary) => a.patientName ? ` · ${a.patientName.split(' ')[0]}` : ''
+    const lines = appointments.map((a, i) => `${i + 1}️⃣ ${a.label}${typeLabel(a)}${nameLabel(a)}`).join('\n')
     return withMenuOption(`Encontrei ${appointments.length} consulta(s) agendada(s). Qual deseja *cancelar*?\n\n${lines}`, appointments.length + 1)
   },
 
   whichAppointmentReschedule: (appointments: AppointmentSummary[]) => {
     const typeLabel = (a: AppointmentSummary) => a.appointmentType === 'convenio' ? ' · Convênio' : a.appointmentType === 'particular' ? ' · Particular' : ''
-    const lines = appointments.map((a, i) => `${i + 1}️⃣ ${a.label}${typeLabel(a)}`).join('\n')
+    const nameLabel = (a: AppointmentSummary) => a.patientName ? ` · ${a.patientName.split(' ')[0]}` : ''
+    const lines = appointments.map((a, i) => `${i + 1}️⃣ ${a.label}${typeLabel(a)}${nameLabel(a)}`).join('\n')
     return withMenuOption(`Encontrei ${appointments.length} consulta(s) agendada(s). Qual deseja *remarcar*?\n\n${lines}`, appointments.length + 1)
   },
 
@@ -352,8 +354,10 @@ O que deseja fazer?
   // Ver agendamentos
   // -------------------------------------------------------------------------
   viewAppointments: (appointments: AppointmentSummary[]) => {
+    const typeLabel = (a: AppointmentSummary) => a.appointmentType === 'convenio' ? ' · Convênio' : a.appointmentType === 'particular' ? ' · Particular' : ''
+    const nameLabel = (a: AppointmentSummary) => a.patientName ? ` · ${a.patientName.split(' ')[0]}` : ''
     const lines = appointments
-      .map((a, i) => `${i + 1}. 📅 ${a.label} — ${statusLabel(a.status)}`)
+      .map((a, i) => `${i + 1}. 📅 ${a.label}${typeLabel(a)}${nameLabel(a)} — ${statusLabel(a.status)}`)
       .join('\n')
 
     const footer = appointments.length > 1
