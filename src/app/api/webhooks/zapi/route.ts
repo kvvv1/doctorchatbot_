@@ -305,8 +305,42 @@ async function triggerBotResponse(
       return
     }
 
-    // 3b. Skip bot entirely when waiting for a human attendant
+    // 3b. Skip bot when waiting for a human attendant — but allow patient to return to menu
+    // if no human has responded yet (e.g. accidental transfer or wrong selection).
     if (conversation.status === 'waiting_human') {
+      const msgLower = messageText.trim().toLowerCase()
+      const wantsMenu = /^(menu|inicio|início|0)$/.test(msgLower)
+        || /\bmenu principal\b/.test(msgLower)
+        || /\bvoltar\b/.test(msgLower)
+
+      if (wantsMenu) {
+        // Check if any human/staff has sent a message after the transfer
+        const { data: humanMessages } = await supabase
+          .from('messages')
+          .select('id')
+          .eq('conversation_id', conversationId)
+          .eq('sender', 'staff')
+          .limit(1)
+
+        const humanHasResponded = humanMessages && humanMessages.length > 0
+
+        if (!humanHasResponded) {
+          // No human responded yet — let patient go back to menu
+          await supabase
+            .from('conversations')
+            .update({ bot_enabled: true, bot_state: 'menu', status: 'in_progress', updated_at: new Date().toISOString() })
+            .eq('id', conversationId)
+          const menuResponse = {
+            message: buildMenuMessage(botSettings),
+            nextState: 'menu' as BotState,
+            nextContext: { patientPhone: phone } as BotContext,
+          }
+          await sendBotResponse(conversationId, phone, menuResponse, clinicId)
+          console.log('[Bot] Patient returned to menu from waiting_human (no human had responded yet):', conversationId)
+          return
+        }
+      }
+
       console.log('[Bot] Conversation waiting for human attendant — bot silenced:', conversationId)
       return
     }

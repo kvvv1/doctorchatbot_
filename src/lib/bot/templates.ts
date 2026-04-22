@@ -63,12 +63,16 @@ Seu atendimento é:
   // Shown when bot_handles_reschedule = false
   rescheduleToHuman: `Para *remarcar* sua consulta, nossa secretária vai te ajudar pessoalmente. 👩‍⚕️
 
-⏳ Aguarde um momento, alguém da nossa equipe entrará em contato em breve.`,
+⏳ Aguarde um momento, alguém da nossa equipe entrará em contato em breve.
+
+_Se clicou sem querer, digite *menu* para voltar._`,
 
   // Shown when bot_handles_cancel = false
   cancelToHuman: `Para *cancelar* sua consulta, nossa secretária vai te ajudar. 👩‍⚕️
 
-⏳ Aguarde um momento, alguém da nossa equipe entrará em contato em breve.`,
+⏳ Aguarde um momento, alguém da nossa equipe entrará em contato em breve.
+
+_Se clicou sem querer, digite *menu* para voltar._`,
 
   // Shown when patient wants to reschedule/cancel but has no appointments
   rescheduleNoAppointments: `Não encontrei consultas agendadas para o seu número. 🔍
