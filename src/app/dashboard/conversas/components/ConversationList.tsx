@@ -1,12 +1,12 @@
 'use client'
 
-import { Search, ChevronDown, UserCircle, Bot } from 'lucide-react'
+import { Search, UserCircle, Bot, MoreVertical } from 'lucide-react'
 import type { Conversation } from '@/lib/types/database'
 import StatusBadge from './StatusBadge'
 import SLAIndicator from './SLAIndicator'
 import { format, isToday, isYesterday } from 'date-fns'
-import { useState } from 'react'
 import type { ConversationStatusFilter } from '../workspace'
+import { normalizeBrazilianPhone } from '@/lib/utils/phone'
 
 interface ConversationListProps {
 	conversations: Conversation[]
@@ -26,9 +26,9 @@ interface ConversationListProps {
 const STATUS_OPTIONS: Array<{ id: ConversationStatusFilter; label: string }> = [
 	{ id: 'all', label: 'Todas' },
 	{ id: 'new', label: 'Novas' },
-	{ id: 'in_progress', label: 'Em atendimento' },
+	{ id: 'in_progress', label: 'Em atend.' },
 	{ id: 'waiting_patient', label: 'Aguardando' },
-	{ id: 'waiting_human', label: 'Aguardando humano' },
+	{ id: 'waiting_human', label: 'Humano' },
 	{ id: 'scheduled', label: 'Agendadas' },
 	{ id: 'done', label: 'Finalizadas' },
 ]
@@ -47,7 +47,6 @@ export default function ConversationList({
 	onToggleHumanNeeded,
 	humanNeededCount,
 }: ConversationListProps) {
-	const [showStatusMenu, setShowStatusMenu] = useState(false)
 
 	const getInitials = (name: string | null, phone: string) => {
 		if (name) {
@@ -69,23 +68,42 @@ export default function ConversationList({
 		} catch { return '' }
 	}
 
-	const getStatusLabel = (status: ConversationStatusFilter) =>
-		STATUS_OPTIONS.find(opt => opt.id === status)?.label || 'Todas'
+	const formatPhone = (phone: string) => {
+		const normalizedPhone = normalizeBrazilianPhone(phone) ?? phone.replace(/\D/g, '')
+
+		if (normalizedPhone.length === 11) {
+			return `(${normalizedPhone.slice(0, 2)}) ${normalizedPhone.slice(2, 7)}-${normalizedPhone.slice(7)}`
+		}
+
+		if (normalizedPhone.length === 10) {
+			return `(${normalizedPhone.slice(0, 2)}) ${normalizedPhone.slice(2, 6)}-${normalizedPhone.slice(6)}`
+		}
+
+		return phone
+	}
+
+	const getStatusLabel = (_status: ConversationStatusFilter) => ''
 
 	return (
 		<div className="flex h-full w-full flex-col bg-white">
-			{/* Header */}
-			<div className="border-b border-neutral-200 bg-white px-4 py-2.5">
-				<div className="flex items-center gap-2">
-					<h2 className="text-base font-semibold text-neutral-900">Conversas</h2>
-					<span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-neutral-100 px-1.5 text-[11px] font-medium text-neutral-900">
+			{/* Header estilo WhatsApp Web */}
+			<div className="bg-[#f0f2f5] px-4 py-3 flex items-center justify-between shrink-0">
+				<div className="flex items-center gap-2.5">
+					<div className="size-10 rounded-full bg-sky-600 flex items-center justify-center shrink-0">
+						<span className="text-white text-xs font-bold">DC</span>
+					</div>
+					<span className="text-sm font-semibold text-neutral-800">Conversas</span>
+					<span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-neutral-200 px-1.5 text-[11px] font-medium text-neutral-600">
 						{conversations.length}
 					</span>
 				</div>
+				<button className="flex items-center justify-center rounded-full p-2 text-neutral-500 transition-colors hover:bg-neutral-200">
+					<MoreVertical className="size-5" />
+				</button>
 			</div>
 
-			{/* Search & Filter */}
-			<div className="border-b border-neutral-200 bg-white px-3 py-2.5 space-y-2">
+			{/* Busca */}
+			<div className="bg-[#f0f2f5] px-2 pb-2 shrink-0">
 				<div className="relative">
 					<Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
 					<input
@@ -93,65 +111,46 @@ export default function ConversationList({
 						value={searchQuery}
 						onChange={e => onSearchChange(e.target.value)}
 						placeholder="Buscar conversa..."
-						className="w-full rounded-lg border border-neutral-200 bg-white py-1.5 pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-neutral-400 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+						className="w-full rounded-lg bg-white py-2 pl-9 pr-3 text-sm outline-none placeholder:text-neutral-400 focus:ring-1 focus:ring-sky-400"
 					/>
 				</div>
+			</div>
 
-				{/* Status dropdown */}
-				<div className="relative">
-					<button
-						onClick={() => setShowStatusMenu(!showStatusMenu)}
-						className="flex w-full items-center justify-between rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-900 transition-colors hover:bg-neutral-50"
-					>
-						<span className="text-xs font-medium">
-							Status: <span className="font-semibold">{getStatusLabel(statusFilter)}</span>
-						</span>
-						<ChevronDown className={`size-3.5 text-neutral-400 transition-transform ${showStatusMenu ? 'rotate-180' : ''}`} />
-					</button>
-
-					{showStatusMenu && (
-						<>
-							<div className="fixed inset-0 z-10" onClick={() => setShowStatusMenu(false)} />
-							<div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-neutral-200 bg-white py-1 shadow-lg">
-								{STATUS_OPTIONS.map(option => (
-									<button
-										key={option.id}
-										onClick={() => { onStatusFilterChange(option.id); setShowStatusMenu(false) }}
-										className={`flex w-full items-center px-3 py-2 text-sm transition-colors ${
-											statusFilter === option.id
-												? 'bg-sky-50 text-sky-700 font-medium'
-												: 'text-neutral-900 hover:bg-neutral-50'
-										}`}
-									>
-										{option.label}
-									</button>
-								))}
-							</div>
-						</>
+			{/* Filtros como chips horizontais */}
+			<div className="border-b border-neutral-100 bg-white px-2 py-2 shrink-0 overflow-x-auto scrollbar-none">
+				<div className="flex gap-1.5 min-w-max">
+					{STATUS_OPTIONS.map(opt => (
+						<button
+							key={opt.id}
+							onClick={() => onStatusFilterChange(opt.id)}
+							className={`rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors ${
+								statusFilter === opt.id
+									? 'bg-sky-100 text-sky-700 ring-1 ring-sky-200'
+									: 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+							}`}
+						>
+							{opt.label}
+						</button>
+					))}
+					{humanNeededCount > 0 && (
+						<button
+							onClick={onToggleHumanNeeded}
+							className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors ${
+								showOnlyHumanNeeded
+									? 'bg-amber-100 text-amber-700 ring-1 ring-amber-200'
+									: 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+							}`}
+						>
+							<UserCircle className="size-3" />
+							Humano
+							<span className={`rounded-full px-1 py-0.5 text-[9px] font-bold leading-none ${
+								showOnlyHumanNeeded ? 'bg-amber-500 text-white' : 'bg-neutral-400 text-white'
+							}`}>
+								{humanNeededCount}
+							</span>
+						</button>
 					)}
 				</div>
-
-				{/* Human attention filter */}
-				{humanNeededCount > 0 && (
-					<button
-						onClick={onToggleHumanNeeded}
-						className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
-							showOnlyHumanNeeded
-								? 'bg-amber-50 border-amber-300 text-amber-800 shadow-sm'
-								: 'bg-white border-neutral-200 text-neutral-900 hover:bg-neutral-50'
-						}`}
-					>
-						<div className="flex items-center gap-1.5">
-							<UserCircle className={`size-3.5 ${showOnlyHumanNeeded ? 'text-amber-600' : 'text-neutral-500'}`} />
-							<span>Pendências humanas</span>
-						</div>
-						<span className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
-							showOnlyHumanNeeded ? 'bg-amber-200 text-amber-900' : 'bg-neutral-100 text-neutral-900'
-						}`}>
-							{humanNeededCount}
-						</span>
-					</button>
-				)}
 			</div>
 
 			{/* List */}
@@ -223,9 +222,14 @@ export default function ConversationList({
 										{/* Content */}
 										<div className="min-w-0 flex-1">
 											<div className="flex items-baseline justify-between gap-2">
-												<p className={`truncate text-sm ${needsHumanAttention || hasUnread ? 'font-semibold text-neutral-900' : 'font-medium text-neutral-900'}`}>
-													{conversation.patient_name || conversation.patient_phone}
-												</p>
+												<div className="min-w-0">
+													<p className={`truncate text-sm ${needsHumanAttention || hasUnread ? 'font-semibold text-neutral-900' : 'font-medium text-neutral-900'}`}>
+														{conversation.patient_name || 'Sem nome'}
+													</p>
+													<p className="mt-0.5 truncate text-[11px] text-neutral-500">
+														{formatPhone(conversation.patient_phone)}
+													</p>
+												</div>
 												<div className="flex shrink-0 items-center gap-2">
 													{conversation.last_message_at && (
 														<span className={`text-[11px] ${hasUnread ? 'font-semibold text-sky-600' : 'text-neutral-400'}`}>
@@ -240,12 +244,10 @@ export default function ConversationList({
 												</div>
 											</div>
 
-											<div className="flex items-center justify-between gap-2 mt-1">
-												{conversation.last_message_preview && (
-													<p className={`truncate text-xs ${hasUnread ? 'font-medium text-neutral-900' : 'text-neutral-500'}`}>
-														{conversation.last_message_preview}
-													</p>
-												)}
+											<div className="mt-1.5 flex items-center justify-between gap-2">
+												<p className={`truncate text-xs ${hasUnread ? 'font-medium text-neutral-900' : 'text-neutral-500'}`}>
+													{conversation.last_message_preview || 'Sem mensagens ainda'}
+												</p>
 												<div className="shrink-0 flex items-center gap-1">
 													{needsHumanAttention ? (
 														<span className="inline-flex items-center gap-0.5 rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-800">
