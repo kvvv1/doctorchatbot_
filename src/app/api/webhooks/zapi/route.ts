@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
             phone: parsed.phone,
             text: parsed.messageText,
             zapiMessageId: parsed.messageId,
-            timestamp: parsed.timestamp,
+            timestamp: parsed.timestamp ? Math.floor(parsed.timestamp.getTime() / 1000) : null,
           })
         }
       } else {
