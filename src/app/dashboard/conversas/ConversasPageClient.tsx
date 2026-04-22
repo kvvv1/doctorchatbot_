@@ -3,7 +3,7 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, MessageSquare, Calendar, Settings, Users } from 'lucide-react'
+import CompactIconNav from '../components/CompactIconNav'
 import { useConversations } from '@/lib/hooks/useConversations'
 import { useMessages } from '@/lib/hooks/useMessages'
 import { createClient } from '@/lib/supabase/client'
@@ -466,47 +466,7 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 
 	return (
 		<div className="flex h-full min-h-0 w-full">
-			{/* Strip de ícones estilo WhatsApp Web — desktop only */}
-			<nav className="hidden md:flex flex-col items-center justify-between w-[56px] shrink-0 bg-[#f0f2f5] border-r border-neutral-200 py-3">
-				<div className="flex flex-col items-center gap-1">
-					<Link
-						href="/dashboard"
-						className="flex items-center justify-center rounded-xl p-2.5 text-neutral-500 transition-colors hover:bg-neutral-200"
-						title="Dashboard"
-					>
-						<LayoutDashboard className="size-5" />
-					</Link>
-					<span
-						className="flex items-center justify-center rounded-xl p-2.5 bg-white text-sky-600 shadow-sm"
-						title="Conversas"
-					>
-						<MessageSquare className="size-5" />
-					</span>
-					<Link
-						href="/dashboard/agenda"
-						className="flex items-center justify-center rounded-xl p-2.5 text-neutral-500 transition-colors hover:bg-neutral-200"
-						title="Agenda"
-					>
-						<Calendar className="size-5" />
-					</Link>
-					<Link
-						href="/dashboard/lista-espera"
-						className="flex items-center justify-center rounded-xl p-2.5 text-neutral-500 transition-colors hover:bg-neutral-200"
-						title="Lista de Espera"
-					>
-						<Users className="size-5" />
-					</Link>
-				</div>
-				<div className="flex flex-col items-center gap-1">
-					<Link
-						href="/dashboard/configuracoes"
-						className="flex items-center justify-center rounded-xl p-2.5 text-neutral-500 transition-colors hover:bg-neutral-200"
-						title="Configurações"
-					>
-						<Settings className="size-5" />
-					</Link>
-				</div>
-			</nav>
+			<CompactIconNav activeTab="conversas" />
 
 			{/* Lista de conversas */}
 			<aside className="hidden h-full w-full border-r border-neutral-200 md:flex md:w-[440px] shrink-0">
