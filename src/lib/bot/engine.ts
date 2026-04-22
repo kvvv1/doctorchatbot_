@@ -49,6 +49,8 @@ export type BotResponse = {
   patientCpf?: string
   /** Optional message sent as a plain-text bubble BEFORE the interactive list */
   preambleMessage?: string
+  /** Optional second message sent AFTER the main message (e.g. menu after an alert) */
+  followUpMessage?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -79,11 +81,12 @@ export async function handleBotTurn(
   const ctx: BotContext = { ...currentContext, patientPhone: patientPhone ?? currentContext.patientPhone }
 
   // Media intercept — audio/video cannot be processed by the bot.
-  // Respond with a friendly message offering menu or human attendant.
+  // Send alert with secretary button, then the menu as a second message.
   if (userMessage === '[Áudio]' || userMessage === '[Vídeo]') {
     return {
-      message: templates.audioReceived,
-      nextState: state === 'atendente' ? 'atendente' : 'audio_recebido',
+      message: `Olá! 😊 Recebi seu áudio, mas estou como *assistente virtual* e ainda não consigo escutar mensagens de voz.\n\nSe preferir, posso chamar uma secretária:\n\n1️⃣ Aguardar uma secretária`,
+      followUpMessage: buildMenuMessage(botSettings),
+      nextState: 'audio_recebido',
       nextContext: ctx,
     }
   }
@@ -1900,6 +1903,25 @@ export async function sendBotResponse(
       // No interactive choices — send as a single plain-text message
       const ok = await zapiSend({ conversationId, phone, text: response.message, internalCall: true })
       if (!ok) return false
+    }
+
+    // 1b. Send follow-up message (e.g. menu after alert)
+    if (response.followUpMessage?.trim()) {
+      await new Promise(r => setTimeout(r, 500))
+      const followUpInteractive = extractInteractiveChoices(response.followUpMessage)
+      if (followUpInteractive && followUpInteractive.choices.length >= 1) {
+        const ok = await zapiSend({
+          conversationId,
+          phone,
+          text: followUpInteractive.message.trim() || 'Escolha uma opção:',
+          choices: followUpInteractive.choices,
+          choicesTitle: followUpInteractive.title,
+        })
+        if (!ok) return false
+      } else {
+        const ok = await zapiSend({ conversationId, phone, text: response.followUpMessage.trim() })
+        if (!ok) return false
+      }
     }
 
     // 2. Save bot message
