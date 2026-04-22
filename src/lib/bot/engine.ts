@@ -136,6 +136,7 @@ export async function handleBotTurn(
         message: templates.attendantTransfer,
         nextState: 'atendente',
         nextContext: ctx,
+        conversationStatus: 'waiting_human',
         transferToHuman: true,
       }
     }
@@ -249,6 +250,7 @@ export async function handleBotTurn(
           message: templates.attendantTransfer,
           nextState: 'atendente',
           nextContext: ctx,
+          conversationStatus: 'waiting_human',
           transferToHuman: true,
         }
       }
@@ -678,6 +680,7 @@ async function handleConvenioSemCadastro(
       message: templates.attendantTransfer,
       nextState: 'atendente',
       nextContext: ctx,
+      conversationStatus: 'waiting_human',
       transferToHuman: true,
     }
   }
@@ -1745,6 +1748,7 @@ function handleSemHorario(msg: string, ctx: BotContext, botSettings?: BotSetting
       message: templates.attendantTransfer,
       nextState: 'atendente',
       nextContext: ctx,
+      conversationStatus: 'waiting_human',
       transferToHuman: true,
     }
   }
@@ -1861,7 +1865,7 @@ export async function sendBotResponse(
   const supabase = createAdminClient()
   const interactive = extractInteractiveChoices(response.message)
 
-  const zapiSend = async (payload: Record<string, unknown>) => {
+  const zapiSend = async (payload: Record<string, unknown>): Promise<string | false> => {
     const result = await sendInternalZapiMessage({
       clinicId,
       conversationId,
@@ -1876,21 +1880,36 @@ export async function sendBotResponse(
       return false
     }
 
-    return true
+    return result.messageId || ''
   }
 
   try {
     // 1. Send via Z-API
+    // Track primary message zapi_message_id so fromMe dedup works
+    let primaryZapiMessageId: string | null = null
+
     if (interactive && interactive.choices.length >= 1) {
       // Optional preamble (e.g. welcome message) sent as plain text first
       if (response.preambleMessage?.trim()) {
-        const ok = await zapiSend({ conversationId, phone, text: response.preambleMessage.trim(), internalCall: true })
-        if (!ok) return false
+        const preambleText = response.preambleMessage.trim()
+        const msgId = await zapiSend({ conversationId, phone, text: preambleText, internalCall: true })
+        if (msgId === false) return false
+        // Save preamble to DB so fromMe webhook dedup skips it
+        await supabase.from('messages').insert({
+          conversation_id: conversationId,
+          sender: 'bot',
+          content: preambleText,
+          zapi_message_id: msgId || null,
+          message_type: 'text',
+          delivery_status: 'sent',
+          metadata: { source: 'bot_engine_preamble' },
+          created_at: new Date().toISOString(),
+        })
         await new Promise(r => setTimeout(r, 400))
       }
       // Single interactive list bubble: cleanedMessage is the list context text
       const listText = interactive.message.trim() || 'Escolha uma opção:'
-      const ok = await zapiSend({
+      const msgId = await zapiSend({
         conversationId,
         phone,
         text: listText,
@@ -1898,37 +1917,62 @@ export async function sendBotResponse(
         choicesTitle: interactive.title,
         internalCall: true,
       })
-      if (!ok) return false
+      if (msgId === false) return false
+      primaryZapiMessageId = msgId || null
     } else {
       // No interactive choices — send as a single plain-text message
-      const ok = await zapiSend({ conversationId, phone, text: response.message, internalCall: true })
-      if (!ok) return false
+      const msgId = await zapiSend({ conversationId, phone, text: response.message, internalCall: true })
+      if (msgId === false) return false
+      primaryZapiMessageId = msgId || null
     }
 
     // 1b. Send follow-up message (e.g. menu after alert)
     if (response.followUpMessage?.trim()) {
       await new Promise(r => setTimeout(r, 500))
-      const followUpInteractive = extractInteractiveChoices(response.followUpMessage)
+      const followUpText = response.followUpMessage.trim()
+      const followUpInteractive = extractInteractiveChoices(followUpText)
       if (followUpInteractive && followUpInteractive.choices.length >= 1) {
-        const ok = await zapiSend({
+        const msgId = await zapiSend({
           conversationId,
           phone,
           text: followUpInteractive.message.trim() || 'Escolha uma opção:',
           choices: followUpInteractive.choices,
           choicesTitle: followUpInteractive.title,
         })
-        if (!ok) return false
+        if (msgId === false) return false
+        // Save follow-up to DB so fromMe webhook dedup skips it
+        await supabase.from('messages').insert({
+          conversation_id: conversationId,
+          sender: 'bot',
+          content: followUpText,
+          zapi_message_id: msgId || null,
+          message_type: 'text',
+          delivery_status: 'sent',
+          metadata: { source: 'bot_engine_followup' },
+          created_at: new Date().toISOString(),
+        })
       } else {
-        const ok = await zapiSend({ conversationId, phone, text: response.followUpMessage.trim() })
-        if (!ok) return false
+        const msgId = await zapiSend({ conversationId, phone, text: followUpText })
+        if (msgId === false) return false
+        await supabase.from('messages').insert({
+          conversation_id: conversationId,
+          sender: 'bot',
+          content: followUpText,
+          zapi_message_id: msgId || null,
+          message_type: 'text',
+          delivery_status: 'sent',
+          metadata: { source: 'bot_engine_followup' },
+          created_at: new Date().toISOString(),
+        })
       }
     }
 
-    // 2. Save bot message
+    // 2. Save bot message (with zapi_message_id so fromMe webhook dedup can skip it)
     const { error: msgError } = await supabase.from('messages').insert({
       conversation_id: conversationId,
       sender: 'bot',
       content: response.message,
+      zapi_message_id: primaryZapiMessageId,
       message_type: 'text',
       delivery_status: 'sent',
       metadata: {
@@ -2138,6 +2182,7 @@ async function handleAgendarDiaLista(
       message: templates.attendantTransfer,
       nextState: 'atendente',
       nextContext: ctx,
+      conversationStatus: 'waiting_human',
       transferToHuman: true,
     }
   }
@@ -2493,6 +2538,7 @@ async function handleAgendarSemSlotsConvenio(
       message: templates.attendantTransfer,
       nextState: 'atendente',
       nextContext: ctx,
+      conversationStatus: 'waiting_human',
       transferToHuman: true,
     }
   }
@@ -2531,6 +2577,7 @@ async function handleReagendarDiaLista(
       message: templates.attendantTransfer,
       nextState: 'atendente',
       nextContext: ctx,
+      conversationStatus: 'waiting_human',
       transferToHuman: true,
     }
   }
@@ -2650,6 +2697,7 @@ async function handleReagendarSemSlotsConvenio(
       message: templates.attendantTransfer,
       nextState: 'atendente',
       nextContext: ctx,
+      conversationStatus: 'waiting_human',
       transferToHuman: true,
     }
   }
