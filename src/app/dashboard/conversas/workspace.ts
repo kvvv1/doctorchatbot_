@@ -140,7 +140,7 @@ export function buildInitialConversationWorkspace(
 		? searchParams.get('human') === '1'
 		: searchParams.has('id')
 			? false
-			: storedWorkspace.showOnlyHumanNeeded
+			: false
 
 	return {
 		activeConversationId,
