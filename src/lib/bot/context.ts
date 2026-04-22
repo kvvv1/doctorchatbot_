@@ -7,6 +7,7 @@ export type BotState =
   | 'menu'
   | 'agendar_para_quem'        // patient picks: for me / for someone else / for more than one
   | 'agendar_quantos'          // patient picks how many people (2, 3 or 4) after "para mais de uma"
+  | 'agendar_tipo'             // patient picks Particular or Convênio
   | 'agendar_convenio'       // patient selects which insurance plan they have
   | 'convenio_sem_cadastro'   // no insurance plans configured — offer secretária or menu
   | 'convenio_aguardando_carteirinha' // waiting for patient to send photo of insurance card
