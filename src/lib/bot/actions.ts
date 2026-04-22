@@ -121,6 +121,34 @@ async function getClinicAddress(clinicId: string): Promise<string | null> {
   return (data?.address as string | null | undefined) || null
 }
 
+async function getConfirmNotificationSettings(clinicId: string): Promise<{ enabled: boolean; template: string | null }> {
+  try {
+    const supabase = createAdminClient()
+    const { data } = await supabase
+      .from('notification_settings')
+      .select('appointment_confirmed_enabled, appointment_confirmed_template')
+      .eq('clinic_id', clinicId)
+      .maybeSingle()
+    return {
+      enabled: data?.appointment_confirmed_enabled ?? true,
+      template: (data?.appointment_confirmed_template as string | null | undefined) || null,
+    }
+  } catch {
+    return { enabled: true, template: null }
+  }
+}
+
+function applyNotifTemplate(template: string, name: string, dataStr: string, horarioStr: string): string {
+  return template
+    .replace(/\{name\}/g, name)
+    .replace(/\{nome\}/g, name)
+    .replace(/\{date\}/g, dataStr)
+    .replace(/\{data\}/g, dataStr)
+    .replace(/\{day\}/g, dataStr)
+    .replace(/\{time\}/g, horarioStr)
+    .replace(/\{horario\}/g, horarioStr)
+}
+
 // ---------------------------------------------------------------------------
 // Appointment operations
 // ---------------------------------------------------------------------------
@@ -267,9 +295,17 @@ export async function createAppointment(params: {
   const horarioStr = format(startsAt, "HH'h'mm", { locale: ptBR })
   const clinicAddress = await getClinicAddress(params.clinicId)
   const addressLine = clinicAddress ? `\n\n📍 ${clinicAddress}` : ''
-  const successMessage = params.confirmTemplate
-    ? interpolate(params.confirmTemplate, { nome: params.patientName, data: dataStr, horario: horarioStr })
-    : `✅ Agendamento confirmado!\n\n📅 ${label}\n👤 ${params.patientName}\n\nVocê receberá um lembrete antes da consulta. Para cancelar ou remarcar, é só me avisar. 😊${addressLine}\n\n0. Menu principal`
+  const notifSettings = await getConfirmNotificationSettings(params.clinicId)
+  let successMessage: string
+  if (params.confirmTemplate) {
+    successMessage = interpolate(params.confirmTemplate, { nome: params.patientName, data: dataStr, horario: horarioStr })
+  } else if (!notifSettings.enabled) {
+    successMessage = ''
+  } else if (notifSettings.template) {
+    successMessage = applyNotifTemplate(notifSettings.template, params.patientName, dataStr, horarioStr)
+  } else {
+    successMessage = `✅ Agendamento confirmado!\n\n📅 ${label}\n👤 ${params.patientName}\n\nVocê receberá um lembrete antes da consulta. Para cancelar ou remarcar, é só me avisar. 😊${addressLine}\n\n0. Menu principal`
+  }
   return {
     success: true,
     id: data.id,
@@ -361,9 +397,17 @@ export async function createAppointmentFromSlot(params: {
   const horarioStr = format(slotDate, "HH'h'mm", { locale: ptBR })
   const clinicAddress = await getClinicAddress(params.clinicId)
   const addressLine = clinicAddress ? `\n\n📍 ${clinicAddress}` : ''
-  const successMessage = params.confirmTemplate
-    ? interpolate(params.confirmTemplate, { nome: params.patientName, data: dataStr, horario: horarioStr })
-    : `✅ Agendamento confirmado!\n\n📅 ${params.slot.label}\n👤 ${params.patientName}\n\nVocê receberá um lembrete antes da consulta. Para cancelar ou remarcar, é só me avisar. 😊${addressLine}\n\n0. Menu principal`
+  const notifSettings = await getConfirmNotificationSettings(params.clinicId)
+  let successMessage: string
+  if (params.confirmTemplate) {
+    successMessage = interpolate(params.confirmTemplate, { nome: params.patientName, data: dataStr, horario: horarioStr })
+  } else if (!notifSettings.enabled) {
+    successMessage = ''
+  } else if (notifSettings.template) {
+    successMessage = applyNotifTemplate(notifSettings.template, params.patientName, dataStr, horarioStr)
+  } else {
+    successMessage = `✅ Agendamento confirmado!\n\n📅 ${params.slot.label}\n👤 ${params.patientName}\n\nVocê receberá um lembrete antes da consulta. Para cancelar ou remarcar, é só me avisar. 😊${addressLine}\n\n0. Menu principal`
+  }
   return {
     success: true,
     id: data.id,

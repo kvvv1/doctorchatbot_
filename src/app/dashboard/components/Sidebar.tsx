@@ -67,8 +67,8 @@ export default function Sidebar({ isMobileOpen, isCollapsed, onClose }: SidebarP
 					<div className={`flex h-16 items-center border-b border-neutral-200 transition-all duration-300 overflow-hidden ${isCollapsed ? 'justify-center px-4' : 'justify-between px-6'}`}>
 						<div className={`flex items-center transition-all duration-300 overflow-hidden ${isCollapsed ? 'gap-0' : 'gap-3'}`}>
 							<BrandMark />
-							<span className={`text-lg font-semibold text-neutral-900 transition-all duration-300 whitespace-nowrap ${isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
-								Doctor Chat
+						<span className={`text-lg font-semibold transition-all duration-300 whitespace-nowrap ${isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
+							<span className="text-neutral-900">Doctor</span><span className="text-sky-600">ChatBot</span>
 							</span>
 						</div>
 						<button

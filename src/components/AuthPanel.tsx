@@ -61,9 +61,7 @@ export default function AuthPanel({ mode }: { mode: Mode }) {
                   <BrandMark />
                   <div className="flex-1 min-w-0">
                     <h1 className="text-lg sm:text-xl font-bold tracking-tight">
-                      <span className="bg-gradient-to-r from-sky-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                        Doctor Chat
-                      </span>
+                      <span className="text-neutral-900">Doctor</span><span className="text-sky-600">ChatBot</span>
                     </h1>
                   </div>
                 </div>
@@ -140,7 +138,7 @@ export default function AuthPanel({ mode }: { mode: Mode }) {
               </section>
 
               <footer className="relative mt-3 sm:mt-4 text-center text-[10px] sm:text-xs text-neutral-500">
-                © {new Date().getFullYear()} Doctor Chat
+                        © {new Date().getFullYear()} DoctorChatBot
               </footer>
             </div>
           </section>

@@ -92,8 +92,8 @@ export default function ResetPasswordForm() {
           {/* Header */}
           <div className="flex items-center gap-2 mb-5">
             <BrandMark />
-            <h1 className="text-lg font-bold bg-gradient-to-r from-sky-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              Doctor Chat
+            <h1 className="text-lg font-bold">
+              <span className="text-neutral-900">Doctor</span><span className="text-sky-600">ChatBot</span>
             </h1>
           </div>
 

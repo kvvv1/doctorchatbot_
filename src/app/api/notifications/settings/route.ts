@@ -77,6 +77,19 @@ export async function POST(request: Request) {
 		const body = await request.json()
 		const supabase = createAdminClient()
 
+		// Only pass known columns to avoid DB errors from unknown fields
+		const allowedFields = [
+			'reminder_48h_enabled', 'reminder_48h_template', 'reminder_48h_hours_before',
+			'reminder_24h_enabled', 'reminder_24h_template', 'reminder_24h_hours_before',
+			'reminder_12h_enabled', 'reminder_12h_template', 'reminder_12h_hours_before',
+			'reminder_2h_enabled', 'reminder_2h_template', 'reminder_2h_hours_before',
+			'appointment_confirmed_enabled', 'appointment_confirmed_template',
+			'custom_reminders',
+		]
+		const payload = Object.fromEntries(
+			Object.entries(body).filter(([key]) => allowedFields.includes(key))
+		)
+
 		// Check if settings exist
 		const { data: existing } = await supabase
 			.from('notification_settings')
@@ -88,7 +101,7 @@ export async function POST(request: Request) {
 			// Update existing settings
 			const { data: settings, error } = await supabase
 				.from('notification_settings')
-				.update(body)
+				.update(payload)
 				.eq('clinic_id', profile.clinic.id)
 				.select()
 				.single()
@@ -103,7 +116,7 @@ export async function POST(request: Request) {
 			// Create new settings
 			const { data: settings, error } = await supabase
 				.from('notification_settings')
-				.insert({ clinic_id: profile.clinic.id, ...body })
+				.insert({ clinic_id: profile.clinic.id, ...payload })
 				.select()
 				.single()
 

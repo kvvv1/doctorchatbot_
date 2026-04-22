@@ -110,7 +110,7 @@ export async function createExternalAppointment(params: {
       const registerResult = await gestaoService.registerPatient({
         cpf,
         nome_completo: params.patientName,
-        email: '',
+        email: `${cpf.replace(/\D/g, '')}@paciente.local`,
         celular: params.patientPhone || '',
         enviar_whatsapp_lembrete: true,
       })
