@@ -2239,6 +2239,7 @@ async function handleAgendarConfirmar(
     slot,
     confirmTemplate: botSettings?.message_confirm_schedule,
     appointmentType: ctx.appointmentType || 'particular',
+    selectedConvenio: ctx.selectedConvenio || null,
   })
 
   if (!result.success) {

@@ -40,6 +40,8 @@ export async function createExternalAppointment(params: {
   cpf?: string | null
   /** Tipo de consulta: particular ou convênio */
   appointmentType?: 'particular' | 'convenio'
+  /** Nome do plano de convênio selecionado (ex: "Unimed") */
+  selectedConvenio?: string | null
 }): Promise<ExternalCreateResult> {
   const resolution = await resolveClinicIntegration(params.supabase, params.clinicId)
 
