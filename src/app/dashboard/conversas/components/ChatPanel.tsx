@@ -59,6 +59,8 @@ const STATUS_ACTIONS: Array<{ status: ConversationStatus; label: string }> = [
 
 const BOT_STATE_LABELS: Record<BotState, string> = {
 	menu: 'Menu principal',
+	agendar_para_quem: 'Para quem é a consulta',
+	agendar_quantos: 'Quantas pessoas',
 	agendar_tipo: 'Tipo de atendimento',
 	agendar_convenio: 'Selecionando convênio',
 	convenio_aguardando_carteirinha: 'Aguardando foto da carteirinha',
