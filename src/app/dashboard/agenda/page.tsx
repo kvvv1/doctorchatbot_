@@ -99,14 +99,12 @@ export default async function AgendaPage() {
     .order('starts_at', { ascending: true })
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
-      <AgendaPageClient
-        initialAppointments={(appointments || []).map((appointment: AgendaInitialAppointment) =>
-          normalizeAppointmentOrigin(appointment)
-        )}
-        activeProvider={activeProvider}
-      />
-    </div>
+    <AgendaPageClient
+      initialAppointments={(appointments || []).map((appointment: AgendaInitialAppointment) =>
+        normalizeAppointmentOrigin(appointment)
+      )}
+      activeProvider={activeProvider}
+    />
   )
 }
 
