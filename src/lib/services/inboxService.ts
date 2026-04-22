@@ -168,6 +168,18 @@ export async function saveFromMeMessage(data: {
 }): Promise<void> {
   const { supabase, clinicId, phone, text, zapiMessageId, timestamp } = data
   try {
+    // If we have a message ID, check if it was already saved by the bot sender —
+    // Z-API fires a fromMe webhook for every outgoing message (bot or human).
+    // Bot messages are already inserted with that same zapi_message_id, so skip them.
+    if (zapiMessageId) {
+      const { data: existing } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('zapi_message_id', zapiMessageId)
+        .maybeSingle()
+      if (existing) return // Already saved by the bot flow — not a secretary message
+    }
+
     // Find the existing conversation (do NOT create one)
     const { data: conversation } = await supabase
       .from('conversations')
