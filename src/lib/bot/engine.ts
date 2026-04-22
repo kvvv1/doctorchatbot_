@@ -2254,6 +2254,12 @@ async function handleAgendarConfirmar(
   const current = ctx.multiBookingCurrent ?? 1
   const total = ctx.multiBookingTotal ?? 1
 
+  // Accumulate this booking into the list
+  const completedBookings = [
+    ...(ctx.completedBookings ?? []),
+    { name: ctx.patientName || 'Paciente', label: slot.label },
+  ]
+
   if (current < total) {
     const next = current + 1
     const ordinal = next === 2 ? '2ª' : next === 3 ? '3ª' : `${next}ª`
@@ -2266,8 +2272,24 @@ async function handleAgendarConfirmar(
         selectedConvenio: ctx.selectedConvenio,
         multiBookingTotal: total,
         multiBookingCurrent: next,
+        completedBookings,
         intent: ctx.intent,
       },
+    }
+  }
+
+  // Last (or only) booking — if multi-booking, show a summary of all
+  if (total > 1) {
+    const lines = completedBookings
+      .map((b, i) => `${i + 1}️⃣ *${b.name}* — 📅 ${b.label}`)
+      .join('\n')
+    const convenioLine = ctx.selectedConvenio ? `\n🏥 Convênio: ${ctx.selectedConvenio}` : ''
+    const summaryMsg = `✅ *Todos os agendamentos confirmados!*${convenioLine}\n\n${lines}\n\nVocê receberá lembretes antes de cada consulta. Para cancelar ou remarcar, é só me avisar. 😊\n\n0. Menu principal`
+    return {
+      message: summaryMsg,
+      nextState: 'menu',
+      nextContext: {},
+      conversationStatus: 'scheduled',
     }
   }
 

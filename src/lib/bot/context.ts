@@ -127,4 +127,6 @@ export type BotContext = {
   // Multi-booking flow (scheduling for multiple people)
   multiBookingTotal?: number    // total number of people to book for
   multiBookingCurrent?: number  // current person index (1-based)
+  /** Accumulates confirmed bookings: { name, label } per person already booked */
+  completedBookings?: Array<{ name: string; label: string }>
 }
