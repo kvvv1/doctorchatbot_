@@ -179,7 +179,7 @@ export default function CalendarView({
   }
 
   return (
-    <div className="h-[calc(100vh-280px)] min-h-[600px]">
+    <div className="h-[calc(100vh-280px)] min-h-[400px] overflow-hidden">
       <BigCalendar
         localizer={localizer}
         events={events}

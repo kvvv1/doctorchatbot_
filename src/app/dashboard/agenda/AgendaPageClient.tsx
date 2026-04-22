@@ -330,7 +330,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
       </nav>
 
       {/* Main content area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto">
         <div className="p-4 sm:p-6 space-y-5">
       {/* Toast notifications */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
@@ -633,7 +633,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
       )}
 
       {/* Calendar */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-4 sm:p-6 shadow-sm">
+      <div className="rounded-xl border border-neutral-200 bg-white p-4 sm:p-6 shadow-sm overflow-hidden">
         <CalendarView
           events={calendarEvents}
           onSelectEvent={handleSelectEvent}
