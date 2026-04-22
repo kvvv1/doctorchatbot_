@@ -292,8 +292,10 @@ Qual o *novo horário*?
   // -------------------------------------------------------------------------
   // Cancelamento
   // -------------------------------------------------------------------------
-  cancelConfirmSingle: (label: string) =>
-    withMenuOption(`Você deseja *cancelar* a consulta do dia:\n📅 ${label}\n\n1️⃣ Sim, cancelar\n2️⃣ Não, manter`, 3),
+  cancelConfirmSingle: (appointment: AppointmentSummary) => {
+    const nameStr = appointment.patientName ? ` — *${appointment.patientName.split(' ')[0]}*` : ''
+    return withMenuOption(`Você deseja *cancelar* a consulta do dia:\n📅 ${appointment.label}${nameStr}\n\n1️⃣ Sim, cancelar\n2️⃣ Não, manter`, 3)
+  },
 
   cancelConfirmGeneric: withMenuOption(`Você deseja *cancelar* sua consulta?\n\n1️⃣ Sim, cancelar\n2️⃣ Não, manter`, 3),
 
@@ -367,8 +369,10 @@ O que deseja fazer?
     return `Seus próximos agendamentos: 📋\n\n${lines}\n\n${footer}`
   },
 
-  viewAppointmentSelected: (appointment: AppointmentSummary) =>
-    `📅 *${appointment.label}*\n\nO que deseja fazer com esta consulta?\n\n1️⃣ Confirmar presença\n2️⃣ Remarcar\n3️⃣ Cancelar\n4️⃣ Voltar à lista`,
+  viewAppointmentSelected: (appointment: AppointmentSummary) => {
+    const nameStr = appointment.patientName ? ` — *${appointment.patientName.split(' ')[0]}*` : ''
+    return `📅 *${appointment.label}*${nameStr}\n\nO que deseja fazer com esta consulta?\n\n1️⃣ Confirmar presença\n2️⃣ Remarcar\n3️⃣ Cancelar\n4️⃣ Voltar à lista`
+  },
 
   viewAppointmentsNotFound: `Não encontrei consultas agendadas para o seu número. 🔍
 

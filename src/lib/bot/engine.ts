@@ -374,7 +374,7 @@ async function handleMenu(
 
       if (appts.length === 1) {
         return {
-          message: templates.cancelConfirmSingle(appts[0].label),
+          message: templates.cancelConfirmSingle(appts[0]),
           nextState: 'cancelar_confirmar',
           nextContext: { ...ctx, intent: 'cancel', appointmentId: appts[0].id, appointments: appts },
         }
@@ -898,7 +898,7 @@ async function handleCancelarTipo(
       return { message: templates.whichAppointmentCancel(ctxWithType.appointments), nextState: 'cancelar_qual', nextContext: { ...ctxWithType, intent: 'cancel' } }
     }
     if (ctxWithType.appointments && ctxWithType.appointments.length === 1) {
-      return { message: templates.cancelConfirmSingle(ctxWithType.appointments[0].label), nextState: 'cancelar_confirmar', nextContext: { ...ctxWithType, intent: 'cancel', appointmentId: ctxWithType.appointments[0].id } }
+      return { message: templates.cancelConfirmSingle(ctxWithType.appointments[0]), nextState: 'cancelar_confirmar', nextContext: { ...ctxWithType, intent: 'cancel', appointmentId: ctxWithType.appointments[0].id } }
     }
     return { message: templates.cancelConfirmGeneric, nextState: 'cancelar_confirmar', nextContext: { ...ctxWithType, intent: 'cancel' } }
   }
@@ -1155,7 +1155,7 @@ async function handleQualAppointment(
 
   if (flow === 'cancelar') {
     return {
-      message: templates.cancelConfirmSingle(chosen.label),
+      message: templates.cancelConfirmSingle(chosen),
       nextState: 'cancelar_confirmar',
       nextContext: { ...ctx, appointmentId: chosen.id },
     }
@@ -1451,7 +1451,7 @@ async function handleVerAgendamentosResposta(
     // 3 — Cancelar
     if (wantsCancel) {
       return {
-        message: templates.cancelConfirmSingle(selected.label),
+        message: templates.cancelConfirmSingle(selected),
         nextState: 'cancelar_confirmar',
         nextContext: { ...ctx, intent: 'cancel', appointmentId: selected.id },
       }
@@ -1573,7 +1573,7 @@ async function handleVerAgendamentoSelecionado(
   // 3 — Cancelar
   if (selWantsCancel) {
     return {
-      message: templates.cancelConfirmSingle(selected.label),
+      message: templates.cancelConfirmSingle(selected),
       nextState: 'cancelar_confirmar',
       nextContext: { ...ctx, intent: 'cancel', appointmentId: selected.id },
     }
@@ -2917,7 +2917,7 @@ async function buildAppointmentLookupResponse(params: {
     }
 
     return {
-      message: templates.cancelConfirmSingle(appointments[0].label),
+      message: templates.cancelConfirmSingle(appointments[0]),
       nextState: 'cancelar_confirmar',
       nextContext: { ...nextContext, intent: 'cancel', appointmentId: appointments[0].id },
     }
