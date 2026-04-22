@@ -734,7 +734,6 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
         />
       )}
     </div>
-        </div>
       </div>
     </div>
   )
