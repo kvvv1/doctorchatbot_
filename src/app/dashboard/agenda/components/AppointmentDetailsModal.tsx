@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -277,7 +277,7 @@ export default function AppointmentDetailsModal({
                     placeholder="Ex: Paciente alergico a dipirona"
                     className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 resize-none" />
                 ) : (
-                  <div className="text-sm text-neutral-700 bg-neutral-50 rounded-lg p-3">{appointment.description}</div>
+                  <div className="text-sm text-neutral-900 bg-neutral-50 rounded-lg p-3">{appointment.description}</div>
                 )}
               </div>
             </div>
@@ -287,7 +287,7 @@ export default function AppointmentDetailsModal({
           {appointment.conversation_id && (
             <div className="flex items-center gap-3 p-3 bg-sky-50 rounded-lg">
               <MessageSquare className="h-5 w-5 text-sky-600 flex-shrink-0" />
-              <div className="flex-1 text-sm font-medium text-neutral-700">Vinculado a uma conversa</div>
+              <div className="flex-1 text-sm font-medium text-neutral-900">Vinculado a uma conversa</div>
               <Link href={`/dashboard/conversas?id=${appointment.conversation_id}`}
                 className="text-sm font-medium text-sky-600 hover:text-sky-700 whitespace-nowrap">
                 Ver conversa
@@ -317,7 +317,7 @@ export default function AppointmentDetailsModal({
                   Sim, cancelar agendamento
                 </button>
                 <button onClick={() => setConfirmCancel(false)} disabled={isProcessing}
-                  className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 transition-colors">
+                  className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50 disabled:opacity-50 transition-colors">
                   Voltar
                 </button>
               </div>
@@ -337,7 +337,7 @@ export default function AppointmentDetailsModal({
                     Salvar alteracoes
                   </button>
                   <button onClick={resetEdit} disabled={isProcessing}
-                    className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 disabled:opacity-50 transition-colors">
+                    className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-100 disabled:opacity-50 transition-colors">
                     <X className="h-4 w-4" />
                     Descartar
                   </button>
@@ -346,7 +346,7 @@ export default function AppointmentDetailsModal({
                 <>
                   {appointment.status !== 'canceled' && (
                     <button onClick={() => { setIsEditing(true); setError(null) }} disabled={isProcessing}
-                      className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 disabled:opacity-50 transition-colors">
+                      className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-100 disabled:opacity-50 transition-colors">
                       <Edit className="h-4 w-4" />
                       Editar
                     </button>

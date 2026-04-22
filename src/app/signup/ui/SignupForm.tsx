@@ -126,7 +126,7 @@ export default function SignupForm({
 			</button>
 
 			{hideSwitchLink ? null : (
-				<p className="text-sm text-neutral-600">
+				<p className="text-sm text-neutral-900">
 					Já tem conta?{' '}
 					{onSwitchMode ? (
 						<button

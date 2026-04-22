@@ -230,7 +230,7 @@ export default function MobileInboxPwaBar() {
 						type="button"
 						onClick={() => void handlePushToggle()}
 						disabled={busy || pushPermission === 'denied'}
-						className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3.5 py-2 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+						className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3.5 py-2 text-xs font-semibold text-neutral-900 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{isPushSubscribed ? <BellOff className="size-3.5" /> : <Bell className="size-3.5" />}
 						{isPushSubscribed ? 'Desativar alertas' : 'Ativar notificações'}

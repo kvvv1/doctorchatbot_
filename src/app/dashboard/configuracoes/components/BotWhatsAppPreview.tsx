@@ -411,7 +411,7 @@ export default function BotWhatsAppPreview({
             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors border ${
               activeScene === scene.id
                 ? 'bg-[#075e54] text-white border-[#075e54]'
-                : 'bg-white text-neutral-600 border-neutral-300 hover:border-neutral-400'
+                : 'bg-white text-neutral-900 border-neutral-300 hover:border-neutral-400'
             }`}
           >
             {scene.label}

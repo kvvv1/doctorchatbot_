@@ -66,7 +66,7 @@ function PanelBody({
 					<div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-neutral-100 text-sm font-semibold text-neutral-500">
 						+
 					</div>
-					<p className="text-sm font-medium text-neutral-700">Contexto do paciente</p>
+					<p className="text-sm font-medium text-neutral-900">Contexto do paciente</p>
 					<p className="mt-1 text-xs text-neutral-500">
 						Selecione uma conversa para ver detalhes, notas e agenda.
 					</p>
@@ -173,7 +173,7 @@ function PanelBody({
 						<button
 							type="button"
 							onClick={onOpenNotes}
-							className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-sm font-medium text-neutral-700 shadow-sm transition-colors hover:bg-neutral-50"
+							className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-sm font-medium text-neutral-900 shadow-sm transition-colors hover:bg-neutral-50"
 						>
 							<StickyNote className="size-4 text-neutral-500" />
 							Notas
@@ -181,7 +181,7 @@ function PanelBody({
 						<button
 							type="button"
 							onClick={onExportHistory}
-							className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-sm font-medium text-neutral-700 shadow-sm transition-colors hover:bg-neutral-50"
+							className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-sm font-medium text-neutral-900 shadow-sm transition-colors hover:bg-neutral-50"
 						>
 							<FileText className="size-4 text-neutral-500" />
 							Exportar
@@ -189,7 +189,7 @@ function PanelBody({
 						<button
 							type="button"
 							onClick={onOpenWhatsApp}
-							className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-sm font-medium text-neutral-700 shadow-sm transition-colors hover:bg-neutral-50"
+							className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-sm font-medium text-neutral-900 shadow-sm transition-colors hover:bg-neutral-50"
 						>
 							<ExternalLink className="size-4 text-neutral-500" />
 							WhatsApp
@@ -215,7 +215,7 @@ function PanelBody({
 					</h3>
 					<div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
 						{conversation.notes ? (
-							<p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">
+							<p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-900">
 								{conversation.notes}
 							</p>
 						) : (

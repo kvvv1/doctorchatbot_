@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
@@ -69,7 +69,7 @@ export default function AuthPanel({ mode }: { mode: Mode }) {
                 </div>
 
                 {/* Subtitle */}
-                <p className="mt-1.5 text-[10px] sm:text-xs font-medium text-neutral-600">
+                <p className="mt-1.5 text-[10px] sm:text-xs font-medium text-neutral-900">
                   Atenda pacientes no WhatsApp com bot + painel ao vivo.
                 </p>
               </header>
@@ -89,7 +89,7 @@ export default function AuthPanel({ mode }: { mode: Mode }) {
                     onClick={() => selectMode('login')}
                     className={
                       "relative rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold transition-colors " +
-                      (isLogin ? 'text-white' : 'text-neutral-700 hover:text-neutral-900')
+                      (isLogin ? 'text-white' : 'text-neutral-900 hover:text-neutral-900')
                     }
                   >
                     Entrar
@@ -101,7 +101,7 @@ export default function AuthPanel({ mode }: { mode: Mode }) {
                       "relative rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold transition-colors " +
                       (!isLogin
                         ? 'text-white'
-                        : 'text-neutral-700 hover:text-neutral-900')
+                        : 'text-neutral-900 hover:text-neutral-900')
                     }
                   >
                     Criar conta
@@ -174,7 +174,7 @@ export default function AuthPanel({ mode }: { mode: Mode }) {
                         </div>
                         <p className="font-bold text-neutral-900 text-[10px] sm:text-xs">Kanban</p>
                       </div>
-                      <p className="mt-0.5 sm:mt-1 text-[9px] sm:text-[10px] text-neutral-600 leading-relaxed">
+                      <p className="mt-0.5 sm:mt-1 text-[9px] sm:text-[10px] text-neutral-900 leading-relaxed">
                         Organize conversas por status e nunca perca o controle.
                       </p>
                     </div>
@@ -189,7 +189,7 @@ export default function AuthPanel({ mode }: { mode: Mode }) {
                         </div>
                         <p className="font-bold text-neutral-900 text-[10px] sm:text-xs">Chatbot 24/7</p>
                       </div>
-                      <p className="mt-0.5 sm:mt-1 text-[9px] sm:text-[10px] text-neutral-600 leading-relaxed">
+                      <p className="mt-0.5 sm:mt-1 text-[9px] sm:text-[10px] text-neutral-900 leading-relaxed">
                         Responde, confirma e encaminha no automático.
                       </p>
                     </div>
@@ -204,7 +204,7 @@ export default function AuthPanel({ mode }: { mode: Mode }) {
                         </div>
                         <p className="font-bold text-neutral-900 text-[10px] sm:text-xs">Anti no-show</p>
                       </div>
-                      <p className="mt-0.5 sm:mt-1 text-[9px] sm:text-[10px] text-neutral-600 leading-relaxed">
+                      <p className="mt-0.5 sm:mt-1 text-[9px] sm:text-[10px] text-neutral-900 leading-relaxed">
                         Lembretes automáticos que realmente funcionam.
                       </p>
                     </div>
@@ -243,21 +243,21 @@ export default function AuthPanel({ mode }: { mode: Mode }) {
                             <div className="px-2 py-1 space-y-0.5">
                               <div className="flex items-center gap-1 py-0.5 px-1 rounded bg-white/80 border border-sky-200/60">
                                 <div className="flex size-3 items-center justify-center rounded-full bg-sky-500 text-white text-[6px] font-bold">1</div>
-                                <span className="text-[8px] text-neutral-700 font-medium">Segunda, 19/02</span>
+                                <span className="text-[8px] text-neutral-900 font-medium">Segunda, 19/02</span>
                               </div>
                               <div className="flex items-center gap-1 py-0.5 px-1 rounded bg-white/80 border border-sky-200/60">
                                 <div className="flex size-3 items-center justify-center rounded-full bg-sky-500 text-white text-[6px] font-bold">2</div>
-                                <span className="text-[8px] text-neutral-700 font-medium">Quarta, 21/02</span>
+                                <span className="text-[8px] text-neutral-900 font-medium">Quarta, 21/02</span>
                               </div>
                               <div className="flex items-center gap-1 py-0.5 px-1 rounded bg-white/80 border border-sky-200/60">
                                 <div className="flex size-3 items-center justify-center rounded-full bg-sky-500 text-white text-[6px] font-bold">3</div>
-                                <span className="text-[8px] text-neutral-700 font-medium">Sexta, 23/02</span>
+                                <span className="text-[8px] text-neutral-900 font-medium">Sexta, 23/02</span>
                               </div>
                             </div>
                           </div>
                           
                           <div className="flex items-center justify-end gap-1 px-2 pb-1">
-                            <span className="text-[7px] text-neutral-600">14:23</span>
+                            <span className="text-[7px] text-neutral-900">14:23</span>
                             <svg className="size-2.5 text-sky-600" fill="currentColor" viewBox="0 0 16 11">
                               <path d="M11.071.653a.5.5 0 00-.708.708L14.657 5.5l-4.294 4.139a.5.5 0 00.708.708l4.647-4.493a.5.5 0 000-.708L11.071.653zM6.424.653a.5.5 0 00-.707.708L10.01 5.5 5.717 9.639a.5.5 0 00.707.708l4.647-4.493a.5.5 0 000-.708L6.424.653z"/>
                             </svg>
@@ -318,31 +318,31 @@ export default function AuthPanel({ mode }: { mode: Mode }) {
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-0.5">
                           <div className="size-1 rounded-full bg-sky-500"></div>
-                          <p className="text-[7px] font-bold uppercase tracking-wider text-neutral-600">Novas</p>
+                          <p className="text-[7px] font-bold uppercase tracking-wider text-neutral-900">Novas</p>
                         </div>
                         <div className="rounded border border-sky-200/60 bg-gradient-to-br from-sky-50/80 to-white p-1 shadow-sm">
                           <p className="text-[8px] font-semibold text-neutral-800">Ana Silva</p>
-                          <p className="mt-0.5 text-[7px] text-neutral-600">Ortoped.</p>
+                          <p className="mt-0.5 text-[7px] text-neutral-900">Ortoped.</p>
                         </div>
                       </div>
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-0.5">
                           <div className="size-1 rounded-full bg-indigo-500"></div>
-                          <p className="text-[7px] font-bold uppercase tracking-wider text-neutral-600">Andamento</p>
+                          <p className="text-[7px] font-bold uppercase tracking-wider text-neutral-900">Andamento</p>
                         </div>
                         <div className="rounded border border-indigo-200/60 bg-gradient-to-br from-indigo-50/80 to-white p-1 shadow-sm">
                           <p className="text-[8px] font-semibold text-neutral-800">Carla M.</p>
-                          <p className="mt-0.5 text-[7px] text-neutral-600">Odonto</p>
+                          <p className="mt-0.5 text-[7px] text-neutral-900">Odonto</p>
                         </div>
                       </div>
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-0.5">
                           <div className="size-1 rounded-full bg-purple-500"></div>
-                          <p className="text-[7px] font-bold uppercase tracking-wider text-neutral-600">Agendadas</p>
+                          <p className="text-[7px] font-bold uppercase tracking-wider text-neutral-900">Agendadas</p>
                         </div>
                         <div className="rounded border border-purple-200/60 bg-gradient-to-br from-purple-50/80 to-white p-1 shadow-sm">
                           <p className="text-[8px] font-semibold text-neutral-800">Elisa A.</p>
-                          <p className="mt-0.5 text-[7px] text-neutral-600">Derma</p>
+                          <p className="mt-0.5 text-[7px] text-neutral-900">Derma</p>
                         </div>
                       </div>
                     </div>

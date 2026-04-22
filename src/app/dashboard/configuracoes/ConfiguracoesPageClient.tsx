@@ -197,7 +197,7 @@ export default function ConfiguracoesPageClient({
 			<div className="border-b border-neutral-200 bg-white">
 				<div className="p-4 sm:p-6 lg:px-8">
 					<h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Configurações</h1>
-					<p className="mt-1 text-sm text-neutral-600">
+					<p className="mt-1 text-sm text-neutral-900">
 						Gerencie sua clínica, integrações e automações
 					</p>
 				</div>
@@ -215,7 +215,7 @@ export default function ConfiguracoesPageClient({
 									className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-all ${
 										isActive
 											? 'border-sky-600 text-sky-700'
-											: 'border-transparent text-neutral-600 hover:text-neutral-900 hover:border-neutral-300'
+											: 'border-transparent text-neutral-900 hover:text-neutral-900 hover:border-neutral-300'
 									}`}
 								>
 									<Icon className={`size-4 ${isActive ? 'text-sky-600' : 'text-neutral-500'}`} />
@@ -412,7 +412,7 @@ function ClinicaTab({
 				</p>
 				<div className="space-y-4">
 					<div>
-						<label htmlFor="clinicName" className="block text-sm font-medium text-neutral-700">
+						<label htmlFor="clinicName" className="block text-sm font-medium text-neutral-900">
 							Nome da Clínica
 						</label>
 						<input
@@ -425,7 +425,7 @@ function ClinicaTab({
 						/>
 					</div>
 					<div>
-						<label htmlFor="defaultDuration" className="block text-sm font-medium text-neutral-700">
+						<label htmlFor="defaultDuration" className="block text-sm font-medium text-neutral-900">
 							Duração padrão da consulta
 						</label>
 						<div className="mt-1 flex flex-wrap items-center gap-2">
@@ -437,7 +437,7 @@ function ClinicaTab({
 									className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
 										defaultDurationMinutes === min
 											? 'border-sky-500 bg-sky-600 text-white'
-											: 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+											: 'border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-50'
 									}`}
 								>
 									{min} min
@@ -468,13 +468,13 @@ function ClinicaTab({
 
 				{/* Duração por tipo */}
 					<div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 space-y-4">
-						<p className="text-sm font-medium text-neutral-700">
+						<p className="text-sm font-medium text-neutral-900">
 							Duração por tipo de consulta <span className="text-neutral-400 font-normal">(opcional — sobrepõe o padrão)</span>
 						</p>
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 							{/* Particular */}
 							<div>
-								<label className="block text-sm font-medium text-neutral-700 mb-1">
+								<label className="block text-sm font-medium text-neutral-900 mb-1">
 									🏥 Particular
 								</label>
 								<div className="flex flex-wrap gap-1.5">
@@ -486,7 +486,7 @@ function ClinicaTab({
 											className={`rounded-lg border px-2.5 py-1 text-sm font-medium transition-colors ${
 												particularDurationMinutes === min
 													? 'border-sky-500 bg-sky-600 text-white'
-													: 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+													: 'border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-50'
 											}`}
 										>
 											{min} min
@@ -512,7 +512,7 @@ function ClinicaTab({
 							</div>
 							{/* Convênio */}
 							<div>
-								<label className="block text-sm font-medium text-neutral-700 mb-1">
+								<label className="block text-sm font-medium text-neutral-900 mb-1">
 									📋 Convênio
 								</label>
 								<div className="flex flex-wrap gap-1.5">
@@ -524,7 +524,7 @@ function ClinicaTab({
 											className={`rounded-lg border px-2.5 py-1 text-sm font-medium transition-colors ${
 												convenioDurationMinutes === min
 													? 'border-sky-500 bg-sky-600 text-white'
-													: 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+													: 'border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-50'
 											}`}
 										>
 											{min} min
@@ -888,7 +888,7 @@ function ContaTab() {
 				<h2 className="mb-4 text-lg font-semibold text-neutral-900">Sessão</h2>
 				<div className="flex items-center justify-between">
 					<div>
-						<p className="text-sm font-medium text-neutral-700">Encerrar sessão</p>
+						<p className="text-sm font-medium text-neutral-900">Encerrar sessão</p>
 						<p className="text-xs text-neutral-500">Sair da sua conta</p>
 					</div>
 					<SignOutButton />

@@ -86,7 +86,7 @@ export default function LoginForm({
 				<button
 					type="button"
 					onClick={() => { setView('login'); setError(null) }}
-					className="w-full rounded-2xl border border-neutral-200 bg-white/90 px-4 py-3 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
+					className="w-full rounded-2xl border border-neutral-200 bg-white/90 px-4 py-3 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-50"
 				>
 					Voltar ao login
 				</button>
@@ -99,7 +99,7 @@ export default function LoginForm({
 		return (
 			<form onSubmit={onForgotSubmit} className="space-y-4">
 				<div>
-					<p className="text-sm text-neutral-600 mb-3">
+					<p className="text-sm text-neutral-900 mb-3">
 						Digite seu email e enviaremos um link para redefinir sua senha.
 					</p>
 					<label className="text-sm font-medium" htmlFor="forgot-email">
@@ -133,7 +133,7 @@ export default function LoginForm({
 				<button
 					type="button"
 					onClick={() => { setView('login'); setError(null) }}
-					className="w-full text-center text-sm text-neutral-500 hover:text-neutral-700 underline-offset-4 hover:underline"
+					className="w-full text-center text-sm text-neutral-500 hover:text-neutral-900 underline-offset-4 hover:underline"
 				>
 					Voltar ao login
 				</button>
@@ -176,7 +176,7 @@ export default function LoginForm({
 					<button
 						type="button"
 						onClick={() => { setForgotEmail(email); setView('forgot'); setError(null) }}
-						className="text-sm font-medium text-neutral-700 underline-offset-4 hover:text-neutral-900 hover:underline"
+						className="text-sm font-medium text-neutral-900 underline-offset-4 hover:text-neutral-900 hover:underline"
 					>
 						Esqueci minha senha
 					</button>
@@ -198,7 +198,7 @@ export default function LoginForm({
 			</button>
 
 			{hideSwitchLink ? null : (
-				<p className="text-sm text-neutral-600">
+				<p className="text-sm text-neutral-900">
 					Não tem conta?{' '}
 					{onSwitchMode ? (
 						<button

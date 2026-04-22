@@ -70,14 +70,14 @@ export default function PlanCard({
 							<h2 className="text-3xl font-bold text-neutral-900 mb-2">
 								{plan.name}
 							</h2>
-							<p className="text-neutral-700 mb-4">
+							<p className="text-neutral-900 mb-4">
 								{plan.description}
 							</p>
 							
 							<div className="flex items-baseline gap-3 mb-2">
-								<span className="text-sm text-neutral-600 line-through">R$ 397</span>
+								<span className="text-sm text-neutral-900 line-through">R$ 397</span>
 								<span className="text-5xl font-bold text-emerald-700">R$ {plan.priceBRL}</span>
-								<span className="text-neutral-700">/mês</span>
+								<span className="text-neutral-900">/mês</span>
 							</div>
 							<p className="text-sm font-semibold text-emerald-700 mb-6">
 								⚡ Vagas limitadas • Preço garantido para sempre
@@ -90,7 +90,7 @@ export default function PlanCard({
 							>
 								{isCreatingCheckout ? 'Processando...' : 'Garantir Plano Fundador'}
 							</button>
-							<p className="text-xs text-center text-neutral-600 mt-3">
+							<p className="text-xs text-center text-neutral-900 mt-3">
 								Oferta por tempo limitado
 							</p>
 						</div>
@@ -123,7 +123,7 @@ export default function PlanCard({
 			<div className="mt-2 mb-4">
 				<h2 className="text-2xl font-bold text-neutral-900">{plan.name}</h2>
 				{plan.description && (
-					<p className="text-sm text-neutral-600 mt-2">{plan.description}</p>
+					<p className="text-sm text-neutral-900 mt-2">{plan.description}</p>
 				)}
 			</div>
 
@@ -131,7 +131,7 @@ export default function PlanCard({
 			<div className="mb-8">
 				<div className="flex items-baseline gap-2">
 					<span className="text-5xl font-bold text-neutral-900">R$ {plan.priceBRL}</span>
-					<span className="text-neutral-600">/mês</span>
+					<span className="text-neutral-900">/mês</span>
 				</div>
 			</div>
 
@@ -139,8 +139,8 @@ export default function PlanCard({
 			<ul className="space-y-3 mb-8">
 				{plan.features.map((feature, index) => (
 					<li key={index} className="flex items-start gap-3">
-						<Check className="w-5 h-5 flex-shrink-0 mt-0.5 text-neutral-700" />
-						<span className="text-sm text-neutral-700">{feature}</span>
+						<Check className="w-5 h-5 flex-shrink-0 mt-0.5 text-neutral-900" />
+						<span className="text-sm text-neutral-900">{feature}</span>
 					</li>
 				))}
 			</ul>

@@ -288,7 +288,7 @@ export default function ChatPanel({
 							onClick={onBack}
 							className="flex size-8 items-center justify-center rounded-lg hover:bg-neutral-100 transition-colors md:hidden"
 						>
-							<ArrowLeft className="size-4 text-neutral-600" />
+							<ArrowLeft className="size-4 text-neutral-900" />
 						</button>
 					)}
 
@@ -352,7 +352,7 @@ export default function ChatPanel({
 
 					<button
 						onClick={() => setShowContextPanel(true)}
-						className="flex size-8 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-600 transition-colors hover:bg-neutral-50 md:hidden"
+						className="flex size-8 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 md:hidden"
 						title="Abrir contexto da conversa"
 					>
 						<Info className="size-4" />
@@ -382,7 +382,7 @@ export default function ChatPanel({
 					<div className="relative">
 						<button
 							onClick={() => setShowActionsMenu(!showActionsMenu)}
-							className="flex size-8 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-600 transition-colors hover:bg-neutral-50"
+							className="flex size-8 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-900 transition-colors hover:bg-neutral-50"
 							title="Mais ações"
 						>
 							<MoreVertical className="size-4" />
@@ -397,7 +397,7 @@ export default function ChatPanel({
 											setShowScheduleModal(true)
 											setShowActionsMenu(false)
 										}}
-										className="flex w-full items-center gap-2 px-3 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
+										className="flex w-full items-center gap-2 px-3 py-2 text-sm text-neutral-900 transition-colors hover:bg-neutral-50"
 									>
 										<Calendar className="size-4" />
 										Agendar consulta
@@ -407,14 +407,14 @@ export default function ChatPanel({
 											setShowNotesModal(true)
 											setShowActionsMenu(false)
 										}}
-										className="flex w-full items-center gap-2 px-3 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
+										className="flex w-full items-center gap-2 px-3 py-2 text-sm text-neutral-900 transition-colors hover:bg-neutral-50"
 									>
 										<StickyNote className="size-4" />
 										{conversation.notes ? 'Editar nota' : 'Adicionar nota'}
 									</button>
 									<button
 										onClick={handleExportHistory}
-										className="flex w-full items-center gap-2 px-3 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
+										className="flex w-full items-center gap-2 px-3 py-2 text-sm text-neutral-900 transition-colors hover:bg-neutral-50"
 									>
 										<Download className="size-4" />
 										Exportar histórico
@@ -450,7 +450,7 @@ export default function ChatPanel({
 					<div className="relative hidden md:block">
 						<button
 							onClick={() => setShowStatusMenu(!showStatusMenu)}
-							className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+							className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-900 transition-colors hover:bg-neutral-50"
 						>
 							<StatusBadge status={conversation.status} size="sm" />
 							<ChevronDown
@@ -471,7 +471,7 @@ export default function ChatPanel({
 												onUpdateStatus?.(action.status)
 												setShowStatusMenu(false)
 											}}
-											className="flex w-full items-center gap-2 px-3 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
+											className="flex w-full items-center gap-2 px-3 py-2 text-sm text-neutral-900 transition-colors hover:bg-neutral-50"
 										>
 											{action.status === 'done' ? (
 												<CheckCircle2 className="size-4 text-green-500" />
@@ -659,7 +659,7 @@ export default function ChatPanel({
 									onChange={(e) => setSendTakeoverMsg(e.target.checked)}
 									className="size-4 rounded border-neutral-300 text-sky-600 accent-sky-600"
 								/>
-								<span className="text-sm font-medium text-neutral-700">
+								<span className="text-sm font-medium text-neutral-900">
 									Enviar mensagem de boas-vindas ao paciente
 								</span>
 							</label>
@@ -676,7 +676,7 @@ export default function ChatPanel({
 						<div className="flex justify-end gap-2 border-t border-neutral-100 px-6 py-4">
 							<button
 								onClick={() => setShowTakeoverModal(false)}
-								className="rounded-lg px-4 py-2 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100"
+								className="rounded-lg px-4 py-2 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-100"
 							>
 								Cancelar
 							</button>

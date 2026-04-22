@@ -73,7 +73,7 @@ export default function Sidebar({ isMobileOpen, isCollapsed, onClose }: SidebarP
 						</div>
 						<button
 							onClick={onClose}
-							className="lg:hidden text-neutral-500 hover:text-neutral-700"
+							className="lg:hidden text-neutral-500 hover:text-neutral-900"
 						>
 							<X className="size-5" />
 						</button>
@@ -97,7 +97,7 @@ export default function Sidebar({ isMobileOpen, isCollapsed, onClose }: SidebarP
 										${
 											isActive
 												? 'bg-sky-50 text-sky-700'
-												: 'text-neutral-700 hover:bg-neutral-100'
+												: 'text-neutral-900 hover:bg-neutral-100'
 										}
 									`}
 								>

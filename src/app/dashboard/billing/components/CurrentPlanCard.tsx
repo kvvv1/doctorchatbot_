@@ -83,7 +83,7 @@ export default function CurrentPlanCard({
 		inactive: {
 			label: 'Inativa',
 			icon: <XCircle className="w-4 h-4" />,
-			className: 'bg-neutral-100 text-neutral-600 border-neutral-300',
+			className: 'bg-neutral-100 text-neutral-900 border-neutral-300',
 		},
 	}
 
@@ -106,7 +106,7 @@ export default function CurrentPlanCard({
 				<div className="w-14 h-14 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
 					<CreditCard className="w-7 h-7 text-neutral-400" />
 				</div>
-				<h3 className="text-lg font-semibold text-neutral-700 mb-2">Nenhuma assinatura ativa</h3>
+				<h3 className="text-lg font-semibold text-neutral-900 mb-2">Nenhuma assinatura ativa</h3>
 				<p className="text-sm text-neutral-500">Escolha um plano abaixo para começar.</p>
 			</div>
 		)
@@ -198,13 +198,13 @@ export default function CurrentPlanCard({
 				{/* Recursos incluídos */}
 				{plan && (
 					<div>
-						<div className="flex items-center gap-2 text-sm font-semibold text-neutral-700 mb-3">
+						<div className="flex items-center gap-2 text-sm font-semibold text-neutral-900 mb-3">
 							<Headphones className="w-4 h-4" />
 							O que está incluído no seu plano
 						</div>
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
 							{plan.features.map((feature, i) => (
-								<div key={i} className="flex items-center gap-2 text-sm text-neutral-700">
+								<div key={i} className="flex items-center gap-2 text-sm text-neutral-900">
 									<Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
 									{feature}
 								</div>

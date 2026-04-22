@@ -42,7 +42,7 @@ export default function UpgradePrompt({
 					<h3 className="text-lg font-semibold text-neutral-900 mb-1">
 						{featureName}
 					</h3>
-					<p className="text-neutral-600 text-sm mb-4">
+					<p className="text-neutral-900 text-sm mb-4">
 						Esta funcionalidade está disponível nos planos:{' '}
 						<span className="font-medium text-purple-700">
 							{requiredPlans.join(', ')}

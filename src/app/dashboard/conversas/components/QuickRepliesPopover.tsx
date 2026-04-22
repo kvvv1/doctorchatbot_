@@ -138,7 +138,7 @@ export default function QuickRepliesPopover({
 				</button>
 				<button
 					onClick={onClose}
-					className="flex size-6 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
+					className="flex size-6 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
 				>
 					<X className="size-4" />
 				</button>

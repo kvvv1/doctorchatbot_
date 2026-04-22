@@ -31,7 +31,7 @@ export default function UsageLimitBadge({
 	return (
 		<div className={`bg-white border rounded-lg p-4 ${className}`}>
 			<div className="flex items-center justify-between mb-2">
-				<span className="text-sm font-medium text-neutral-700">{label}</span>
+				<span className="text-sm font-medium text-neutral-900">{label}</span>
 				{isNearLimit && !isUnlimited && (
 					<Link
 						href="/dashboard/billing"

@@ -542,7 +542,7 @@ export default function BotConfigPageClient({
 							/>
 						) : (
 							<div className="space-y-4">
-								<p className="text-sm text-neutral-600">
+								<p className="text-sm text-neutral-900">
 									Configure fluxos personalizados de conversação para diferentes cenários.
 								</p>
 								<div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">

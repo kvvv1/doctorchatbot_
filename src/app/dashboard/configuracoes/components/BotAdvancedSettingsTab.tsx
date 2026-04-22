@@ -202,7 +202,7 @@ export default function BotAdvancedSettingsTab({
 
 				{/* Tom de comunicação */}
 				<div className="mb-5 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-					<p className="text-xs font-medium text-neutral-700 mb-2">Aplicar tom pronto:</p>
+					<p className="text-xs font-medium text-neutral-900 mb-2">Aplicar tom pronto:</p>
 					<div className="flex flex-wrap gap-2">
 						{(['formal', 'humanizado', 'direto'] as const).map((preset) => (
 							<button
@@ -215,7 +215,7 @@ export default function BotAdvancedSettingsTab({
 										message_fallback: MESSAGE_PRESETS[preset].message_fallback,
 									})
 								}
-								className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 capitalize"
+								className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-900 hover:bg-neutral-100 capitalize"
 							>
 								{preset.charAt(0).toUpperCase() + preset.slice(1)}
 							</button>
@@ -283,7 +283,7 @@ export default function BotAdvancedSettingsTab({
 											className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
 												selected
 													? 'bg-sky-600 border-sky-600 text-white'
-													: 'bg-white border-neutral-300 text-neutral-700 hover:border-sky-400'
+													: 'bg-white border-neutral-300 text-neutral-900 hover:border-sky-400'
 											}`}
 										>
 											{label}
@@ -347,7 +347,7 @@ export default function BotAdvancedSettingsTab({
 													<div className="flex items-center gap-1.5">
 														<span className="text-base">📷</span>
 														<div>
-															<p className="text-xs font-medium text-neutral-700">Solicitar carteirinha</p>
+															<p className="text-xs font-medium text-neutral-900">Solicitar carteirinha</p>
 															<p className="text-xs text-neutral-400">{carteirinhaOn ? 'Bot pede foto e transfere para humano' : 'Bot segue para agendamento normal'}</p>
 														</div>
 													</div>
@@ -438,7 +438,7 @@ export default function BotAdvancedSettingsTab({
 						</div>
 
 						<div className="pt-3 border-t border-neutral-200">
-							<p className="text-xs font-semibold text-neutral-600 mb-1 uppercase tracking-wide">
+							<p className="text-xs font-semibold text-neutral-900 mb-1 uppercase tracking-wide">
 								Confirmações automáticas
 							</p>
 							<p className="text-xs text-neutral-400 mb-3">
@@ -446,7 +446,7 @@ export default function BotAdvancedSettingsTab({
 							</p>
 							<div className="space-y-3">
 								<div>
-									<label htmlFor="message-confirm-schedule" className="block text-xs font-medium text-neutral-700 mb-1">
+									<label htmlFor="message-confirm-schedule" className="block text-xs font-medium text-neutral-900 mb-1">
 										Consulta agendada
 									</label>
 									<textarea
@@ -467,7 +467,7 @@ export default function BotAdvancedSettingsTab({
 									</div>
 								</div>
 								<div>
-									<label htmlFor="message-confirm-reschedule" className="block text-xs font-medium text-neutral-700 mb-1">
+									<label htmlFor="message-confirm-reschedule" className="block text-xs font-medium text-neutral-900 mb-1">
 										Consulta remarcada
 									</label>
 									<textarea
@@ -488,7 +488,7 @@ export default function BotAdvancedSettingsTab({
 									</div>
 								</div>
 								<div>
-									<label htmlFor="message-confirm-cancel" className="block text-xs font-medium text-neutral-700 mb-1">
+									<label htmlFor="message-confirm-cancel" className="block text-xs font-medium text-neutral-900 mb-1">
 										Consulta cancelada
 									</label>
 									<textarea
@@ -513,7 +513,7 @@ export default function BotAdvancedSettingsTab({
 
 						{/* Takeover message */}
 						<div className="pt-3 border-t border-neutral-200">
-							<p className="text-xs font-semibold text-neutral-600 mb-1 uppercase tracking-wide">
+							<p className="text-xs font-semibold text-neutral-900 mb-1 uppercase tracking-wide">
 								Atendimento humano
 							</p>
 							<p className="text-xs text-neutral-400 mb-3">
@@ -526,7 +526,7 @@ export default function BotAdvancedSettingsTab({
 									onChange={(e) => setSettings({ ...settings, takeover_message_enabled: e.target.checked })}
 									className="size-4 rounded border-neutral-300 accent-sky-600"
 								/>
-								<span className="text-sm font-medium text-neutral-700">Enviar mensagem ao assumir</span>
+								<span className="text-sm font-medium text-neutral-900">Enviar mensagem ao assumir</span>
 							</label>
 							{(settings.takeover_message_enabled ?? true) && (
 								<textarea
@@ -626,7 +626,7 @@ export default function BotAdvancedSettingsTab({
 						className="mt-2"
 					/>
 				) : (
-					<div className="text-xs text-neutral-600 space-y-2">
+					<div className="text-xs text-neutral-900 space-y-2">
 						<p>
 							Configure fluxos personalizados de conversação para diferentes cenários. Em breve, você poderá
 								criar jornadas completas de atendimento.

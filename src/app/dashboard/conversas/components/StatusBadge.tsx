@@ -32,7 +32,7 @@ const statusConfig: Record<ConversationStatus, { label: string; colors: string }
 	},
 	waitlist: {
 		label: 'Lista espera',
-		colors: 'bg-neutral-100 text-neutral-700 border-neutral-200',
+		colors: 'bg-neutral-100 text-neutral-900 border-neutral-200',
 	},
 	waiting_human: {
 		label: 'Com atendente',

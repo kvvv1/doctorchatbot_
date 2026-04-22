@@ -34,12 +34,12 @@ export default function BillingTrustSection() {
 					return (
 						<div key={index} className="text-center">
 							<div className="inline-flex items-center justify-center w-10 h-10 bg-white border border-neutral-200 rounded-lg mb-3">
-								<Icon className="w-5 h-5 text-neutral-600" />
+								<Icon className="w-5 h-5 text-neutral-900" />
 							</div>
 							<div className="text-sm font-semibold text-neutral-900 mb-1">
 								{item.title}
 							</div>
-							<div className="text-xs text-neutral-600">{item.description}</div>
+							<div className="text-xs text-neutral-900">{item.description}</div>
 						</div>
 					)
 				})}

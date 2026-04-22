@@ -92,7 +92,7 @@ export default function ScheduleModal({
 					<button
 						onClick={handleClose}
 						disabled={saving}
-						className="flex size-8 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-50"
+						className="flex size-8 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-50"
 					>
 						<X className="size-5" />
 					</button>
@@ -110,7 +110,7 @@ export default function ScheduleModal({
 
 					{/* Date */}
 					<div>
-						<label className="mb-2 flex items-center gap-2 text-sm font-medium text-neutral-700">
+						<label className="mb-2 flex items-center gap-2 text-sm font-medium text-neutral-900">
 							<Calendar className="size-4" />
 							Data
 						</label>
@@ -127,7 +127,7 @@ export default function ScheduleModal({
 
 					{/* Time */}
 					<div>
-						<label className="mb-2 flex items-center gap-2 text-sm font-medium text-neutral-700">
+						<label className="mb-2 flex items-center gap-2 text-sm font-medium text-neutral-900">
 							<Clock className="size-4" />
 							Horário
 						</label>
@@ -143,7 +143,7 @@ export default function ScheduleModal({
 
 					{/* Duration */}
 					<div>
-						<label className="mb-2 block text-sm font-medium text-neutral-700">
+						<label className="mb-2 block text-sm font-medium text-neutral-900">
 							Duração
 						</label>
 						<select
@@ -182,7 +182,7 @@ export default function ScheduleModal({
 							type="button"
 							onClick={handleClose}
 							disabled={saving}
-							className="flex-1 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+							className="flex-1 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							Cancelar
 						</button>

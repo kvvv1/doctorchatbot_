@@ -83,7 +83,7 @@ export default function SLAIndicator({
 			className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
 				isOverThreshold
 					? 'bg-red-100 text-red-700 border border-red-300'
-					: 'bg-neutral-100 text-neutral-600'
+					: 'bg-neutral-100 text-neutral-900'
 			}`}
 			title={`Última mensagem do paciente: ${isOverThreshold ? 'ATENÇÃO! ' : ''}há ${timeElapsed}`}
 		>

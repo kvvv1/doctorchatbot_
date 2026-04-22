@@ -6,6 +6,7 @@ import { handleBotTurn, sendBotResponse, buildMenuMessage, type BotState, type B
 import { getPatientAppointments } from '@/lib/bot/actions'
 import { getBotSettings, isWithinWorkingHours, getNextWorkingTime } from '@/lib/services/botSettingsService'
 import { sendInternalZapiMessage } from '@/lib/zapi/internalSend'
+import { sendPushToClinicUsers } from '@/lib/services/pushService'
 
 /**
  * POST /api/webhooks/zapi
@@ -340,6 +341,18 @@ async function triggerBotResponse(
           return
         }
       }
+
+      // Notify clinic staff via push that the patient sent a new message
+      const patientLabel = conversation.patient_name || phone
+      sendPushToClinicUsers({
+        clinicId,
+        payload: {
+          title: '💬 Nova mensagem de paciente',
+          body: `${patientLabel}: ${messageText.slice(0, 100)}`,
+          url: '/dashboard/conversas',
+          tag: `conv-${conversationId}`,
+        },
+      }).catch((err: unknown) => console.error('[Push] Failed to notify staff:', err))
 
       console.log('[Bot] Conversation waiting for human attendant — bot silenced:', conversationId)
       return

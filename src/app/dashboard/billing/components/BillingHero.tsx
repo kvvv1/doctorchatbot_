@@ -20,7 +20,7 @@ export default function BillingHero({ isActive }: BillingHeroProps) {
 			<h1 className="text-4xl font-bold text-neutral-900 mb-3 tracking-tight">
 				Transforme o WhatsApp da sua clínica em um atendimento inteligente
 			</h1>
-			<p className="text-lg text-neutral-600 max-w-2xl leading-relaxed">
+			<p className="text-lg text-neutral-900 max-w-2xl leading-relaxed">
 				Automatize agendamentos, reduza no-show e organize conversas em um painel único. Escale sua clínica sem aumentar custos operacionais.
 			</p>
 		</div>

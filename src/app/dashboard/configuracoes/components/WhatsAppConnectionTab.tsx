@@ -352,7 +352,7 @@ export default function WhatsAppConnectionTab({ clinicId }: WhatsAppConnectionTa
         </div>
 
         <div className="p-5 space-y-4">
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-neutral-700 leading-relaxed space-y-1">
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-neutral-900 leading-relaxed space-y-1">
             <p>Recebemos seu pagamento. Sua instância do WhatsApp está sendo criada.</p>
             <p>O QR Code aparecerá automaticamente assim que estiver pronta.</p>
           </div>
@@ -365,13 +365,13 @@ export default function WhatsAppConnectionTab({ clinicId }: WhatsAppConnectionTa
                 <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                   <CheckCircle2 className="w-3 h-3 text-green-600" />
                 </div>
-                <p className="text-sm text-neutral-700">Pagamento confirmado</p>
+                <p className="text-sm text-neutral-900">Pagamento confirmado</p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                   <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
                 </div>
-                <p className="text-sm text-neutral-700">Criando instância (em andamento)</p>
+                <p className="text-sm text-neutral-900">Criando instância (em andamento)</p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 bg-neutral-200 rounded-full flex items-center justify-center flex-shrink-0">
@@ -398,7 +398,7 @@ export default function WhatsAppConnectionTab({ clinicId }: WhatsAppConnectionTa
               href="https://wa.me/5511999999999?text=Minha%20inst%C3%A2ncia%20WhatsApp%20est%C3%A1%20demorando"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2.5 bg-white border border-neutral-300 hover:bg-neutral-50 text-neutral-700 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+              className="px-4 py-2.5 bg-white border border-neutral-300 hover:bg-neutral-50 text-neutral-900 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
             >
               <MessageCircle className="w-4 h-4" />
               Suporte
@@ -481,8 +481,8 @@ export default function WhatsAppConnectionTab({ clinicId }: WhatsAppConnectionTa
           {/* How to connect instructions */}
           {status !== 'connected' && (
             <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-200">
-              <p className="text-xs font-semibold text-neutral-700 mb-2">Como conectar:</p>
-              <ol className="space-y-1.5 text-xs text-neutral-600">
+              <p className="text-xs font-semibold text-neutral-900 mb-2">Como conectar:</p>
+              <ol className="space-y-1.5 text-xs text-neutral-900">
                 <li className="flex items-start gap-1.5">
                   <span className="font-bold text-neutral-400 leading-tight">1.</span>
                   Clique em <strong>Gerar QR Code</strong> ao lado
@@ -508,7 +508,7 @@ export default function WhatsAppConnectionTab({ clinicId }: WhatsAppConnectionTa
               <button
                 onClick={() => fetchStatus()}
                 disabled={loading}
-                className="w-full px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg transition-colors text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 rounded-lg transition-colors text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 {loading ? 'Atualizando...' : 'Atualizar status'}
@@ -516,7 +516,7 @@ export default function WhatsAppConnectionTab({ clinicId }: WhatsAppConnectionTa
               <button
                 onClick={reconnect}
                 disabled={loading}
-                className="w-full px-4 py-2 bg-white border border-neutral-300 hover:bg-neutral-50 text-neutral-700 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
+                className="w-full px-4 py-2 bg-white border border-neutral-300 hover:bg-neutral-50 text-neutral-900 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
               >
                 Forçar reconexão
               </button>
@@ -553,7 +553,7 @@ export default function WhatsAppConnectionTab({ clinicId }: WhatsAppConnectionTa
               </div>
 
               <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2">
-                <p className="text-xs font-semibold text-neutral-700">Teste rápido de envio</p>
+                <p className="text-xs font-semibold text-neutral-900">Teste rápido de envio</p>
                 <input
                   type="tel"
                   value={testPhone}
@@ -605,8 +605,8 @@ export default function WhatsAppConnectionTab({ clinicId }: WhatsAppConnectionTa
                       {status === 'connecting' && (
                         <div className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-xl flex items-center justify-center">
                           <div className="text-center">
-                            <Loader2 className="w-6 h-6 animate-spin text-neutral-600 mx-auto mb-1" />
-                            <p className="text-xs text-neutral-600">Aguardando escaneamento...</p>
+                            <Loader2 className="w-6 h-6 animate-spin text-neutral-900 mx-auto mb-1" />
+                            <p className="text-xs text-neutral-900">Aguardando escaneamento...</p>
                           </div>
                         </div>
                       )}
@@ -651,7 +651,7 @@ export default function WhatsAppConnectionTab({ clinicId }: WhatsAppConnectionTa
                 <button
                   onClick={() => fetchStatus()}
                   disabled={loading}
-                  className="w-full px-4 py-2 bg-white border border-neutral-300 hover:bg-neutral-50 text-neutral-700 rounded-lg transition-colors text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full px-4 py-2 bg-white border border-neutral-300 hover:bg-neutral-50 text-neutral-900 rounded-lg transition-colors text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
                   Verificar conexão

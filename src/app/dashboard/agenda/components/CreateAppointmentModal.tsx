@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useRef, useEffect } from 'react'
 import { X, Calendar, Clock, User, Phone, FileText, Loader2, AlertCircle, CheckCircle, Info } from 'lucide-react'
@@ -182,7 +182,7 @@ export default function CreateAppointmentModal({
 
           {/* Patient Name */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 mb-1.5">
+            <label className="flex items-center gap-2 text-sm font-medium text-neutral-900 mb-1.5">
               <User className="h-4 w-4" />
               Nome do Paciente *
             </label>
@@ -198,7 +198,7 @@ export default function CreateAppointmentModal({
 
           {/* Patient Phone */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 mb-1.5">
+            <label className="flex items-center gap-2 text-sm font-medium text-neutral-900 mb-1.5">
               <Phone className="h-4 w-4" />
               Telefone *
             </label>
@@ -214,7 +214,7 @@ export default function CreateAppointmentModal({
 
           {/* CPF — always shown; required when GestaoDS */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 mb-1.5">
+            <label className="flex items-center gap-2 text-sm font-medium text-neutral-900 mb-1.5">
               CPF {activeProvider === 'gestaods' ? <span className="text-red-500">*</span> : <span className="text-neutral-400 text-xs font-normal">(opcional)</span>}
             </label>
             <input
@@ -231,7 +231,7 @@ export default function CreateAppointmentModal({
           {/* Date and Time */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 mb-1.5">
+              <label className="flex items-center gap-2 text-sm font-medium text-neutral-900 mb-1.5">
                 <Calendar className="h-4 w-4" />
                 Data *
               </label>
@@ -265,7 +265,7 @@ export default function CreateAppointmentModal({
             </div>
 
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 mb-1.5">
+              <label className="flex items-center gap-2 text-sm font-medium text-neutral-900 mb-1.5">
                 <Clock className="h-4 w-4" />
                 Horário *
               </label>
@@ -290,7 +290,7 @@ export default function CreateAppointmentModal({
                   <div ref={timePickerRef} className="absolute top-full left-0 mt-1 z-50 bg-white rounded-lg border border-neutral-200 shadow-lg p-3 min-w-[200px]">
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
-                        <label className="block text-xs font-medium text-neutral-600 mb-1 text-center">Hora</label>
+                        <label className="block text-xs font-medium text-neutral-900 mb-1 text-center">Hora</label>
                         <select
                           value={formData.time.split(':')[0] || '00'}
                           onChange={(e) => {
@@ -307,7 +307,7 @@ export default function CreateAppointmentModal({
                       </div>
                       <span className="text-lg font-semibold text-neutral-400 mt-5">:</span>
                       <div className="flex-1">
-                        <label className="block text-xs font-medium text-neutral-600 mb-1 text-center">Minuto</label>
+                        <label className="block text-xs font-medium text-neutral-900 mb-1 text-center">Minuto</label>
                         <select
                           value={formData.time.split(':')[1] || '00'}
                           onChange={(e) => {
@@ -334,7 +334,7 @@ export default function CreateAppointmentModal({
 
           {/* Duration */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 mb-1.5">
+            <label className="flex items-center gap-2 text-sm font-medium text-neutral-900 mb-1.5">
               <Clock className="h-4 w-4" />
               Duração
             </label>
@@ -356,7 +356,7 @@ export default function CreateAppointmentModal({
 
           {/* Description */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 mb-1.5">
+            <label className="flex items-center gap-2 text-sm font-medium text-neutral-900 mb-1.5">
               <FileText className="h-4 w-4" />
               Observações (opcional)
             </label>
@@ -375,7 +375,7 @@ export default function CreateAppointmentModal({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 transition-colors"
+              className="flex-1 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50 disabled:opacity-50 transition-colors"
             >
               Cancelar
             </button>

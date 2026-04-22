@@ -35,7 +35,7 @@ export default async function BotConfigPage() {
 			<div className="p-6">
 				<div className="mb-8">
 					<h1 className="text-2xl font-bold text-neutral-900">Configurações do Bot</h1>
-					<p className="mt-1 text-sm text-neutral-600">
+					<p className="mt-1 text-sm text-neutral-900">
 						Configure o comportamento do chatbot
 					</p>
 				</div>

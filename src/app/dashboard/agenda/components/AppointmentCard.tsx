@@ -70,19 +70,19 @@ export default function AppointmentCard({ appointment, onClick }: AppointmentCar
             <span className="font-semibold text-neutral-900">{appointment.patient_name}</span>
           </div>
 
-          <div className="flex items-center gap-2 mb-1 text-sm text-neutral-600">
+          <div className="flex items-center gap-2 mb-1 text-sm text-neutral-900">
             <Calendar className="h-3.5 w-3.5" />
             <span>{format(startDate, "d 'de' MMMM", { locale: ptBR })}</span>
           </div>
 
-          <div className="flex items-center gap-2 mb-2 text-sm text-neutral-600">
+          <div className="flex items-center gap-2 mb-2 text-sm text-neutral-900">
             <Clock className="h-3.5 w-3.5" />
             <span>
               {format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 text-sm text-neutral-600">
+          <div className="flex items-center gap-2 text-sm text-neutral-900">
             <Phone className="h-3.5 w-3.5" />
             <span>{appointment.patient_phone}</span>
           </div>

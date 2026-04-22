@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { View } from 'react-big-calendar'
@@ -328,7 +328,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
           <button
             onClick={loadAppointments}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50 disabled:opacity-50 transition-colors"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Atualizar</span>
@@ -385,7 +385,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
         <div className="flex items-center gap-1" ref={rangePickerRef}>
           <button
             onClick={() => setDate((d) => subDays(d, 1))}
-            className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
+            className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-900 hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
             title="Dia anterior"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -394,7 +394,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
           <div className="relative">
             <button
               onClick={() => setShowRangePicker((v) => !v)}
-              className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors min-w-[160px] text-center"
+              className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-neutral-50 transition-colors min-w-[160px] text-center"
               title="Clique para selecionar data"
             >
               {format(date, "dd 'de' MMMM, yyyy", { locale: ptBR })}
@@ -479,7 +479,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
                                 className={`text-[11px] h-6 w-6 mx-auto rounded-full transition-colors ${
                                   isSelected ? 'bg-sky-600 text-white font-bold' :
                                   isTodayCell ? 'border border-sky-400 text-sky-700 font-semibold hover:bg-sky-50' :
-                                  'text-neutral-700 hover:bg-neutral-100'
+                                  'text-neutral-900 hover:bg-neutral-100'
                                 }`}
                               >{day}</button>
                             )
@@ -501,7 +501,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
                               key={m}
                               onClick={() => { setCalPickerDate(new Date(calPickerDate.getFullYear(), i, 1)); setCalPickerView('days') }}
                               className={`rounded-lg py-1.5 text-xs font-medium transition-colors ${
-                                isActive ? 'bg-sky-600 text-white' : 'text-neutral-700 hover:bg-neutral-100'
+                                isActive ? 'bg-sky-600 text-white' : 'text-neutral-900 hover:bg-neutral-100'
                               }`}
                             >{m}</button>
                           )
@@ -521,7 +521,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
                             key={y}
                             onClick={() => { setCalPickerDate(new Date(y, calPickerDate.getMonth(), 1)); setCalPickerView('months') }}
                             className={`rounded-lg py-1.5 text-xs font-medium transition-colors ${
-                              y === calPickerDate.getFullYear() ? 'bg-sky-600 text-white' : 'text-neutral-700 hover:bg-neutral-100'
+                              y === calPickerDate.getFullYear() ? 'bg-sky-600 text-white' : 'text-neutral-900 hover:bg-neutral-100'
                             }`}
                           >{y}</button>
                         ))}
@@ -535,7 +535,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
 
           <button
             onClick={() => setDate((d) => addDays(d, 1))}
-            className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
+            className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-900 hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
             title="Próximo dia"
           >
             <ChevronRight className="h-4 w-4" />
@@ -556,7 +556,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
                 key={option.key}
                 onClick={() => setSourceFilter(option.key)}
                 className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                  sourceFilter === option.key ? 'bg-sky-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'
+                  sourceFilter === option.key ? 'bg-sky-600 text-white' : 'text-neutral-900 hover:bg-neutral-100'
                 }`}
               >
                 {option.label}
@@ -565,7 +565,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
             <button
               onClick={() => setSourceFilter('bot')}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors flex items-center gap-1 ${
-                sourceFilter === 'bot' ? 'bg-sky-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'
+                sourceFilter === 'bot' ? 'bg-sky-600 text-white' : 'text-neutral-900 hover:bg-neutral-100'
               }`}
             >
               <img src="/brand.png" alt="Bot" className="h-3 w-3 object-contain" />

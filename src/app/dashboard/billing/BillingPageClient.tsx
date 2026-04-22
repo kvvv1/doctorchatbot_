@@ -19,7 +19,7 @@ const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; clas
 	trialing: { label: 'Em teste', icon: <Clock className="w-3.5 h-3.5" />, className: 'text-blue-700 bg-blue-50 border-blue-200' },
 	past_due: { label: 'Pagamento pendente', icon: <AlertTriangle className="w-3.5 h-3.5" />, className: 'text-amber-700 bg-amber-50 border-amber-200' },
 	canceled: { label: 'Cancelada', icon: <XCircle className="w-3.5 h-3.5" />, className: 'text-red-700 bg-red-50 border-red-200' },
-	inactive: { label: 'Inativa', icon: <XCircle className="w-3.5 h-3.5" />, className: 'text-neutral-600 bg-neutral-100 border-neutral-300' },
+	inactive: { label: 'Inativa', icon: <XCircle className="w-3.5 h-3.5" />, className: 'text-neutral-900 bg-neutral-100 border-neutral-300' },
 }
 
 function formatDate(d: string | null) {
@@ -113,7 +113,7 @@ export default function BillingPageClient({ subscription, subscriptionCheck }: B
 							<div className="text-xs text-neutral-500 uppercase tracking-wide mb-3">Incluído no seu plano</div>
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-6">
 								{plan.features.map((f, i) => (
-									<div key={i} className="flex items-center gap-2 text-sm text-neutral-700">
+									<div key={i} className="flex items-center gap-2 text-sm text-neutral-900">
 										<Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
 										{f}
 									</div>

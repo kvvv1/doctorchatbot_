@@ -397,7 +397,7 @@ export default function AgendaIntegrationTab({
 				</div>
 			)}
 
-			<div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-700 flex items-center justify-between">
+			<div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-900 flex items-center justify-between">
 				<span>
 					Modo atual: {hasExternalIntegration ? 'Integração externa ativa' : 'Sem integração externa (agenda manual liberada)'}
 				</span>
@@ -423,14 +423,14 @@ export default function AgendaIntegrationTab({
 						className={`px-3 py-1 rounded-full text-xs font-medium ${
 							isConnected
 								? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-								: 'bg-neutral-100 text-neutral-700 border border-neutral-200'
+								: 'bg-neutral-100 text-neutral-900 border border-neutral-200'
 						}`}
 					>
 						{isConnected ? 'Conectado' : 'Desconectado'}
 					</div>
 				</div>
 
-				<div className="p-4 space-y-3 text-sm text-neutral-700">
+				<div className="p-4 space-y-3 text-sm text-neutral-900">
 					{isConnected ? (
 						<>
 							<div>
@@ -483,14 +483,14 @@ export default function AgendaIntegrationTab({
 						className={`px-3 py-1 rounded-full text-xs font-medium ${
 							gestaoDsEnabled
 								? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-								: 'bg-neutral-100 text-neutral-700 border border-neutral-200'
+								: 'bg-neutral-100 text-neutral-900 border border-neutral-200'
 						}`}
 					>
 						{gestaoDsEnabled ? 'Ativo' : 'Inativo'}
 					</div>
 				</div>
 
-				<div className="p-4 space-y-3 text-sm text-neutral-700">
+				<div className="p-4 space-y-3 text-sm text-neutral-900">
 					<div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 p-3">
 						<div>
 							<p className="text-sm font-medium text-neutral-800">Habilitar GestãoDS</p>
@@ -514,7 +514,7 @@ export default function AgendaIntegrationTab({
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 						<div>
-							<label className="block text-xs font-medium text-neutral-700 mb-1">Ambiente</label>
+							<label className="block text-xs font-medium text-neutral-900 mb-1">Ambiente</label>
 							<select
 								value={gestaoDsIsDev ? 'dev' : 'prod'}
 								onChange={(e) => setGestaoDsIsDev(e.target.value === 'dev')}
@@ -526,7 +526,7 @@ export default function AgendaIntegrationTab({
 							</select>
 						</div>
 						<div>
-							<label className="block text-xs font-medium text-neutral-700 mb-1">
+							<label className="block text-xs font-medium text-neutral-900 mb-1">
 								Token API {gestaoDsHasToken ? '(token salvo)' : '(obrigatório)'}
 							</label>
 							<input
@@ -540,7 +540,7 @@ export default function AgendaIntegrationTab({
 						</div>
 					</div>
 
-					<div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-1.5 text-xs text-neutral-700">
+					<div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-1.5 text-xs text-neutral-900">
 						<p>
 							<span className="font-medium">Última sincronização:</span>{' '}
 							{gestaoDsLastSyncAt
@@ -561,21 +561,21 @@ export default function AgendaIntegrationTab({
 					<button
 						onClick={handleSyncGestaoDS}
 						disabled={syncingGestaoDs || !gestaoDsEnabled || !canManageExternalIntegrations}
-						className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+						className="px-4 py-2 bg-white border border-neutral-300 text-neutral-900 rounded-lg hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
 					>
 						{syncingGestaoDs ? 'Sincronizando...' : 'Sincronizar agora'}
 					</button>
 					<button
 						onClick={handleImportGestaoDS}
 						disabled={importingGestaoDs || !gestaoDsEnabled || !canManageExternalIntegrations}
-						className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+						className="px-4 py-2 bg-white border border-neutral-300 text-neutral-900 rounded-lg hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
 					>
 						{importingGestaoDs ? 'Importando...' : 'Importação inicial'}
 					</button>
 					<button
 						onClick={handleDisableGestaoDS}
 						disabled={savingGestaoDs || !gestaoDsEnabled}
-						className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+						className="px-4 py-2 bg-white border border-neutral-300 text-neutral-900 rounded-lg hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
 					>
 						Desativar GestãoDS
 					</button>

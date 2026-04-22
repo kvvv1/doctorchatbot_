@@ -147,7 +147,7 @@ export default function WaitlistPageClient({ initialEntries }: WaitlistPageClien
           <button
             onClick={refresh}
             disabled={isLoading}
-            className="flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 hover:bg-neutral-50 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Atualizar
@@ -169,7 +169,7 @@ export default function WaitlistPageClient({ initialEntries }: WaitlistPageClien
             <h2 className="mb-4 text-lg font-semibold text-neutral-900">Adicionar à lista de espera</h2>
             <form onSubmit={handleAdd} className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-neutral-700">Nome do paciente *</label>
+                <label className="mb-1 block text-sm font-medium text-neutral-900">Nome do paciente *</label>
                 <input
                   type="text"
                   required
@@ -180,7 +180,7 @@ export default function WaitlistPageClient({ initialEntries }: WaitlistPageClien
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-neutral-700">Telefone (WhatsApp) *</label>
+                <label className="mb-1 block text-sm font-medium text-neutral-900">Telefone (WhatsApp) *</label>
                 <input
                   type="text"
                   required
@@ -191,7 +191,7 @@ export default function WaitlistPageClient({ initialEntries }: WaitlistPageClien
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-neutral-700">Preferência de horário</label>
+                <label className="mb-1 block text-sm font-medium text-neutral-900">Preferência de horário</label>
                 <select
                   value={`${form.timeStart}-${form.timeEnd}`}
                   onChange={(e) => {
@@ -206,7 +206,7 @@ export default function WaitlistPageClient({ initialEntries }: WaitlistPageClien
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-neutral-700">Tipo de consulta</label>
+                <label className="mb-1 block text-sm font-medium text-neutral-900">Tipo de consulta</label>
                 <select
                   value={form.appointmentType}
                   onChange={(e) => setForm({ ...form, appointmentType: e.target.value as '' | 'particular' | 'convenio' })}
@@ -221,7 +221,7 @@ export default function WaitlistPageClient({ initialEntries }: WaitlistPageClien
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="flex-1 rounded-lg border border-neutral-200 px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-50 transition-colors"
+                  className="flex-1 rounded-lg border border-neutral-200 px-4 py-2 text-sm text-neutral-900 hover:bg-neutral-50 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -252,7 +252,7 @@ export default function WaitlistPageClient({ initialEntries }: WaitlistPageClien
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-4">
           <p className="text-xs text-neutral-500 uppercase tracking-wide">Aguardando mais antigo</p>
-          <p className="mt-1 text-sm font-semibold text-neutral-700">
+          <p className="mt-1 text-sm font-semibold text-neutral-900">
             {entries.length > 0
               ? formatDistanceToNow(new Date(entries[0].updated_at), { locale: ptBR, addSuffix: true })
               : '—'}
@@ -318,7 +318,7 @@ export default function WaitlistPageClient({ initialEntries }: WaitlistPageClien
               <div className="flex items-center gap-2 flex-shrink-0">
                 <a
                   href={`/dashboard/conversas?phone=${entry.patient_phone}`}
-                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50 transition-colors"
+                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 hover:bg-neutral-50 transition-colors"
                 >
                   Ver conversa
                 </a>

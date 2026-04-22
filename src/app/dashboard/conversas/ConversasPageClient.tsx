@@ -8,7 +8,6 @@ import { createClient } from '@/lib/supabase/client'
 import ConversationList from './components/ConversationList'
 import ChatPanel from './components/ChatPanel'
 import ConversationTabs from './components/ConversationTabs'
-import MobileInboxPwaBar from './components/MobileInboxPwaBar'
 import type { ConversationStatus } from '@/lib/types/database'
 import {
 	buildConversationSearchParams,
@@ -512,7 +511,6 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 			<div className="flex h-full w-full md:hidden">
 				{!isMobileChatOpen ? (
 					<div className="flex h-full w-full flex-col bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.14),_rgba(255,255,255,0)_42%),linear-gradient(180deg,_#f5f7fb_0%,_#eef2f7_100%)] px-3 pb-3 pt-3">
-						<MobileInboxPwaBar />
 						<div className="min-h-0 flex-1 overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
 							<ConversationList
 								conversations={filteredConversations}

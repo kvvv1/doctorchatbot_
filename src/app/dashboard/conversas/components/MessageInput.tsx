@@ -210,7 +210,7 @@ export default function MessageInput({
 					className="absolute bottom-full left-0 mb-2 w-full max-w-md rounded-lg border border-neutral-200 bg-white shadow-lg"
 				>
 					<div className="flex items-center justify-between px-3 py-2 border-b border-neutral-100">
-						<p className="text-xs font-medium text-neutral-700">
+						<p className="text-xs font-medium text-neutral-900">
 							<Zap className="inline size-3 text-amber-500 mr-1" />
 							Atalhos de Respostas
 						</p>

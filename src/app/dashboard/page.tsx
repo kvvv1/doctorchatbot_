@@ -325,14 +325,14 @@ export default async function DashboardPage() {
 					className="group flex items-center gap-2.5 rounded-lg border border-neutral-200 bg-white px-3.5 py-2 text-sm shadow-sm transition-all duration-200 hover:border-neutral-300 hover:shadow"
 				>
 					<span className="flex size-2 rounded-full bg-emerald-400" />
-					<span className="font-medium text-neutral-700 group-hover:text-neutral-900 transition-colors">
+					<span className="font-medium text-neutral-900 group-hover:text-neutral-900 transition-colors">
 						{subscription.planKey ? subscription.planKey.replace('_', ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) : 'Sem plano'}
 					</span>
 					<span className="text-neutral-300">|</span>
-					<span className="text-neutral-500 group-hover:text-neutral-700 transition-colors">
+					<span className="text-neutral-500 group-hover:text-neutral-900 transition-colors">
 						Gerenciar
 					</span>
-					<ChevronRight className="size-3.5 text-neutral-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-neutral-600" />
+					<ChevronRight className="size-3.5 text-neutral-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-neutral-900" />
 				</Link>
 			</div>
 
@@ -347,7 +347,7 @@ export default async function DashboardPage() {
 						>
 							<div className="flex items-start justify-between">
 								<div className="flex-1">
-									<p className="text-sm font-medium text-neutral-600">
+									<p className="text-sm font-medium text-neutral-900">
 										{card.title}
 									</p>
 									<p className="mt-2 text-3xl font-bold text-neutral-900">
@@ -483,7 +483,7 @@ export default async function DashboardPage() {
 											<Icon className="size-4 text-neutral-400" />
 										</div>
 										<div className="flex-1 min-w-0">
-											<p className="text-sm text-neutral-700">
+											<p className="text-sm text-neutral-900">
 												{notification.text}
 											</p>
 										</div>

@@ -49,7 +49,7 @@ export default function Topbar({
 					{/* Mobile menu button */}
 					<button
 						onClick={onMenuClick}
-						className="lg:hidden rounded-lg p-2 text-neutral-600 hover:bg-neutral-100 transition-colors"
+						className="lg:hidden rounded-lg p-2 text-neutral-900 hover:bg-neutral-100 transition-colors"
 					>
 						<Menu className="size-5" />
 					</button>
@@ -57,7 +57,7 @@ export default function Topbar({
 					{/* Desktop sidebar toggle button */}
 					<button
 						onClick={onToggleSidebar}
-						className="hidden lg:block rounded-lg p-2 text-neutral-600 hover:bg-neutral-100 transition-colors"
+						className="hidden lg:block rounded-lg p-2 text-neutral-900 hover:bg-neutral-100 transition-colors"
 						title={isSidebarCollapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
 					>
 						<PanelLeft className="size-5" />
@@ -98,8 +98,8 @@ export default function Topbar({
 									: 'Secretaria offline - Configurar horários'
 							}
 						>
-							<User className="size-3.5 text-neutral-600" />
-							<span className="text-xs font-medium text-neutral-700 hidden sm:inline">
+							<User className="size-3.5 text-neutral-900" />
+							<span className="text-xs font-medium text-neutral-900 hidden sm:inline">
 								{isOnline ? 'Online' : 'Offline'}
 							</span>
 							<Circle
@@ -133,7 +133,7 @@ export default function Topbar({
 							}
 						>
 							<FaWhatsapp className="size-3.5 text-green-600" />
-							<span className="hidden md:inline text-xs font-medium text-neutral-700">
+							<span className="hidden md:inline text-xs font-medium text-neutral-900">
 								{whatsappStatus === 'connected' ? 'Conectado' : whatsappStatus === 'connecting' ? 'Conectando' : 'Desconectado'}
 							</span>
 							<Circle
@@ -163,7 +163,7 @@ export default function Topbar({
 							}
 						>
 							<img src="/brand.png" alt="DoctorChatBot" className="size-3.5 object-contain" />
-							<span className="hidden md:inline text-xs font-medium text-neutral-700">
+							<span className="hidden md:inline text-xs font-medium text-neutral-900">
 								{botStatus === 'active' ? 'Ativo' : 'Pausado'}
 							</span>
 							<Circle

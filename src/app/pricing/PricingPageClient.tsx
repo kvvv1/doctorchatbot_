@@ -63,7 +63,7 @@ export default function PricingPageClient({ isLoggedIn }: PricingPageClientProps
 					{isLoggedIn && (
 						<Link
 							href="/dashboard"
-							className="inline-flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors mb-6"
+							className="inline-flex items-center gap-2 text-sm text-neutral-900 hover:text-neutral-900 transition-colors mb-6"
 						>
 							<ArrowLeft className="w-4 h-4" />
 							Voltar ao Dashboard
@@ -72,7 +72,7 @@ export default function PricingPageClient({ isLoggedIn }: PricingPageClientProps
 					<h1 className="text-5xl font-bold text-neutral-900 mb-4 tracking-tight">
 						Transforme o WhatsApp da sua clínica em um atendimento inteligente
 					</h1>
-					<p className="text-xl text-neutral-600 max-w-3xl mx-auto">
+					<p className="text-xl text-neutral-900 max-w-3xl mx-auto">
 						Automatize agendamentos, reduza no-show e organize conversas em um painel único.
 					</p>
 				</div>
@@ -97,24 +97,24 @@ export default function PricingPageClient({ isLoggedIn }: PricingPageClientProps
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 					<div className="grid md:grid-cols-4 gap-8 text-center">
 						<div className="flex flex-col items-center">
-							<Shield className="w-8 h-8 text-neutral-700 mb-3" />
+							<Shield className="w-8 h-8 text-neutral-900 mb-3" />
 							<h3 className="font-semibold text-neutral-900 mb-1">Pagamento seguro</h3>
-							<p className="text-sm text-neutral-600">Powered by Mercado Pago</p>
+							<p className="text-sm text-neutral-900">Powered by Mercado Pago</p>
 						</div>
 						<div className="flex flex-col items-center">
-							<UserCheck className="w-8 h-8 text-neutral-700 mb-3" />
+							<UserCheck className="w-8 h-8 text-neutral-900 mb-3" />
 							<h3 className="font-semibold text-neutral-900 mb-1">Cancele quando quiser</h3>
-							<p className="text-sm text-neutral-600">Sem taxas de cancelamento</p>
+							<p className="text-sm text-neutral-900">Sem taxas de cancelamento</p>
 						</div>
 						<div className="flex flex-col items-center">
-							<Zap className="w-8 h-8 text-neutral-700 mb-3" />
+							<Zap className="w-8 h-8 text-neutral-900 mb-3" />
 							<h3 className="font-semibold text-neutral-900 mb-1">Ativação imediata</h3>
-							<p className="text-sm text-neutral-600">Configure em minutos</p>
+							<p className="text-sm text-neutral-900">Configure em minutos</p>
 						</div>
 						<div className="flex flex-col items-center">
-							<HeadphonesIcon className="w-8 h-8 text-neutral-700 mb-3" />
+							<HeadphonesIcon className="w-8 h-8 text-neutral-900 mb-3" />
 							<h3 className="font-semibold text-neutral-900 mb-1">Suporte humano</h3>
-							<p className="text-sm text-neutral-600">Sempre à disposição</p>
+							<p className="text-sm text-neutral-900">Sempre à disposição</p>
 						</div>
 					</div>
 				</div>
@@ -179,7 +179,7 @@ function PlanCard({ plan, isLoggedIn }: PlanCardProps) {
 			<div className="mt-2 mb-4">
 				<h2 className="text-2xl font-bold text-neutral-900">{plan.name}</h2>
 				{plan.description && (
-					<p className="text-sm text-neutral-600 mt-2">{plan.description}</p>
+					<p className="text-sm text-neutral-900 mt-2">{plan.description}</p>
 				)}
 			</div>
 
@@ -187,7 +187,7 @@ function PlanCard({ plan, isLoggedIn }: PlanCardProps) {
 			<div className="mb-8">
 				<div className="flex items-baseline gap-2">
 					<span className="text-5xl font-bold text-neutral-900">R$ {plan.priceBRL}</span>
-					<span className="text-neutral-600">/mês</span>
+					<span className="text-neutral-900">/mês</span>
 				</div>
 			</div>
 
@@ -195,8 +195,8 @@ function PlanCard({ plan, isLoggedIn }: PlanCardProps) {
 			<ul className="space-y-3 mb-8">
 				{plan.features.map((feature, index) => (
 					<li key={index} className="flex items-start gap-3">
-						<Check className="w-5 h-5 flex-shrink-0 mt-0.5 text-neutral-700" />
-						<span className="text-sm text-neutral-700">{feature}</span>
+						<Check className="w-5 h-5 flex-shrink-0 mt-0.5 text-neutral-900" />
+						<span className="text-sm text-neutral-900">{feature}</span>
 					</li>
 				))}
 			</ul>
@@ -267,14 +267,14 @@ function FounderPlanCard({ plan, isLoggedIn }: { plan: Plan, isLoggedIn: boolean
 						<h2 className="text-3xl font-bold text-neutral-900 mb-2">
 							Acesso Antecipado
 						</h2>
-						<p className="text-neutral-700 mb-4">
+						<p className="text-neutral-900 mb-4">
 							{plan.description}
 						</p>
 						
 						<div className="flex items-baseline gap-3 mb-2">
-							<span className="text-sm text-neutral-600 line-through">R$ 397</span>
+							<span className="text-sm text-neutral-900 line-through">R$ 397</span>
 							<span className="text-5xl font-bold text-emerald-700">R$ {plan.priceBRL}</span>
-							<span className="text-neutral-700">/mês</span>
+							<span className="text-neutral-900">/mês</span>
 						</div>
 						<p className="text-sm font-semibold text-emerald-700 mb-6">
 							⚡ Vagas limitadas • Preço garantido para sempre
@@ -287,7 +287,7 @@ function FounderPlanCard({ plan, isLoggedIn }: { plan: Plan, isLoggedIn: boolean
 						>
 							{isCreatingCheckout ? 'Processando...' : 'Garantir Plano Fundador'}
 						</button>
-						<p className="text-xs text-center text-neutral-600 mt-3">
+						<p className="text-xs text-center text-neutral-900 mt-3">
 							Oferta por tempo limitado
 						</p>
 					</div>

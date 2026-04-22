@@ -28,7 +28,7 @@ export default function ViewSwitcher({ currentView, onViewChange }: ViewSwitcher
             ${
               currentView === view.value
                 ? 'bg-sky-600 text-white shadow-sm'
-                : 'text-neutral-700 hover:bg-neutral-100'
+                : 'text-neutral-900 hover:bg-neutral-100'
             }
           `}
         >

@@ -100,7 +100,7 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 			<div className="flex items-center justify-center py-12">
 				<div className="text-center">
 					<div className="inline-block size-8 animate-spin rounded-full border-4 border-solid border-sky-600 border-r-transparent"></div>
-					<p className="mt-4 text-sm text-neutral-600">Carregando configurações...</p>
+					<p className="mt-4 text-sm text-neutral-900">Carregando configurações...</p>
 				</div>
 			</div>
 		)
@@ -113,7 +113,7 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 				<h2 className="text-lg font-semibold text-neutral-900">
 					Notificações e Lembretes Automáticos
 				</h2>
-				<p className="mt-1 text-sm text-neutral-600">
+				<p className="mt-1 text-sm text-neutral-900">
 					Configure lembretes automáticos via WhatsApp para seus pacientes. Use as variáveis:{' '}
 					<code className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-mono text-sky-700">
 						{'{name}'}
@@ -160,7 +160,7 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 							<h3 className="text-sm font-semibold text-neutral-900">
 								Lembrete 48 horas antes
 							</h3>
-							<p className="text-xs text-neutral-600">
+							<p className="text-xs text-neutral-900">
 								Enviado 2 dias antes da consulta
 							</p>
 						</div>
@@ -182,7 +182,7 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 				{settings.reminder_48h_enabled && (
 					<div className="space-y-3">
 						<div>
-							<label className="block text-xs font-medium text-neutral-700 mb-1.5">
+							<label className="block text-xs font-medium text-neutral-900 mb-1.5">
 								Horas antes da consulta
 							</label>
 							<input
@@ -197,7 +197,7 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 							/>
 						</div>
 						<div>
-							<label className="block text-xs font-medium text-neutral-700 mb-1.5">
+							<label className="block text-xs font-medium text-neutral-900 mb-1.5">
 								Mensagem do Template
 							</label>
 							<textarea
@@ -223,7 +223,7 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 							<h3 className="text-sm font-semibold text-neutral-900">
 								Lembrete 24 horas antes
 							</h3>
-							<p className="text-xs text-neutral-600">
+							<p className="text-xs text-neutral-900">
 								Enviado 1 dia antes da consulta
 							</p>
 						</div>
@@ -245,7 +245,7 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 				{settings.reminder_24h_enabled && (
 					<div className="space-y-3">
 						<div>
-							<label className="block text-xs font-medium text-neutral-700 mb-1.5">
+							<label className="block text-xs font-medium text-neutral-900 mb-1.5">
 								Horas antes da consulta
 							</label>
 							<input
@@ -260,7 +260,7 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 							/>
 						</div>
 						<div>
-							<label className="block text-xs font-medium text-neutral-700 mb-1.5">
+							<label className="block text-xs font-medium text-neutral-900 mb-1.5">
 								Mensagem do Template
 							</label>
 							<textarea
@@ -286,7 +286,7 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 							<h3 className="text-sm font-semibold text-neutral-900">
 								Lembrete 2 horas antes
 							</h3>
-							<p className="text-xs text-neutral-600">
+							<p className="text-xs text-neutral-900">
 								Enviado 2 horas antes da consulta
 							</p>
 						</div>
@@ -308,7 +308,7 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 				{settings.reminder_2h_enabled && (
 					<div className="space-y-3">
 						<div>
-							<label className="block text-xs font-medium text-neutral-700 mb-1.5">
+							<label className="block text-xs font-medium text-neutral-900 mb-1.5">
 								Horas antes da consulta
 							</label>
 							<input
@@ -324,7 +324,7 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 							/>
 						</div>
 						<div>
-							<label className="block text-xs font-medium text-neutral-700 mb-1.5">
+							<label className="block text-xs font-medium text-neutral-900 mb-1.5">
 								Mensagem do Template
 							</label>
 							<textarea
@@ -350,7 +350,7 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 							<h3 className="text-sm font-semibold text-neutral-900">
 								Confirmação de Agendamento
 							</h3>
-							<p className="text-xs text-neutral-600">
+							<p className="text-xs text-neutral-900">
 								Enviado imediatamente após criar a consulta
 							</p>
 						</div>
@@ -373,7 +373,7 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 
 				{settings.appointment_confirmed_enabled && (
 					<div>
-						<label className="block text-xs font-medium text-neutral-700 mb-1.5">
+						<label className="block text-xs font-medium text-neutral-900 mb-1.5">
 							Mensagem do Template
 						</label>
 						<textarea

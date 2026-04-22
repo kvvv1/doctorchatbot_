@@ -47,7 +47,7 @@ export default function ConversationTabs({
 							className={`group flex min-w-0 max-w-[240px] items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors ${
 								isActive
 									? 'border-sky-200 bg-sky-50 text-sky-800 shadow-sm'
-									: 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50'
+									: 'border-neutral-200 bg-white text-neutral-900 hover:border-neutral-300 hover:bg-neutral-50'
 							}`}
 						>
 							<button
@@ -62,7 +62,7 @@ export default function ConversationTabs({
 									className={`flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${
 										isActive
 											? 'bg-sky-600 text-white'
-											: 'bg-neutral-200 text-neutral-600'
+											: 'bg-neutral-200 text-neutral-900'
 									}`}
 								>
 									{getInitials(conversation.patient_name, conversation.patient_phone)}
@@ -78,7 +78,7 @@ export default function ConversationTabs({
 								className={`flex size-6 shrink-0 items-center justify-center rounded-md transition-colors ${
 									isActive
 										? 'text-sky-500 hover:bg-sky-100 hover:text-sky-700'
-										: 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600'
+										: 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900'
 								}`}
 								aria-label={`Fechar aba de ${patientLabel}`}
 								title={`Fechar ${patientLabel}`}

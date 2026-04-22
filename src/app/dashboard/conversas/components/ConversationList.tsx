@@ -78,7 +78,7 @@ export default function ConversationList({
 			<div className="border-b border-neutral-200 bg-white px-4 py-2.5">
 				<div className="flex items-center gap-2">
 					<h2 className="text-base font-semibold text-neutral-900">Conversas</h2>
-					<span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-neutral-100 px-1.5 text-[11px] font-medium text-neutral-600">
+					<span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-neutral-100 px-1.5 text-[11px] font-medium text-neutral-900">
 						{conversations.length}
 					</span>
 				</div>
@@ -101,7 +101,7 @@ export default function ConversationList({
 				<div className="relative">
 					<button
 						onClick={() => setShowStatusMenu(!showStatusMenu)}
-						className="flex w-full items-center justify-between rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
+						className="flex w-full items-center justify-between rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-900 transition-colors hover:bg-neutral-50"
 					>
 						<span className="text-xs font-medium">
 							Status: <span className="font-semibold">{getStatusLabel(statusFilter)}</span>
@@ -120,7 +120,7 @@ export default function ConversationList({
 										className={`flex w-full items-center px-3 py-2 text-sm transition-colors ${
 											statusFilter === option.id
 												? 'bg-sky-50 text-sky-700 font-medium'
-												: 'text-neutral-700 hover:bg-neutral-50'
+												: 'text-neutral-900 hover:bg-neutral-50'
 										}`}
 									>
 										{option.label}
@@ -138,7 +138,7 @@ export default function ConversationList({
 						className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
 							showOnlyHumanNeeded
 								? 'bg-amber-50 border-amber-300 text-amber-800 shadow-sm'
-								: 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50'
+								: 'bg-white border-neutral-200 text-neutral-900 hover:bg-neutral-50'
 						}`}
 					>
 						<div className="flex items-center gap-1.5">
@@ -146,7 +146,7 @@ export default function ConversationList({
 							<span>Pendências humanas</span>
 						</div>
 						<span className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
-							showOnlyHumanNeeded ? 'bg-amber-200 text-amber-900' : 'bg-neutral-100 text-neutral-600'
+							showOnlyHumanNeeded ? 'bg-amber-200 text-amber-900' : 'bg-neutral-100 text-neutral-900'
 						}`}>
 							{humanNeededCount}
 						</span>
@@ -214,7 +214,7 @@ export default function ConversationList({
 												/>
 											) : null}
 											<div className={`size-10 items-center justify-center rounded-full text-xs font-semibold ${
-												isSelected ? 'bg-sky-600 text-white' : 'bg-neutral-200 text-neutral-600'
+												isSelected ? 'bg-sky-600 text-white' : 'bg-neutral-200 text-neutral-900'
 											}${conversation.profile_picture_url ? ' hidden' : ' flex'}`}>
 												{initials}
 											</div>
@@ -223,7 +223,7 @@ export default function ConversationList({
 										{/* Content */}
 										<div className="min-w-0 flex-1">
 											<div className="flex items-baseline justify-between gap-2">
-												<p className={`truncate text-sm ${needsHumanAttention || hasUnread ? 'font-semibold text-neutral-900' : 'font-medium text-neutral-700'}`}>
+												<p className={`truncate text-sm ${needsHumanAttention || hasUnread ? 'font-semibold text-neutral-900' : 'font-medium text-neutral-900'}`}>
 													{conversation.patient_name || conversation.patient_phone}
 												</p>
 												<div className="flex shrink-0 items-center gap-2">
@@ -242,7 +242,7 @@ export default function ConversationList({
 
 											<div className="flex items-center justify-between gap-2 mt-1">
 												{conversation.last_message_preview && (
-													<p className={`truncate text-xs ${hasUnread ? 'font-medium text-neutral-700' : 'text-neutral-500'}`}>
+													<p className={`truncate text-xs ${hasUnread ? 'font-medium text-neutral-900' : 'text-neutral-500'}`}>
 														{conversation.last_message_preview}
 													</p>
 												)}

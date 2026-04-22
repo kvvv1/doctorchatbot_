@@ -238,7 +238,7 @@ export default function QuickRepliesManager({ clinicId }: QuickRepliesManagerPro
 				<div className="rounded-lg border border-neutral-200 bg-white p-4">
 					<div className="space-y-3">
 						<div>
-							<label className="mb-1 block text-xs font-medium text-neutral-700">
+							<label className="mb-1 block text-xs font-medium text-neutral-900">
 								Atalho <span className="text-neutral-500">(sem espaços)</span>
 							</label>
 							<div className="relative">
@@ -259,7 +259,7 @@ export default function QuickRepliesManager({ clinicId }: QuickRepliesManagerPro
 							</p>
 						</div>
 						<div>
-							<label className="mb-1 block text-xs font-medium text-neutral-700">
+							<label className="mb-1 block text-xs font-medium text-neutral-900">
 								Categoria
 							</label>
 							<select
@@ -277,7 +277,7 @@ export default function QuickRepliesManager({ clinicId }: QuickRepliesManagerPro
 							</select>
 						</div>
 						<div>
-							<label className="mb-1 block text-xs font-medium text-neutral-700">
+							<label className="mb-1 block text-xs font-medium text-neutral-900">
 								Conteúdo
 							</label>
 							<textarea
@@ -291,7 +291,7 @@ export default function QuickRepliesManager({ clinicId }: QuickRepliesManagerPro
 						<div className="flex justify-end gap-2">
 							<button
 								onClick={cancelEdit}
-								className="rounded-lg border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+								className="rounded-lg border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-50"
 							>
 								Cancelar
 							</button>
@@ -340,7 +340,7 @@ export default function QuickRepliesManager({ clinicId }: QuickRepliesManagerPro
 											{editingId === qr.id ? (
 												<div className="space-y-3">
 													<div>
-														<label className="mb-1 block text-xs font-medium text-neutral-700">
+														<label className="mb-1 block text-xs font-medium text-neutral-900">
 															Atalho <span className="text-neutral-500">(sem espaços)</span>
 														</label>
 														<div className="relative">
@@ -358,7 +358,7 @@ export default function QuickRepliesManager({ clinicId }: QuickRepliesManagerPro
 														</div>
 													</div>
 													<div>
-														<label className="mb-1 block text-xs font-medium text-neutral-700">
+														<label className="mb-1 block text-xs font-medium text-neutral-900">
 															Categoria
 														</label>
 														<select
@@ -379,7 +379,7 @@ export default function QuickRepliesManager({ clinicId }: QuickRepliesManagerPro
 														</select>
 													</div>
 													<div>
-														<label className="mb-1 block text-xs font-medium text-neutral-700">
+														<label className="mb-1 block text-xs font-medium text-neutral-900">
 															Conteúdo
 														</label>
 														<textarea
@@ -394,7 +394,7 @@ export default function QuickRepliesManager({ clinicId }: QuickRepliesManagerPro
 													<div className="flex justify-end gap-2">
 														<button
 															onClick={cancelEdit}
-															className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+															className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-50"
 														>
 															<X className="size-4" />
 														</button>
@@ -417,7 +417,7 @@ export default function QuickRepliesManager({ clinicId }: QuickRepliesManagerPro
 																	/{qr.title}
 																</span>
 															</div>
-															<p className="mt-1 text-sm text-neutral-600">{qr.content}</p>
+															<p className="mt-1 text-sm text-neutral-900">{qr.content}</p>
 														</div>
 														<div className="flex gap-1">
 															<button

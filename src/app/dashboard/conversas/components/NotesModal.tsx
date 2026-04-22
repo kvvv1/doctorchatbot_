@@ -67,7 +67,7 @@ export default function NotesModal({
 					</div>
 					<button
 						onClick={onClose}
-						className="flex size-8 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
+						className="flex size-8 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
 					>
 						<X className="size-5" />
 					</button>
@@ -92,7 +92,7 @@ export default function NotesModal({
 				<div className="flex justify-end gap-2 border-t border-neutral-200 px-6 py-4">
 					<button
 						onClick={onClose}
-						className="rounded-lg border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+						className="rounded-lg border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-50"
 					>
 						Cancelar
 					</button>
