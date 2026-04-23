@@ -1,6 +1,6 @@
 'use client'
 
-import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import CompactIconNav from '../components/CompactIconNav'
@@ -9,7 +9,7 @@ import { useMessages } from '@/lib/hooks/useMessages'
 import { createClient } from '@/lib/supabase/client'
 import ConversationList from './components/ConversationList'
 import ChatPanel from './components/ChatPanel'
-import type { ConversationStatus } from '@/lib/types/database'
+import type { Conversation, ConversationStatus } from '@/lib/types/database'
 import {
 	buildConversationSearchParams,
 	buildInitialConversationWorkspace,
@@ -102,6 +102,31 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 	const activeConversation =
 		allConversations.find((conversation) => conversation.id === activeConversationId) ?? null
 
+	const handleConversationActivity = useCallback(
+		(activity: {
+			last_message_at: string
+			last_message_preview: string
+			unread_count?: number
+		}) => {
+			if (!activeConversationId) return
+
+			updateConversation(activeConversationId, {
+				...activity,
+				unread_count: activity.unread_count ?? 0,
+				updated_at: new Date().toISOString(),
+			})
+		},
+		[activeConversationId, updateConversation],
+	)
+
+	const handleConversationReconciled = useCallback(
+		(patch: Partial<Conversation>) => {
+			if (!activeConversationId) return
+			updateConversation(activeConversationId, patch)
+		},
+		[activeConversationId, updateConversation],
+	)
+
 	const {
 		messages,
 		loading: messagesLoading,
@@ -113,19 +138,8 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 	} = useMessages({
 		conversationId: activeConversationId,
 		phone: activeConversation?.patient_phone,
-		onConversationActivity: (activity) => {
-			if (!activeConversationId) return
-
-			updateConversation(activeConversationId, {
-				...activity,
-				unread_count: activity.unread_count ?? 0,
-				updated_at: new Date().toISOString(),
-			})
-		},
-		onConversationReconciled: (patch) => {
-			if (!activeConversationId) return
-			updateConversation(activeConversationId, patch)
-		},
+		onConversationActivity: handleConversationActivity,
+		onConversationReconciled: handleConversationReconciled,
 	})
 
 	const loading = conversationsLoading || messagesLoading

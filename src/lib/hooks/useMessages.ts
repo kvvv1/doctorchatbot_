@@ -1,7 +1,7 @@
 'use client'
 
 import type { Dispatch, SetStateAction } from 'react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Conversation, Message } from '@/lib/types/database'
 import { mergeMessagesWithOutbox, normalizeMessage, type OutboxEntry } from '@/lib/chat/model'
@@ -120,6 +120,7 @@ export function useMessages({
 	const [degradedMode, setDegradedMode] = useState(false)
 	const [lastRealtimeEventAt, setLastRealtimeEventAt] = useState(() => Date.now())
 	const [reconciling, setReconciling] = useState(false)
+	const reconcileInFlightRef = useRef(false)
 
 	const syncOutbox = useCallback(async () => {
 		if (!conversationId) {
@@ -229,8 +230,10 @@ export function useMessages({
 	const reconcileConversation = useCallback(
 		async (reason: 'auto-open' | 'manual' = 'manual') => {
 			if (!conversationId || !enabled || IS_LOCAL) return null
+			if (reconcileInFlightRef.current) return null
 
 			try {
+				reconcileInFlightRef.current = true
 				setReconciling(true)
 				const response = await fetch(`/api/conversations/${conversationId}/reconcile`, {
 					method: 'POST',
@@ -253,6 +256,7 @@ export function useMessages({
 				await fetchMessages(false)
 				return result
 			} finally {
+				reconcileInFlightRef.current = false
 				setReconciling(false)
 			}
 		},
@@ -293,7 +297,7 @@ export function useMessages({
 		return () => {
 			cancelled = true
 		}
-		}, [conversationId, enabled, fetchMessages, reconcileConversation, syncOutbox])
+		}, [conversationId, enabled, fetchMessages, syncOutbox])
 
 	useEffect(() => {
 		if (!conversationId || !enabled || IS_LOCAL) return
