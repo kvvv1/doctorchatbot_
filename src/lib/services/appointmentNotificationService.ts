@@ -398,7 +398,7 @@ export async function processPendingNotificationReminders(limit = 100): Promise<
     .from('reminders')
     .select('id, clinic_id, appointment_id, conversation_id, type, status, scheduled_for, recipient_phone, message_template, retry_count, response_received, sent_at, message_sent, zapi_message_id, metadata')
     .eq('status', 'pending')
-    .lt('retry_count', 3)
+    .or('retry_count.is.null,retry_count.lt.3')
     .lte('scheduled_for', new Date().toISOString())
     .order('scheduled_for', { ascending: true })
     .limit(limit)
