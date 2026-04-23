@@ -6,6 +6,14 @@ import {
 } from '@/lib/services/messageReconciliationService'
 import { zapiGetChats, validateCredentials } from '@/lib/zapi/client'
 
+type PendingMessageRow = {
+  id: string
+  sender: string | null
+  webhook_seen: boolean | null
+  sent_by_me_seen: boolean | null
+  created_at: string
+}
+
 function findChatForConversation(chats: Awaited<ReturnType<typeof zapiGetChats>>, phone: string) {
   const candidates = new Set(getBrazilianPhoneLookupCandidates(phone))
   return chats.find((chat) => chat.phone && candidates.has(chat.phone))
@@ -77,7 +85,7 @@ export async function POST(
     }
 
     const actionablePendingMessages =
-      (pendingMessages || []).filter((message) => {
+      ((pendingMessages || []) as PendingMessageRow[]).filter((message) => {
         const isOutbound = message.sender !== 'patient'
         const seenByWebhook = Boolean(message.webhook_seen || message.sent_by_me_seen)
         return isOutbound && !seenByWebhook
