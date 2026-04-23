@@ -94,7 +94,7 @@ async function zapiRequest<T>(
       throw new Error(message);
     }
 
-    return data;
+    return data as T;
   } catch (error) {
     console.error('[Z-API] Request error:', error);
     throw error;
@@ -145,7 +145,7 @@ export async function zapiGetQr(
       }
 
       errors.push(`${attempt.method} ${attempt.path}: resposta sem QR`);
-    } catch {
+    } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       errors.push(`${attempt.method} ${attempt.path}: ${message}`);
     }
@@ -211,6 +211,15 @@ function toNonEmptyString(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function extractMessageId(data: Record<string, unknown>): string | undefined {
+  return (
+    toNonEmptyString(data.messageId) ||
+    toNonEmptyString(data.id) ||
+    toNonEmptyString(data.zaapId) ||
+    undefined
+  );
 }
 
 /**
@@ -377,7 +386,7 @@ export async function zapiSendText(
     // - { messageId: "..." }
     // - { id: "...", success: true }
     // - { zaapId: "..." }
-    const messageId = data.messageId || data.id || data.zaapId;
+    const messageId = extractMessageId(data);
 
     return {
       success: true,
@@ -441,7 +450,7 @@ export async function zapiSendChoices(
 
     return {
       success: true,
-      messageId: data.messageId || data.id || data.zaapId,
+      messageId: extractMessageId(data),
       mode: 'buttons',
     };
   }
@@ -468,7 +477,7 @@ export async function zapiSendChoices(
 
   return {
     success: true,
-    messageId: data.messageId || data.id || data.zaapId,
+    messageId: extractMessageId(data),
     mode: 'list',
   };
 }
