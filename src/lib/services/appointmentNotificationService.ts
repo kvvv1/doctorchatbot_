@@ -21,6 +21,7 @@ const ACTION_RESCHEDULE_PREFIX = 'notif_reschedule:'
 const ACTION_NO_RESCHEDULE_PREFIX = 'notif_no_reschedule:'
 
 const INTERACTIVE_REMINDER_TYPES = new Set([
+  'appointment_24h',
   'appointment_12h',
   'appointment_created_confirmation',
   'confirmation_request',
@@ -428,6 +429,106 @@ export async function processPendingNotificationReminders(limit = 100): Promise<
 
   return {
     processed: reminders.length,
+    sent,
+    failed,
+    errors,
+  }
+}
+
+export async function resendInteractiveReminderButtons(params?: {
+  type?: string
+  limit?: number
+}): Promise<{
+  processed: number
+  sent: number
+  failed: number
+  errors: string[]
+}> {
+  const supabase = createAdminClient()
+  const reminderType = params?.type || 'appointment_24h'
+  const limit = params?.limit || 100
+
+  const { data: reminders, error } = await supabase
+    .from('reminders')
+    .select('id, clinic_id, appointment_id, conversation_id, type, status, scheduled_for, recipient_phone, message_template, retry_count, response_received, sent_at, message_sent, zapi_message_id, metadata')
+    .eq('type', reminderType)
+    .eq('status', 'sent')
+    .eq('response_received', false)
+    .order('sent_at', { ascending: false })
+    .limit(limit)
+
+  if (error || !reminders) {
+    return {
+      processed: 0,
+      sent: 0,
+      failed: 0,
+      errors: error ? [error.message] : [],
+    }
+  }
+
+  const actionableReminders = (reminders as ReminderRecord[]).filter(reminder => {
+    if (!isInteractiveReminderType(reminder.type)) return false
+
+    const metadata = reminder.metadata || {}
+    return !metadata.interactive_resend_at
+  })
+
+  let sent = 0
+  let failed = 0
+  const errors: string[] = []
+
+  for (const reminder of actionableReminders) {
+    const payload = await getReminderWithAppointment(reminder.id)
+    if (!payload?.appointment) {
+      failed += 1
+      errors.push(`Reminder ${reminder.id}: Appointment not found`)
+      continue
+    }
+
+    const appointment = payload.appointment
+    const message =
+      reminder.message_sent ||
+      formatNotificationTemplate(
+        reminder.message_template,
+        appointment,
+        appointment.patient_name
+      )
+
+    const sendResult = await sendClinicNotificationMessage({
+      clinicId: reminder.clinic_id,
+      phone: reminder.recipient_phone,
+      text: message,
+      conversationId: reminder.conversation_id || appointment.conversation_id,
+      reminderId: reminder.id,
+      choices: buildReminderActionOptions(reminder.id),
+      choicesTitle: 'Confirme sua consulta',
+      messageSource: 'notification_reminder_interactive_resend',
+    })
+
+    if (!sendResult.success) {
+      failed += 1
+      errors.push(`Reminder ${reminder.id}: ${sendResult.error || 'Failed to resend interactive reminder'}`)
+      continue
+    }
+
+    const metadata = reminder.metadata || {}
+    await supabase
+      .from('reminders')
+      .update({
+        metadata: {
+          ...metadata,
+          interactive: true,
+          interactive_resend_at: new Date().toISOString(),
+          interactive_resend_message_id: sendResult.messageId || null,
+        },
+      })
+      .eq('id', reminder.id)
+
+    sent += 1
+  }
+
+  return {
+    processed: actionableReminders.length,
     sent,
     failed,
     errors,

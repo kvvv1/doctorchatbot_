@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { processPendingNotificationReminders } from '@/lib/services/appointmentNotificationService'
+import {
+  processPendingNotificationReminders,
+  resendInteractiveReminderButtons,
+} from '@/lib/services/appointmentNotificationService'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -11,7 +14,40 @@ async function handleCronRequest(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const results = await processPendingNotificationReminders(100)
+    let action = 'process_pending'
+    let limit = 100
+
+    if (request.method === 'POST') {
+      const rawBody = await request.text()
+
+      if (rawBody.trim().length > 0) {
+        try {
+          const body = JSON.parse(rawBody) as { action?: string; limit?: number }
+          action = body.action || action
+          limit = body.limit || limit
+        } catch {
+          return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+        }
+      }
+    }
+
+    if (action === 'resend_interactive_24h') {
+      const results = await resendInteractiveReminderButtons({
+        type: 'appointment_24h',
+        limit,
+      })
+
+      return NextResponse.json({
+        success: true,
+        action,
+        processed: results.processed,
+        sent: results.sent,
+        failed: results.failed,
+        errors: results.errors,
+      })
+    }
+
+    const results = await processPendingNotificationReminders(limit)
 
     if (results.processed === 0) {
       return NextResponse.json({
