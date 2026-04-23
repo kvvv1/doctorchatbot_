@@ -286,9 +286,6 @@ export function useMessages({
 
 				await fetchMessages(true)
 				await syncOutbox()
-				if (!IS_LOCAL) {
-					void reconcileConversation('auto-open')
-				}
 			}
 
 		void bootstrap()

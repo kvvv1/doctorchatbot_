@@ -50,10 +50,10 @@ export async function POST(
 
     const { data: pendingMessages } = await supabase
       .from('messages')
-      .select('id')
+      .select('id, sender, webhook_seen, sent_by_me_seen, created_at')
       .eq('conversation_id', conversationId)
       .in('external_status', ['pending', 'unknown'])
-      .lte('created_at', new Date(Date.now() - 120000).toISOString())
+      .lte('created_at', new Date(Date.now() - 600000).toISOString())
 
     const { data: instance, error: instanceError } = await supabase
       .from('whatsapp_instances')
@@ -76,11 +76,18 @@ export async function POST(
       return NextResponse.json({ ok: false, error: 'Credenciais Z-API inválidas' }, { status: 400 })
     }
 
+    const actionablePendingMessages =
+      (pendingMessages || []).filter((message) => {
+        const isOutbound = message.sender !== 'patient'
+        const seenByWebhook = Boolean(message.webhook_seen || message.sent_by_me_seen)
+        return isOutbound && !seenByWebhook
+      })
+
     const chats = await zapiGetChats(credentials)
     const matchedChat = findChatForConversation(chats, conversation.patient_phone)
     const remoteLastMessageAt = matchedChat?.lastMessageTime ?? null
     const reconciliationState = resolveReconciliationState({
-      pendingOldCount: pendingMessages?.length ?? 0,
+      pendingOldCount: actionablePendingMessages.length,
       remoteLastMessageAt,
       localLastMessageAt: conversation.last_message_at,
     })
@@ -107,7 +114,7 @@ export async function POST(
       reconciliationState,
       remoteLastMessageAt,
       localLastMessageAt: conversation.last_message_at,
-      pendingOldCount: pendingMessages?.length ?? 0,
+      pendingOldCount: actionablePendingMessages.length,
       chatFound: Boolean(matchedChat),
     })
   } catch (error) {

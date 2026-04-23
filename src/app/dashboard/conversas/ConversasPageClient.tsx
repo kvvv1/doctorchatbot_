@@ -64,6 +64,8 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 	const [draftsByConversationId, setDraftsByConversationId] = useState<Record<string, string>>({})
 	const [isWorkspaceHydrated, setIsWorkspaceHydrated] = useState(false)
 	const [isMobileChatOpen, setIsMobileChatOpen] = useState(false)
+	const takeoverInFlightRef = useRef(false)
+	const lastManualSendRef = useRef<{ content: string; at: number } | null>(null)
 	const didHydrateWorkspaceRef = useRef(false)
 	const lastSearchParamsSnapshotRef = useRef<string | null>(null)
 
@@ -361,6 +363,19 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 
 	const handleSendMessage = async (content: string) => {
 		if (!activeConversationId || !activeConversation) return
+		const normalizedContent = content.trim()
+		const now = Date.now()
+		const lastManualSend = lastManualSendRef.current
+
+		if (
+			lastManualSend &&
+			lastManualSend.content === normalizedContent &&
+			now - lastManualSend.at < 4000
+		) {
+			return
+		}
+
+		lastManualSendRef.current = { content: normalizedContent, at: now }
 
 		await sendMessage(content)
 
@@ -375,30 +390,45 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 
 	const handleTakeOver = async (welcomeMessage?: string) => {
 		if (!activeConversationId || !activeConversation) return
+		if (takeoverInFlightRef.current) return
+		takeoverInFlightRef.current = true
 
 		const supabase = createClient()
 
-		await supabase
-			.from('conversations')
-			.update({
+		try {
+			await supabase
+				.from('conversations')
+				.update({
+					bot_enabled: false,
+					status: 'in_progress',
+					updated_at: new Date().toISOString(),
+				})
+				.eq('id', activeConversationId)
+
+			updateConversation(activeConversationId, {
 				bot_enabled: false,
 				status: 'in_progress',
 				updated_at: new Date().toISOString(),
 			})
-			.eq('id', activeConversationId)
 
-		updateConversation(activeConversationId, {
-			bot_enabled: false,
-			status: 'in_progress',
-			updated_at: new Date().toISOString(),
-		})
+			const msg = welcomeMessage?.trim()
+			if (msg) {
+				const now = Date.now()
+				const lastManualSend = lastManualSendRef.current
+				if (
+					!lastManualSend ||
+					lastManualSend.content !== msg ||
+					now - lastManualSend.at >= 4000
+				) {
+					lastManualSendRef.current = { content: msg, at: now }
+					await sendMessage(msg)
+				}
+			}
 
-		const msg = welcomeMessage?.trim()
-		if (msg) {
-			await sendMessage(msg)
+			refetchConversations?.()
+		} finally {
+			takeoverInFlightRef.current = false
 		}
-
-		refetchConversations?.()
 	}
 
 	const handleReturnToBot = async () => {
