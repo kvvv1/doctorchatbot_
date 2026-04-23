@@ -24,14 +24,18 @@ export interface ZapiChoiceOption {
   label: string;
 }
 
-export type ZapiStatus = 'connected' | 'disconnected' | 'connecting';
-
-interface ZapiError {
-  error: string;
-  message?: string;
+export interface ZapiChat {
+  id: string;
+  phone: string | null;
+  name: string | null;
+  unreadCount: number;
+  lastMessageTime: string | null;
+  raw: Record<string, unknown>;
 }
 
-type ZapiMethod = 'GET' | 'POST';
+export type ZapiStatus = 'connected' | 'disconnected' | 'connecting';
+
+type ZapiMethod = 'GET' | 'POST' | 'PUT';
 
 // Configuração
 const ZAPI_BASE_URL = process.env.ZAPI_BASE_URL || 'https://api.z-api.io';
@@ -64,7 +68,7 @@ async function zapiRequest<T>(
     const contentType = response.headers.get('content-type') || '';
     const rawBody = await response.text();
 
-    let data: any = null;
+    let data: unknown = null;
     if (rawBody.length > 0) {
       if (contentType.includes('application/json')) {
         data = JSON.parse(rawBody);
@@ -84,7 +88,7 @@ async function zapiRequest<T>(
         url,
       });
       const message =
-        (typeof data === 'object' && data && (data.message || data.error)) ||
+        (isRecord(data) && (toNonEmptyString(data.message) || toNonEmptyString(data.error))) ||
         (typeof data === 'string' && data.trim().length > 0 ? data : null) ||
         'Z-API request failed';
       throw new Error(message);
@@ -130,7 +134,7 @@ export async function zapiGetQr(
     const url = `${baseUrl}${attempt.path}`;
 
     try {
-      const data = await zapiRequest<any>(url, {
+      const data = await zapiRequest<unknown>(url, {
         method: attempt.method,
         headers,
       });
@@ -141,7 +145,7 @@ export async function zapiGetQr(
       }
 
       errors.push(`${attempt.method} ${attempt.path}: resposta sem QR`);
-    } catch (error) {
+    } catch {
       const message = error instanceof Error ? error.message : String(error);
       errors.push(`${attempt.method} ${attempt.path}: ${message}`);
     }
@@ -229,7 +233,7 @@ export async function zapiGetStatus(
     // - GET /phone-status
     const url = `${baseUrl}/status`;
 
-    const data = await zapiRequest<any>(url, {
+    const data = await zapiRequest<Record<string, unknown>>(url, {
       method: 'GET',
       headers: clientToken
         ? { 'Client-Token': clientToken }
@@ -305,7 +309,7 @@ export async function zapiReconnect(
           ? { 'Client-Token': clientToken }
           : undefined,
       });
-    } catch (error) {
+    } catch {
       // Ignorar erro de disconnect, pode não existir
       console.warn('[Z-API] Disconnect endpoint not available or failed');
     }
@@ -358,7 +362,7 @@ export async function zapiSendText(
       textLength: text.length,
     });
 
-    const data = await zapiRequest<any>(url, {
+    const data = await zapiRequest<Record<string, unknown>>(url, {
       method: 'POST',
       headers: clientToken
         ? { 'Client-Token': clientToken }
@@ -429,7 +433,7 @@ export async function zapiSendChoices(
       },
     };
 
-    const data = await zapiRequest<any>(url, {
+    const data = await zapiRequest<Record<string, unknown>>(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
@@ -456,7 +460,7 @@ export async function zapiSendChoices(
     },
   };
 
-  const data = await zapiRequest<any>(url, {
+  const data = await zapiRequest<Record<string, unknown>>(url, {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),
@@ -467,6 +471,75 @@ export async function zapiSendChoices(
     messageId: data.messageId || data.id || data.zaapId,
     mode: 'list',
   };
+}
+
+export async function zapiUpdateWebhookReceived(
+  credentials: ZapiCredentials,
+  webhookUrl: string,
+): Promise<{ success: boolean }> {
+  const { instanceId, token, clientToken } = credentials;
+  const baseUrl = getInstanceUrl(instanceId, token);
+
+  await zapiRequest(`${baseUrl}/update-webhook-received`, {
+    method: 'PUT',
+    headers: clientToken ? { 'Client-Token': clientToken } : undefined,
+    body: JSON.stringify({
+      value: webhookUrl,
+    }),
+  });
+
+  return { success: true };
+}
+
+export async function zapiUpdateNotifySentByMe(
+  credentials: ZapiCredentials,
+  enabled: boolean,
+): Promise<{ success: boolean }> {
+  const { instanceId, token, clientToken } = credentials;
+  const baseUrl = getInstanceUrl(instanceId, token);
+
+  await zapiRequest(`${baseUrl}/update-notify-sent-by-me`, {
+    method: 'PUT',
+    headers: clientToken ? { 'Client-Token': clientToken } : undefined,
+    body: JSON.stringify({
+      value: enabled,
+    }),
+  });
+
+  return { success: true };
+}
+
+export async function zapiReadMessage(
+  credentials: ZapiCredentials,
+  params: { phone: string; messageId: string },
+): Promise<{ success: boolean }> {
+  const { instanceId, token, clientToken } = credentials;
+  const baseUrl = getInstanceUrl(instanceId, token);
+
+  await zapiRequest(`${baseUrl}/read-message`, {
+    method: 'POST',
+    headers: clientToken ? { 'Client-Token': clientToken } : undefined,
+    body: JSON.stringify({
+      phone: params.phone.replace(/[^0-9]/g, ''),
+      messageId: params.messageId,
+    }),
+  });
+
+  return { success: true };
+}
+
+export async function zapiGetChats(
+  credentials: ZapiCredentials,
+): Promise<ZapiChat[]> {
+  const { instanceId, token, clientToken } = credentials;
+  const baseUrl = getInstanceUrl(instanceId, token);
+
+  const data = await zapiRequest<unknown>(`${baseUrl}/chats`, {
+    method: 'GET',
+    headers: clientToken ? { 'Client-Token': clientToken } : undefined,
+  });
+
+  return normalizeChatsResponse(data);
 }
 
 /**
@@ -514,4 +587,98 @@ export function getMissingCredentials(credentials: ZapiCredentials): string[] {
   // clientToken é opcional — não bloquear se ausente
 
   return missing;
+}
+
+function normalizeChatsResponse(data: unknown): ZapiChat[] {
+  if (!Array.isArray(data)) {
+    if (isRecord(data) && Array.isArray(data.value)) {
+      return normalizeChatsResponse(data.value);
+    }
+
+    if (isRecord(data) && Array.isArray(data.chats)) {
+      return normalizeChatsResponse(data.chats);
+    }
+
+    if (isRecord(data) && Array.isArray(data.data)) {
+      return normalizeChatsResponse(data.data);
+    }
+
+    return [];
+  }
+
+  return data
+    .map((entry) => normalizeChatEntry(entry))
+    .filter((entry): entry is ZapiChat => entry !== null);
+}
+
+function normalizeChatEntry(value: unknown): ZapiChat | null {
+  if (!value || typeof value !== 'object') return null;
+
+  const raw = value as Record<string, unknown>;
+  const rawId =
+    toNonEmptyString(raw.id) ||
+    toNonEmptyString(raw.chatId) ||
+    toNonEmptyString(raw.waId) ||
+    toNonEmptyString(raw.phone) ||
+    toNonEmptyString(raw.jid);
+
+  if (!rawId) return null;
+
+  const phoneCandidate =
+    toNonEmptyString(raw.phone) ||
+    toNonEmptyString(raw.waId) ||
+    toNonEmptyString(raw.id) ||
+    toNonEmptyString(raw.chatId) ||
+    toNonEmptyString(raw.jid);
+
+  const name =
+    toNonEmptyString(raw.name) ||
+    toNonEmptyString(raw.chatName) ||
+    toNonEmptyString(raw.shortName) ||
+    null;
+
+  const unreadCount =
+    typeof raw.unreadCount === 'number'
+      ? raw.unreadCount
+      : typeof raw.unread === 'number'
+      ? raw.unread
+      : 0;
+
+  const lastMessageTime = normalizeLastMessageTime(
+    raw.lastMessageTime ?? raw.lastTime ?? raw.lastMessageDate,
+  );
+
+  return {
+    id: rawId,
+    phone: phoneCandidate ? phoneCandidate.replace(/[^0-9]/g, '') || null : null,
+    name,
+    unreadCount,
+    lastMessageTime,
+    raw,
+  };
+}
+
+function normalizeLastMessageTime(value: unknown): string | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const milliseconds = value > 9999999999 ? value : value * 1000;
+    return new Date(milliseconds).toISOString();
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const asNumber = Number(value);
+    if (!Number.isNaN(asNumber)) {
+      return normalizeLastMessageTime(asNumber);
+    }
+
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

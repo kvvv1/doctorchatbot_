@@ -106,6 +106,8 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 		refetch: refetchMessages,
 		sendMessage,
 		retryMessage,
+		reconcileConversation,
+		reconciling,
 	} = useMessages({
 		conversationId: activeConversationId,
 		phone: activeConversation?.patient_phone,
@@ -117,6 +119,10 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 				unread_count: activity.unread_count ?? 0,
 				updated_at: new Date().toISOString(),
 			})
+		},
+		onConversationReconciled: (patch) => {
+			if (!activeConversationId) return
+			updateConversation(activeConversationId, patch)
 		},
 	})
 
@@ -503,6 +509,8 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 							draftMessage={activeDraft}
 							onDraftMessageChange={handleDraftChange}
 							onRetryMessage={retryMessage}
+							onReconcileConversation={() => reconcileConversation('manual')}
+							reconciling={reconciling}
 							defaultTakeoverMessage={defaultTakeoverMessage}
 							takeoverMessageEnabled={takeoverMessageEnabled}
 						/>
@@ -544,6 +552,8 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 						draftMessage={activeDraft}
 						onDraftMessageChange={handleDraftChange}
 						onRetryMessage={retryMessage}
+						onReconcileConversation={() => reconcileConversation('manual')}
+						reconciling={reconciling}
 						defaultTakeoverMessage={defaultTakeoverMessage}
 						takeoverMessageEnabled={takeoverMessageEnabled}
 					/>

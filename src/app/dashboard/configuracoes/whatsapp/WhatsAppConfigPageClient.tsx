@@ -54,6 +54,8 @@ export default function WhatsAppConfigPageClient() {
   const [isPending, setIsPending] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [instanceId, setInstanceId] = useState<string | null>(null);
+  const [syncConfigured, setSyncConfigured] = useState(false);
+  const [configuringSync, setConfiguringSync] = useState(false);
   
   // Referências
   const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -187,6 +189,27 @@ export default function WhatsAppConfigPageClient() {
     setIsPolling(false);
   }, []);
 
+  const configureSync = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setConfiguringSync(true);
+      const response = await fetch('/api/zapi/configure-sync', { method: 'POST' });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Falha ao configurar sincronização');
+      }
+
+      setSyncConfigured(true);
+    } catch (err) {
+      console.error('Failed to configure sync:', err);
+      if (!silent) {
+        setError(err instanceof Error ? err.message : 'Erro ao configurar sincronização');
+      }
+    } finally {
+      if (!silent) setConfiguringSync(false);
+    }
+  }, []);
+
   // Renderizar QR Code (se tipo 'text')
   useEffect(() => {
     if (qrCode?.type === 'text' && qrCanvasRef.current) {
@@ -217,12 +240,15 @@ export default function WhatsAppConfigPageClient() {
       }
     } else if (status === 'connected') {
       stopPolling();
+      if (!syncConfigured) {
+        void configureSync(true);
+      }
     }
 
     return () => {
       stopPolling();
     };
-  }, [status, qrCode, startPolling, stopPolling]);
+  }, [configureSync, qrCode, startPolling, status, stopPolling, syncConfigured]);
 
   // Buscar status ao montar
   useEffect(() => {
@@ -554,6 +580,11 @@ export default function WhatsAppConfigPageClient() {
                   <p className="text-sm text-green-900">
                     Tudo certo! Sua clínica já pode enviar e receber mensagens pelo painel.
                   </p>
+                  <p className="mt-1 text-xs text-green-700">
+                    {syncConfigured
+                      ? 'Webhook e notifySentByMe configurados.'
+                      : 'Ajustando webhook e sincronização com mensagens enviadas pelo celular...'}
+                  </p>
                 </div>
               )}
             </div>
@@ -605,6 +636,13 @@ export default function WhatsAppConfigPageClient() {
                     
                     {/* Botões quando conectado */}
                     <div className="space-y-2">
+                      <button
+                        onClick={() => configureSync(false)}
+                        disabled={configuringSync}
+                        className="w-full px-4 py-2.5 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
+                      >
+                        {configuringSync ? 'Configurando sincronização...' : 'Configurar sincronização'}
+                      </button>
                       <button
                         onClick={() => fetchStatus()}
                         disabled={loading}

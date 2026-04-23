@@ -3,7 +3,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Message } from '@/lib/types/database'
+import type { Conversation, Message } from '@/lib/types/database'
 import { mergeMessagesWithOutbox, normalizeMessage, type OutboxEntry } from '@/lib/chat/model'
 import {
 	getCachedMessages,
@@ -27,6 +27,7 @@ interface UseMessagesOptions {
 		last_message_preview: string
 		unread_count?: number
 	}) => void
+	onConversationReconciled?: (patch: Partial<Conversation>) => void
 }
 
 function truncatePreview(content: string, maxLength = 80) {
@@ -108,6 +109,7 @@ export function useMessages({
 	phone,
 	enabled = true,
 	onConversationActivity,
+	onConversationReconciled,
 }: UseMessagesOptions) {
 	const [serverMessages, setServerMessages] = useState<Message[]>([])
 	const [outboxEntries, setOutboxEntries] = useState<OutboxEntry[]>([])
@@ -117,6 +119,7 @@ export function useMessages({
 	const [channelStatus, setChannelStatus] = useState('CLOSED')
 	const [degradedMode, setDegradedMode] = useState(false)
 	const [lastRealtimeEventAt, setLastRealtimeEventAt] = useState(() => Date.now())
+	const [reconciling, setReconciling] = useState(false)
 
 	const syncOutbox = useCallback(async () => {
 		if (!conversationId) {
@@ -223,6 +226,39 @@ export function useMessages({
 		[cleanupAcknowledgedEntries, conversationId, enabled],
 	)
 
+	const reconcileConversation = useCallback(
+		async (reason: 'auto-open' | 'manual' = 'manual') => {
+			if (!conversationId || !enabled || IS_LOCAL) return null
+
+			try {
+				setReconciling(true)
+				const response = await fetch(`/api/conversations/${conversationId}/reconcile`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ reason }),
+				})
+				const result = await response.json()
+
+				if (!response.ok || !result.ok) {
+					throw new Error(result.error || 'Falha ao reconciliar conversa')
+				}
+
+				onConversationReconciled?.({
+					last_external_message_at: result.remoteLastMessageAt ?? null,
+					last_reconciled_at: new Date().toISOString(),
+					reconciliation_state: result.reconciliationState,
+					updated_at: new Date().toISOString(),
+				})
+
+				await fetchMessages(false)
+				return result
+			} finally {
+				setReconciling(false)
+			}
+		},
+		[conversationId, enabled, fetchMessages, onConversationReconciled],
+	)
+
 	useEffect(() => {
 		if (!conversationId || !enabled) {
 			setServerMessages([])
@@ -248,16 +284,19 @@ export function useMessages({
 				setOutboxEntries(cachedOutbox)
 			}
 
-			await fetchMessages(true)
-			await syncOutbox()
-		}
+				await fetchMessages(true)
+				await syncOutbox()
+				if (!IS_LOCAL) {
+					void reconcileConversation('auto-open')
+				}
+			}
 
 		void bootstrap()
 
 		return () => {
 			cancelled = true
 		}
-	}, [conversationId, enabled, fetchMessages, syncOutbox])
+		}, [conversationId, enabled, fetchMessages, reconcileConversation, syncOutbox])
 
 	useEffect(() => {
 		if (!conversationId || !enabled || IS_LOCAL) return
@@ -459,13 +498,15 @@ export function useMessages({
 		[serverMessages, outboxEntries],
 	)
 
-	return {
-		messages,
-		loading,
-		error,
-		refetch: () => fetchMessages(true),
-		sendMessage,
-		retryMessage,
-		flushOutbox: flushPendingEntries,
+		return {
+			messages,
+			loading,
+			error,
+			refetch: () => fetchMessages(true),
+			sendMessage,
+			retryMessage,
+			flushOutbox: flushPendingEntries,
+			reconcileConversation,
+			reconciling,
+		}
 	}
-}

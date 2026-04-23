@@ -51,6 +51,8 @@ interface ChatPanelProps {
 	draftMessage?: string
 	onDraftMessageChange?: (content: string) => void
 	onRetryMessage?: (clientMessageId: string) => Promise<void>
+	onReconcileConversation?: () => Promise<void>
+	reconciling?: boolean
 	defaultTakeoverMessage?: string
 	takeoverMessageEnabled?: boolean
 }
@@ -112,6 +114,10 @@ function getDeliveryLabel(message: Message) {
 			return 'Na fila'
 		case 'sending':
 			return 'Enviando'
+		case 'delivered':
+			return 'Entregue'
+		case 'read':
+			return 'Lida'
 		case 'failed':
 			return 'Falhou'
 		default:
@@ -132,6 +138,8 @@ export default function ChatPanel({
 	draftMessage,
 	onDraftMessageChange,
 	onRetryMessage,
+	onReconcileConversation,
+	reconciling = false,
 	defaultTakeoverMessage = 'Olá! Sou um atendente da clínica e estou aqui para te ajudar. 😊',
 	takeoverMessageEnabled = true,
 }: ChatPanelProps) {
@@ -337,6 +345,22 @@ export default function ChatPanel({
 						</h2>
 						<div className="mt-0.5 flex items-center gap-1.5">
 							<p className="text-xs text-neutral-400">{conversation.patient_phone}</p>
+							{conversation.reconciliation_state !== 'healthy' && (
+								<>
+									<span className="text-neutral-300">Â·</span>
+									<span
+										className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
+											conversation.reconciliation_state === 'degraded'
+												? 'bg-red-50 text-red-700'
+												: 'bg-amber-50 text-amber-700'
+										}`}
+									>
+										{conversation.reconciliation_state === 'degraded'
+											? 'SincronizaÃ§Ã£o degradada'
+											: 'Precisa reconciliar'}
+									</span>
+								</>
+							)}
 							{botIsActive && (
 								<>
 									<span className="text-neutral-300">·</span>
@@ -428,6 +452,19 @@ export default function ChatPanel({
 										<Download className="size-4" />
 										Exportar histórico
 									</button>
+									<button
+										onClick={() => {
+											if (onReconcileConversation) {
+												void onReconcileConversation()
+											}
+											setShowActionsMenu(false)
+										}}
+										disabled={!onReconcileConversation || reconciling}
+										className="flex w-full items-center gap-2 px-3 py-2 text-sm text-neutral-900 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+									>
+										<RotateCcw className={`size-4 ${reconciling ? 'animate-spin' : ''}`} />
+										{reconciling ? 'Sincronizando...' : 'Sincronizar conversa'}
+									</button>
 									{botIsActive ? (
 										<button
 											onClick={() => {
@@ -513,6 +550,37 @@ export default function ChatPanel({
 					>
 						Devolver ao bot
 					</button>
+				</div>
+			)}
+
+			{conversation.reconciliation_state !== 'healthy' && (
+				<div
+					className={`flex items-center justify-between border-b px-4 py-2 ${
+						conversation.reconciliation_state === 'degraded'
+							? 'border-red-200 bg-red-50'
+							: 'border-amber-200 bg-amber-50'
+					}`}
+				>
+					<p
+						className={`text-xs font-medium ${
+							conversation.reconciliation_state === 'degraded'
+								? 'text-red-800'
+								: 'text-amber-800'
+						}`}
+					>
+						{conversation.reconciliation_state === 'degraded'
+							? 'Encontramos mensagens pendentes antigas nesta conversa.'
+							: 'A conversa precisa de reconciliação com a Z-API para validar o último estado.'}
+					</p>
+					{onReconcileConversation && (
+						<button
+							onClick={() => void onReconcileConversation()}
+							disabled={reconciling}
+							className="text-[11px] font-semibold underline disabled:opacity-60"
+						>
+							{reconciling ? 'Sincronizando...' : 'Sincronizar agora'}
+						</button>
+					)}
 				</div>
 			)}
 

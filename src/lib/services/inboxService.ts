@@ -6,10 +6,11 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import type { Conversation, Message } from '@/lib/types/database'
+import type { Conversation } from '@/lib/types/database'
 import { getBotSettings } from './botSettingsService'
 import { createNotification } from './notificationService'
 import { zapiGetProfilePicture } from '@/lib/zapi/client'
+import { persistCanonicalMessage } from './messageReconciliationService'
 import {
   getBrazilianPhoneLookupCandidates,
   normalizePhoneForStorage,
@@ -58,27 +59,6 @@ export async function handleIncomingMessage(
       }
     }
 
-    // 0. Check for duplicate message (deduplication)
-    if (data.zapiMessageId) {
-      const { data: existingMessage } = await supabase
-        .from('messages')
-        .select('id')
-        .eq('zapi_message_id', data.zapiMessageId)
-        .single()
-
-      if (existingMessage) {
-        console.log('[InboxService] Duplicate message detected, skipping:', data.zapiMessageId)
-        // Still look up the conversationId so the webhook route skips triggerBotResponse
-        // (conversationId undefined → triggerBotResponse not called).
-        return {
-          success: true,
-          messageId: existingMessage.id,
-          conversationId: undefined,
-          createdConversation: false,
-        }
-      }
-    }
-
     // 1. Find or create conversation
     const { conversation, created } = await findOrCreateConversation(
       supabase,
@@ -94,25 +74,37 @@ export async function handleIncomingMessage(
       }
     }
 
-    // 2. Insert message
-    const message = await insertMessage(supabase, {
+    // 2. Insert or reconcile message canonically
+    const persisted = await persistCanonicalMessage({
+      supabase,
+      clinicId: data.clinicId,
       conversationId: conversation.id,
       sender: 'patient',
+      direction: 'inbound',
+      origin: 'webhook_reconciled',
       content: data.text || '[Mensagem sem texto]',
       zapiMessageId: data.zapiMessageId || null,
+      externalStatus: 'received',
       deliveryStatus: 'received',
       metadata: {
         source: 'zapi_webhook',
         timestamp: data.timestamp?.toISOString() ?? null,
       },
+      createdAt: data.timestamp?.toISOString(),
+      webhookSeen: true,
+      unreadIncrement: true,
     })
 
-    if (!message) {
+    if (!persisted.created) {
+      console.log('[InboxService] Duplicate message detected, skipping bot trigger:', {
+        zapiMessageId: data.zapiMessageId,
+        dedupRule: persisted.dedupRule,
+      })
       return {
-        success: false,
-        conversationId: conversation.id,
-        createdConversation: created,
-        error: 'Failed to insert message',
+        success: true,
+        messageId: persisted.message.id,
+        conversationId: undefined,
+        createdConversation: false,
       }
     }
 
@@ -120,17 +112,15 @@ export async function handleIncomingMessage(
     const messagePreview = truncateText(data.text, 80)
     const now = new Date().toISOString()
 
-    await Promise.all([
-      updateConversationMetadata(supabase, conversation.id, {
-        lastMessageAt: now,
-        lastMessagePreview: messagePreview,
-        lastPatientMessageAt: now,
-        status: conversation.status,
-      }),
-      supabase.rpc('increment_conversation_unread', {
-        target_conversation_id: conversation.id,
-      }),
-    ])
+    await updateConversationMetadata(supabase, conversation.id, {
+      lastMessageAt: data.timestamp?.toISOString() ?? now,
+      lastMessagePreview: messagePreview,
+      lastPatientMessageAt: data.timestamp?.toISOString() ?? now,
+      lastExternalMessageAt: data.timestamp?.toISOString() ?? now,
+      lastReconciledAt: now,
+      reconciliationState: 'healthy',
+      status: conversation.status,
+    })
 
     const patientLabel = conversation.patient_name || data.name || data.phone
     await createNotification(
@@ -152,7 +142,7 @@ export async function handleIncomingMessage(
     return {
       success: true,
       conversationId: conversation.id,
-      messageId: message.id,
+      messageId: persisted.message.id,
       createdConversation: created,
     }
   } catch (error) {
@@ -189,29 +179,6 @@ export async function saveFromMeMessage(data: {
     const cleanText = (text || '').trim()
     if (!cleanText || cleanText === '[Mensagem sem texto]') return
 
-    // If we have a message ID, check if it was already saved by the bot sender —
-    // Z-API fires a fromMe webhook for every outgoing message (bot or human).
-    // Bot messages are already inserted with that same zapi_message_id, so skip them.
-    // We retry once after 600ms because the bot's DB insert may still be in-flight
-    // when the fromMe webhook arrives, causing a race condition that creates duplicates.
-    if (zapiMessageId) {
-      const { data: existing } = await supabase
-        .from('messages')
-        .select('id')
-        .eq('zapi_message_id', zapiMessageId)
-        .maybeSingle()
-      if (existing) return // Already saved by the bot flow — not a secretary message
-
-      // Bot save may be in-flight — wait and re-check before treating as a new secretary message
-      await new Promise(r => setTimeout(r, 600))
-      const { data: existingAfterWait } = await supabase
-        .from('messages')
-        .select('id')
-        .eq('zapi_message_id', zapiMessageId)
-        .maybeSingle()
-      if (existingAfterWait) return // Bot saved it during the wait — skip
-    }
-
     // Find the existing conversation (do NOT create one)
     const { data: conversation } = await supabase
       .from('conversations')
@@ -223,48 +190,42 @@ export async function saveFromMeMessage(data: {
 
     if (!conversation) return // No conversation yet — silently skip
 
-    // Content-based dedup fallback: catches cases where zapi_message_id is null
-    // (e.g. Z-API didn't return a messageId on send) and the send-text route saved
-    // the message without an ID — the fromMe webhook would create a duplicate otherwise.
-    const recentCutoff = new Date(Date.now() - 30000).toISOString()
-    const { data: existingByContent } = await supabase
-      .from('messages')
-      .select('id')
-      .eq('conversation_id', conversation.id)
-      .eq('sender', 'human')
-      .eq('content', cleanText)
-      .gte('created_at', recentCutoff)
-      .limit(1)
-      .maybeSingle()
-
-    if (existingByContent) return // Already saved by send-text route — skip
-
     const messageTimestamp = timestamp
       ? new Date(timestamp * 1000).toISOString()
       : new Date().toISOString()
 
     const preview = cleanText.substring(0, 80)
 
-    await Promise.all([
-      supabase.from('messages').insert({
-        conversation_id: conversation.id,
-        sender: 'human',
-        content: cleanText,
-        zapi_message_id: zapiMessageId || null,
-        message_type: 'text',
-        delivery_status: 'sent',
-        metadata: { source: 'zapi_from_me' },
-        created_at: messageTimestamp,
-        updated_at: messageTimestamp,
-      }),
-      supabase.from('conversations').update({
-        last_message_at: messageTimestamp,
-        last_message_preview: preview,
-        bot_enabled: false,
-        status: 'in_progress',
-        updated_at: new Date().toISOString(),
-      }).eq('id', conversation.id),
-    ])
+    await persistCanonicalMessage({
+      supabase,
+      clinicId,
+      conversationId: conversation.id,
+      sender: 'human',
+      direction: 'outbound',
+      origin: 'whatsapp_app',
+      content: cleanText,
+      zapiMessageId: zapiMessageId || null,
+      externalStatus: 'sent',
+      deliveryStatus: 'sent',
+      metadata: { source: 'zapi_from_me' },
+      createdAt: messageTimestamp,
+      updatedAt: messageTimestamp,
+      webhookSeen: true,
+      sentByMeSeen: true,
+      conversationStatus: 'in_progress',
+      botEnabled: false,
+    })
+
+    await supabase.from('conversations').update({
+      last_message_at: messageTimestamp,
+      last_message_preview: preview,
+      last_external_message_at: messageTimestamp,
+      last_reconciled_at: new Date().toISOString(),
+      reconciliation_state: 'healthy',
+      bot_enabled: false,
+      status: 'in_progress',
+      updated_at: new Date().toISOString(),
+    }).eq('id', conversation.id)
   } catch (err) {
     console.error('[InboxService] Error saving fromMe message:', err)
   }
@@ -385,44 +346,6 @@ async function fetchAndSaveProfilePicture(
 }
 
 /**
- * Inserts a new message into the database.
- */
-async function insertMessage(
-  supabase: ReturnType<typeof createAdminClient>,
-  data: {
-    conversationId: string
-    sender: 'patient' | 'human' | 'bot'
-    content: string
-    zapiMessageId?: string | null
-    deliveryStatus?: 'queued' | 'sending' | 'sent' | 'received' | 'failed'
-    metadata?: Record<string, unknown>
-  }
-): Promise<Message | null> {
-  const { data: message, error } = await supabase
-    .from('messages')
-    .insert({
-      conversation_id: data.conversationId,
-      sender: data.sender,
-      content: data.content,
-      zapi_message_id: data.zapiMessageId || null,
-      message_type: 'text',
-      delivery_status: data.deliveryStatus || (data.sender === 'patient' ? 'received' : 'sent'),
-      metadata: data.metadata || {},
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .select()
-    .single()
-
-  if (error) {
-    console.error('[InboxService] Error inserting message:', error)
-    return null
-  }
-
-  return message as Message
-}
-
-/**
  * Updates conversation metadata after receiving a new message.
  */
 async function updateConversationMetadata(
@@ -432,6 +355,9 @@ async function updateConversationMetadata(
     lastMessageAt: string
     lastMessagePreview: string
     lastPatientMessageAt: string
+    lastExternalMessageAt?: string
+    lastReconciledAt?: string
+    reconciliationState?: 'healthy' | 'needs_reconcile' | 'degraded'
     status: string
   }
 ) {
@@ -447,6 +373,9 @@ async function updateConversationMetadata(
       last_message_at: data.lastMessageAt,
       last_message_preview: data.lastMessagePreview,
       last_patient_message_at: data.lastPatientMessageAt,
+      last_external_message_at: data.lastExternalMessageAt ?? data.lastMessageAt,
+      last_reconciled_at: data.lastReconciledAt ?? new Date().toISOString(),
+      reconciliation_state: data.reconciliationState ?? 'healthy',
       status: newStatus,
       updated_at: new Date().toISOString(),
     })

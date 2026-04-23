@@ -64,6 +64,9 @@ function runMigrations(db: Database.Database) {
       last_message_at          TEXT,
       last_message_preview     TEXT,
       last_patient_message_at  TEXT,
+      last_external_message_at TEXT,
+      last_reconciled_at       TEXT,
+      reconciliation_state     TEXT DEFAULT 'healthy',
       created_at               TEXT NOT NULL,
       updated_at               TEXT NOT NULL
     );
@@ -77,6 +80,17 @@ function runMigrations(db: Database.Database) {
       sender           TEXT NOT NULL,
       content          TEXT NOT NULL,
       zapi_message_id  TEXT,
+      client_message_id TEXT,
+      message_type     TEXT DEFAULT 'text',
+      delivery_status  TEXT DEFAULT 'sent',
+      direction        TEXT DEFAULT 'outbound',
+      origin           TEXT DEFAULT 'webhook_reconciled',
+      external_status  TEXT DEFAULT 'unknown',
+      reconciled_at    TEXT,
+      webhook_seen     INTEGER DEFAULT 0,
+      sent_by_me_seen  INTEGER DEFAULT 0,
+      failed_reason    TEXT,
+      metadata         TEXT DEFAULT '{}',
       created_at       TEXT NOT NULL,
       updated_at       TEXT NOT NULL
     );
@@ -266,6 +280,31 @@ function runMigrations(db: Database.Database) {
   } catch {
     // Ignore when the column already exists in an existing local DB.
   }
+
+  const sqliteSafeAlterStatements = [
+    "ALTER TABLE conversations ADD COLUMN last_external_message_at TEXT;",
+    "ALTER TABLE conversations ADD COLUMN last_reconciled_at TEXT;",
+    "ALTER TABLE conversations ADD COLUMN reconciliation_state TEXT DEFAULT 'healthy';",
+    "ALTER TABLE messages ADD COLUMN client_message_id TEXT;",
+    "ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text';",
+    "ALTER TABLE messages ADD COLUMN delivery_status TEXT DEFAULT 'sent';",
+    "ALTER TABLE messages ADD COLUMN direction TEXT DEFAULT 'outbound';",
+    "ALTER TABLE messages ADD COLUMN origin TEXT DEFAULT 'webhook_reconciled';",
+    "ALTER TABLE messages ADD COLUMN external_status TEXT DEFAULT 'unknown';",
+    "ALTER TABLE messages ADD COLUMN reconciled_at TEXT;",
+    "ALTER TABLE messages ADD COLUMN webhook_seen INTEGER DEFAULT 0;",
+    "ALTER TABLE messages ADD COLUMN sent_by_me_seen INTEGER DEFAULT 0;",
+    "ALTER TABLE messages ADD COLUMN failed_reason TEXT;",
+    "ALTER TABLE messages ADD COLUMN metadata TEXT DEFAULT '{}';",
+  ]
+
+  for (const statement of sqliteSafeAlterStatements) {
+    try {
+      db.exec(statement)
+    } catch {
+      // Ignore when the column already exists in an existing local DB.
+    }
+  }
 }
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
@@ -375,6 +414,8 @@ const BOOL_FIELDS = new Set([
   'is_available',
   'enabled',
   'read',
+  'webhook_seen',
+  'sent_by_me_seen',
 ])
 
 export function deserializeRow(row: Record<string, unknown>): Record<string, unknown> {

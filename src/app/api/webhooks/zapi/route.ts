@@ -1,6 +1,4 @@
 import { after, NextRequest, NextResponse } from 'next/server'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseConnectionStatusWebhook, parseWebhookPayload, shouldProcessWebhook } from '@/lib/zapi/webhookParser'
 import { handleIncomingMessage, saveFromMeMessage, logWebhookActivity } from '@/lib/services/inboxService'
@@ -21,6 +19,10 @@ import {
 } from '@/lib/services/appointmentNotificationService'
 import { getConversationMode } from '@/lib/conversations/mode'
 import { acquireBotProcessingLock, releaseBotProcessingLock } from '@/lib/services/botProcessingLock'
+import {
+  formatAppointmentAlertLabel,
+  formatAppointmentDateTime,
+} from '@/lib/utils/appointmentDateTime'
 
 /**
  * POST /api/webhooks/zapi
@@ -339,7 +341,7 @@ function isGreetingLikeMessage(value: string): boolean {
 }
 
 function formatAppointmentAlertDate(startsAt: string): string {
-  return format(new Date(startsAt), "dd/MM 'as' HH:mm", { locale: ptBR })
+  return formatAppointmentAlertLabel(startsAt)
 }
 
 async function updateConversationStatus(params: {
@@ -463,11 +465,7 @@ async function handleNotificationRescheduleAction(params: {
     return transfer.success
   }
 
-  const appointmentLabel = format(
-    new Date(appointment.starts_at),
-    "EEE, dd/MM 'as' HH:mm",
-    { locale: ptBR }
-  )
+  const appointmentLabel = formatAppointmentDateTime(appointment.starts_at)
 
   const response = await handleBotTurn(
     params.conversationId,
@@ -1100,6 +1098,12 @@ async function triggerBotResponse(
           zapi_message_id: welcomeResult.messageId || null,
           message_type: 'text',
           delivery_status: 'sent',
+          direction: 'outbound',
+          origin: 'bot',
+          external_status: 'sent',
+          reconciled_at: new Date().toISOString(),
+          webhook_seen: false,
+          sent_by_me_seen: false,
           metadata: { source: 'bot_welcome' },
           created_at: new Date().toISOString(),
         })

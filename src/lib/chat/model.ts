@@ -1,7 +1,11 @@
 import type {
 	Conversation,
+	ConversationReconciliationState,
 	Message,
+	MessageDirection,
 	MessageDeliveryStatus,
+	MessageExternalStatus,
+	MessageOrigin,
 	MessageSender,
 	MessageType,
 } from '@/lib/types/database'
@@ -41,6 +45,9 @@ export function normalizeConversation(value: PartialConversation): Conversation 
 		last_message_at: value.last_message_at ?? null,
 		last_message_preview: value.last_message_preview ?? null,
 		last_patient_message_at: value.last_patient_message_at ?? null,
+		last_external_message_at: value.last_external_message_at ?? null,
+		last_reconciled_at: value.last_reconciled_at ?? null,
+		reconciliation_state: (value.reconciliation_state ?? 'healthy') as ConversationReconciliationState,
 		unread_count: typeof value.unread_count === 'number' ? value.unread_count : 0,
 		created_at: value.created_at,
 		updated_at: value.updated_at,
@@ -57,6 +64,12 @@ export function normalizeMessage(value: PartialMessage): Message {
 		client_message_id: value.client_message_id ?? null,
 		message_type: (value.message_type ?? 'text') as MessageType,
 		delivery_status: (value.delivery_status ?? inferDeliveryStatus(value.sender)) as MessageDeliveryStatus,
+		direction: (value.direction ?? inferDirection(value.sender)) as MessageDirection,
+		origin: (value.origin ?? inferOrigin(value.sender)) as MessageOrigin,
+		external_status: (value.external_status ?? inferExternalStatus(value)) as MessageExternalStatus,
+		reconciled_at: value.reconciled_at ?? null,
+		webhook_seen: Boolean(value.webhook_seen),
+		sent_by_me_seen: Boolean(value.sent_by_me_seen),
 		failed_reason: value.failed_reason ?? null,
 		metadata: isRecord(value.metadata) ? value.metadata : {},
 		created_at: value.created_at ?? new Date().toISOString(),
@@ -119,6 +132,12 @@ export function buildOptimisticMessage(entry: OutboxEntry): Message {
 		client_message_id: entry.clientMessageId,
 		message_type: 'text',
 		delivery_status: entry.status,
+		direction: 'outbound',
+		origin: 'dashboard_manual',
+		external_status: entry.status === 'failed' ? 'failed' : entry.status === 'sent' ? 'sent' : 'pending',
+		reconciled_at: null,
+		webhook_seen: false,
+		sent_by_me_seen: false,
 		failed_reason: entry.status === 'failed' ? 'Falha ao enviar mensagem' : null,
 		metadata: {
 			source: 'outbox',
@@ -149,6 +168,26 @@ export function mergeMessagesWithOutbox(serverMessages: Message[], outboxEntries
 
 export function inferDeliveryStatus(sender: MessageSender): MessageDeliveryStatus {
 	return sender === 'patient' ? 'received' : 'sent'
+}
+
+export function inferDirection(sender: MessageSender): MessageDirection {
+	return sender === 'patient' ? 'inbound' : 'outbound'
+}
+
+export function inferOrigin(sender: MessageSender): MessageOrigin {
+	if (sender === 'bot') return 'bot'
+	if (sender === 'patient') return 'webhook_reconciled'
+	return 'dashboard_manual'
+}
+
+export function inferExternalStatus(value: PartialMessage): MessageExternalStatus {
+	if (value.sender === 'patient') return 'received'
+	if (value.delivery_status === 'failed') return 'failed'
+	if (value.delivery_status === 'delivered') return 'delivered'
+	if (value.delivery_status === 'read') return 'read'
+	if (value.delivery_status === 'queued' || value.delivery_status === 'sending') return 'pending'
+	if (value.delivery_status === 'sent') return 'sent'
+	return 'unknown'
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

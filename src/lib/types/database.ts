@@ -15,7 +15,30 @@ export type ConversationStatus =
 
 export type MessageSender = 'patient' | 'human' | 'bot'
 export type MessageType = 'text'
-export type MessageDeliveryStatus = 'queued' | 'sending' | 'sent' | 'received' | 'failed'
+export type MessageDeliveryStatus =
+	| 'queued'
+	| 'sending'
+	| 'sent'
+	| 'delivered'
+	| 'read'
+	| 'received'
+	| 'failed'
+export type MessageDirection = 'inbound' | 'outbound'
+export type MessageOrigin =
+	| 'dashboard_manual'
+	| 'bot'
+	| 'whatsapp_app'
+	| 'notification'
+	| 'webhook_reconciled'
+export type MessageExternalStatus =
+	| 'pending'
+	| 'sent'
+	| 'delivered'
+	| 'read'
+	| 'failed'
+	| 'received'
+	| 'unknown'
+export type ConversationReconciliationState = 'healthy' | 'needs_reconcile' | 'degraded'
 
 // Canonical types live in bot/context — imported locally and re-exported for consumers
 import type { BotState, BotContext } from '@/lib/bot/context'
@@ -37,6 +60,9 @@ export interface Conversation {
 	last_message_at: string | null
 	last_message_preview: string | null
 	last_patient_message_at: string | null
+	last_external_message_at: string | null
+	last_reconciled_at: string | null
+	reconciliation_state: ConversationReconciliationState
 	unread_count: number
 	created_at: string
 	updated_at: string
@@ -51,6 +77,12 @@ export interface Message {
 	client_message_id: string | null
 	message_type: MessageType
 	delivery_status: MessageDeliveryStatus
+	direction: MessageDirection
+	origin: MessageOrigin
+	external_status: MessageExternalStatus
+	reconciled_at: string | null
+	webhook_seen: boolean
+	sent_by_me_seen: boolean
 	failed_reason: string | null
 	metadata: Record<string, unknown>
 	created_at: string

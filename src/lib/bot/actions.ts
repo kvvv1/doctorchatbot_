@@ -4,8 +4,7 @@
  * Uses the admin client (bypasses RLS) since the bot acts on behalf of the clinic.
  */
 
-import { addDays, setHours, setMinutes, format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { addDays, setHours, setMinutes } from 'date-fns'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { interpolate } from './interpolate'
 import { zapiSendText } from '@/lib/zapi/client'
@@ -13,6 +12,12 @@ import {
   getBrazilianPhoneLookupCandidates,
   normalizeBrazilianPhone,
 } from '@/lib/utils/phone'
+import {
+  formatAppointmentDateTime,
+  formatAppointmentShortDate,
+  formatAppointmentShortTime,
+  formatAppointmentSlotLabel,
+} from '@/lib/utils/appointmentDateTime'
 import {
   confirmExternalAppointment,
   cancelExternalAppointment,
@@ -109,7 +114,7 @@ export function parseTimeText(timeText: string): { hours: number; minutes: numbe
  * e.g. "Segunda-feira, 14/04 às 10h00"
  */
 export function formatSlotLabel(date: Date): string {
-  return format(date, "EEEE, dd/MM 'às' HH'h'mm", { locale: ptBR })
+  return formatAppointmentSlotLabel(date)
 }
 
 // ---------------------------------------------------------------------------
@@ -302,8 +307,8 @@ export async function createAppointment(params: {
   }
 
   const label = formatSlotLabel(startsAt)
-  const dataStr = format(startsAt, "EEE, dd/MM", { locale: ptBR })
-  const horarioStr = format(startsAt, "HH'h'mm", { locale: ptBR })
+  const dataStr = formatAppointmentShortDate(startsAt)
+  const horarioStr = formatAppointmentShortTime(startsAt)
   const clinicAddress = await getClinicAddress(params.clinicId)
   const addressLine = clinicAddress ? `\n\n📍 ${clinicAddress}` : ''
   const notifSettings = await getConfirmNotificationSettings(params.clinicId)
@@ -424,9 +429,8 @@ export async function createAppointmentFromSlot(params: {
     console.error('[bot/actions] Failed to send immediate appointment notification:', notificationError)
   }
 
-  const slotDate = new Date(params.slot.startsAt)
-  const dataStr = format(slotDate, "EEE, dd/MM", { locale: ptBR })
-  const horarioStr = format(slotDate, "HH'h'mm", { locale: ptBR })
+  const dataStr = formatAppointmentShortDate(params.slot.startsAt)
+  const horarioStr = formatAppointmentShortTime(params.slot.startsAt)
   const clinicAddress = await getClinicAddress(params.clinicId)
   const addressLine = clinicAddress ? `\n\n📍 ${clinicAddress}` : ''
   const notifSettings = await getConfirmNotificationSettings(params.clinicId)
@@ -498,11 +502,10 @@ export async function cancelAppointment(
 
   let cancelMessage = '✅ Consulta cancelada com sucesso.'
   if (confirmTemplate && appointment?.starts_at) {
-    const d = new Date(appointment.starts_at)
     cancelMessage = interpolate(confirmTemplate, {
       nome: appointment.patient_name ?? '',
-      data: format(d, "EEE, dd/MM", { locale: ptBR }),
-      horario: format(d, "HH'h'mm", { locale: ptBR }),
+      data: formatAppointmentShortDate(appointment.starts_at),
+      horario: formatAppointmentShortTime(appointment.starts_at),
     })
   }
   return {
@@ -583,8 +586,7 @@ export async function confirmAppointmentAttendance(
 
 function templatesNotAvailableFallbackConfirmMessage(startsAt: string | null, addressLine = ''): string {
   if (!startsAt) return `✅ Presença confirmada com sucesso!${addressLine}\n\n0. Menu principal`
-  const d = new Date(startsAt)
-  return `✅ Presença confirmada!\n\n📅 ${format(d, "EEE, dd/MM 'às' HH:mm", { locale: ptBR })}${addressLine}\n\n0. Menu principal`
+  return `✅ Presença confirmada!\n\n📅 ${formatAppointmentDateTime(startsAt)}${addressLine}\n\n0. Menu principal`
 }
 
 /**
@@ -653,9 +655,8 @@ export async function rescheduleAppointment(params: {
     }
   }
 
-  const slotDate = new Date(params.slot.startsAt)
-  const dataStr = format(slotDate, "EEE, dd/MM", { locale: ptBR })
-  const horarioStr = format(slotDate, "HH'h'mm", { locale: ptBR })
+  const dataStr = formatAppointmentShortDate(params.slot.startsAt)
+  const horarioStr = formatAppointmentShortTime(params.slot.startsAt)
   // Ignore the old default template that says "encaminhar solicitação para equipe" —
   // that was written for the mode where the bot did NOT handle rescheduling.
   // When the bot successfully reschedules, always show a proper confirmation.
@@ -1161,7 +1162,7 @@ export async function notifyWaitlistOnSlotFree(
 
   const patientName = target.patient_name || 'Paciente'
   const slotLabel = startsAt
-    ? format(new Date(startsAt), "EEE, dd/MM 'às' HH'h'mm", { locale: ptBR })
+    ? formatAppointmentSlotLabel(startsAt)
     : 'em breve'
 
   const message = `Oi, ${patientName}! 👋\n\nUma vaga acabou de abrir na agenda:\n📅 *${slotLabel}*\n\nEsse horário está dentro da sua preferência! Quer agendar? Responda com *Agendar* para confirmar. 😊`

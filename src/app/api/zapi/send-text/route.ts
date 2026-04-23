@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { zapiSendChoices, zapiSendText, validateCredentials } from '@/lib/zapi/client';
+import { persistCanonicalMessage } from '@/lib/services/messageReconciliationService';
 import { assertSubscriptionActive } from '@/lib/services/subscriptionService';
 import { normalizePhoneForStorage } from '@/lib/utils/phone';
 
@@ -130,10 +131,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const trimmedClientMessageId =
+      typeof clientMessageId === 'string' && clientMessageId.trim()
+        ? clientMessageId.trim()
+        : null;
+
     if (!internalCall && typeof clientMessageId === 'string' && clientMessageId.trim()) {
       const { data: existingMessage, error: existingMessageError } = await supabase
         .from('messages')
-        .select('id, client_message_id, delivery_status')
+        .select('id, client_message_id, delivery_status, external_status, zapi_message_id')
         .eq('conversation_id', conversationId)
         .eq('client_message_id', clientMessageId.trim())
         .maybeSingle();
@@ -145,9 +151,11 @@ export async function POST(request: NextRequest) {
       if (existingMessage) {
         return NextResponse.json({
           ok: true,
-          messageId: existingMessage.id,
+          messageId: existingMessage.zapi_message_id || existingMessage.id,
+          zapiMessageId: existingMessage.zapi_message_id,
           clientMessageId: existingMessage.client_message_id,
           deliveryStatus: existingMessage.delivery_status,
+          externalStatus: existingMessage.external_status,
           duplicate: true,
         });
       }
@@ -206,7 +214,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Enviar mensagem via Z-API
+    // 5. Persistir outbox canônico antes do envio real
+    if (!internalCall) {
+      await persistCanonicalMessage({
+        supabase,
+        clinicId,
+        conversationId,
+        sender: 'human',
+        direction: 'outbound',
+        origin: 'dashboard_manual',
+        content: text,
+        clientMessageId: trimmedClientMessageId,
+        externalStatus: 'pending',
+        deliveryStatus: 'queued',
+        metadata: {
+          provider: 'zapi',
+          choicesCount: Array.isArray(choices) ? choices.length : 0,
+          outboxCreatedAt: new Date().toISOString(),
+        },
+        conversationStatus: 'in_progress',
+        botEnabled: false,
+      });
+    }
+
+    // 6. Enviar mensagem via Z-API
     let zapiResult;
     try {
       const normalizedChoices = Array.isArray(choices)
@@ -246,6 +277,28 @@ export async function POST(request: NextRequest) {
       }
     } catch (error) {
       console.error('[Send Text] Z-API send failed:', error);
+
+      if (!internalCall) {
+        await persistCanonicalMessage({
+          supabase,
+          clinicId,
+          conversationId,
+          sender: 'human',
+          direction: 'outbound',
+          origin: 'dashboard_manual',
+          content: text,
+          clientMessageId: trimmedClientMessageId,
+          externalStatus: 'failed',
+          deliveryStatus: 'failed',
+          failedReason: error instanceof Error ? error.message : String(error),
+          metadata: {
+            provider: 'zapi',
+            choicesCount: Array.isArray(choices) ? choices.length : 0,
+          },
+          conversationStatus: 'in_progress',
+          botEnabled: false,
+        });
+      }
       
       supabase.from('logs').insert({
         clinic_id: clinicId,
@@ -268,44 +321,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 7. Salvar mensagem no banco (only for non-internal calls, bot saves its own messages)
+    // 7. Confirmar mensagem no banco (only for non-internal calls, bot saves its own messages)
     if (!internalCall) {
-      const { error: messageError } = await supabase.from('messages').insert({
-        conversation_id: conversationId,
-        sender: 'human',
-        content: text,
-        zapi_message_id: zapiResult.messageId || null,
-        client_message_id: typeof clientMessageId === 'string' ? clientMessageId.trim() || null : null,
-        message_type: 'text',
-        delivery_status: 'sent',
-        metadata: {
-          provider: 'zapi',
+      try {
+        await persistCanonicalMessage({
+          supabase,
+          clinicId,
+          conversationId,
+          sender: 'human',
           direction: 'outbound',
-          choicesCount: Array.isArray(choices) ? choices.length : 0,
-        },
-      });
-
-      if (messageError) {
+          origin: 'dashboard_manual',
+          content: text,
+          zapiMessageId: zapiResult.messageId || null,
+          clientMessageId: trimmedClientMessageId,
+          externalStatus: 'sent',
+          deliveryStatus: 'sent',
+          metadata: {
+            provider: 'zapi',
+            choicesCount: Array.isArray(choices) ? choices.length : 0,
+          },
+          conversationStatus: 'in_progress',
+          botEnabled: false,
+        });
+      } catch (messageError) {
         console.error('[Send Text] Failed to save message:', messageError);
-
-        if ((messageError as { code?: string }).code === '23505' && typeof clientMessageId === 'string' && clientMessageId.trim()) {
-          const { data: existingMessage } = await supabase
-            .from('messages')
-            .select('id, client_message_id, delivery_status')
-            .eq('conversation_id', conversationId)
-            .eq('client_message_id', clientMessageId.trim())
-            .maybeSingle();
-
-          if (existingMessage) {
-            return NextResponse.json({
-              ok: true,
-              messageId: existingMessage.id,
-              clientMessageId: existingMessage.client_message_id,
-              deliveryStatus: existingMessage.delivery_status,
-              duplicate: true,
-            });
-          }
-        }
         
         supabase.from('logs').insert({
           clinic_id: clinicId,
@@ -316,7 +355,7 @@ export async function POST(request: NextRequest) {
             conversationId, 
             phone: normalizedPhone,
             zapiMessageId: zapiResult.messageId,
-            error: messageError.message 
+            error: messageError instanceof Error ? messageError.message : String(messageError),
           },
         });
 
@@ -367,8 +406,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       messageId: zapiResult.messageId,
-      clientMessageId: typeof clientMessageId === 'string' ? clientMessageId.trim() || null : null,
+      zapiMessageId: zapiResult.messageId,
+      clientMessageId: trimmedClientMessageId,
       deliveryStatus: 'sent',
+      externalStatus: 'sent',
     });
 
   } catch (error) {

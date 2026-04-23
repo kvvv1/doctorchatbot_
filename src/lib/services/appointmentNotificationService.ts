@@ -1,5 +1,3 @@
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   zapiSendChoices,
@@ -7,10 +5,14 @@ import {
   type ZapiChoiceOption,
   type ZapiCredentials,
 } from '@/lib/zapi/client'
+import { persistCanonicalMessage } from './messageReconciliationService'
 import {
   getBrazilianPhoneLookupCandidates,
   normalizePhoneForStorage,
 } from '@/lib/utils/phone'
+import {
+  getAppointmentTemplateParts,
+} from '@/lib/utils/appointmentDateTime'
 
 const DEFAULT_APPOINTMENT_CONFIRMED_TEMPLATE =
   'Ola {name}! Sua consulta foi agendada para {date} as {time}. Use os botoes abaixo para confirmar ou cancelar, se precisar.'
@@ -107,14 +109,14 @@ export function formatNotificationTemplate(
   appointment: Pick<AppointmentRecord, 'patient_name' | 'starts_at'>,
   patientNameOverride?: string | null
 ): string {
-  const startsAt = new Date(appointment.starts_at)
   const patientName = patientNameOverride || appointment.patient_name || 'Paciente'
+  const parts = getAppointmentTemplateParts(appointment.starts_at)
 
   return template
     .replace(/\{name\}/g, patientName)
-    .replace(/\{date\}/g, format(startsAt, "dd 'de' MMMM", { locale: ptBR }))
-    .replace(/\{time\}/g, format(startsAt, 'HH:mm'))
-    .replace(/\{day\}/g, format(startsAt, "EEEE, dd 'de' MMMM", { locale: ptBR }))
+    .replace(/\{date\}/g, parts.date)
+    .replace(/\{time\}/g, parts.time)
+    .replace(/\{day\}/g, parts.day)
 }
 
 async function getWhatsappCredentials(
@@ -145,6 +147,7 @@ async function getWhatsappCredentials(
 }
 
 async function persistOutgoingConversationMessage(params: {
+  clinicId: string
   conversationId: string
   content: string
   zapiMessageId?: string | null
@@ -153,27 +156,21 @@ async function persistOutgoingConversationMessage(params: {
   const supabase = createAdminClient()
   const now = new Date().toISOString()
 
-  await Promise.all([
-    supabase.from('messages').insert({
-      conversation_id: params.conversationId,
-      sender: 'bot',
-      content: params.content,
-      zapi_message_id: params.zapiMessageId || null,
-      message_type: 'text',
-      delivery_status: 'sent',
-      metadata: params.metadata || {},
-      created_at: now,
-      updated_at: now,
-    }),
-    supabase
-      .from('conversations')
-      .update({
-        last_message_at: now,
-        last_message_preview: params.content.substring(0, 100),
-        updated_at: now,
-      })
-      .eq('id', params.conversationId),
-  ])
+  await persistCanonicalMessage({
+    supabase,
+    clinicId: params.clinicId,
+    conversationId: params.conversationId,
+    sender: 'bot',
+    direction: 'outbound',
+    origin: 'notification',
+    content: params.content,
+    zapiMessageId: params.zapiMessageId || null,
+    externalStatus: 'sent',
+    deliveryStatus: 'sent',
+    metadata: params.metadata || {},
+    createdAt: now,
+    updatedAt: now,
+  })
 }
 
 export async function sendClinicNotificationMessage(params: {
@@ -202,6 +199,7 @@ export async function sendClinicNotificationMessage(params: {
 
     if (params.conversationId) {
       await persistOutgoingConversationMessage({
+        clinicId: params.clinicId,
         conversationId: params.conversationId,
         content: params.text,
         zapiMessageId: result.messageId || null,
