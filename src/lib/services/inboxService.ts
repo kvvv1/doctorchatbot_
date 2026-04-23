@@ -223,6 +223,22 @@ export async function saveFromMeMessage(data: {
 
     if (!conversation) return // No conversation yet — silently skip
 
+    // Content-based dedup fallback: catches cases where zapi_message_id is null
+    // (e.g. Z-API didn't return a messageId on send) and the send-text route saved
+    // the message without an ID — the fromMe webhook would create a duplicate otherwise.
+    const recentCutoff = new Date(Date.now() - 30000).toISOString()
+    const { data: existingByContent } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', conversation.id)
+      .eq('sender', 'human')
+      .eq('content', cleanText)
+      .gte('created_at', recentCutoff)
+      .limit(1)
+      .maybeSingle()
+
+    if (existingByContent) return // Already saved by send-text route — skip
+
     const messageTimestamp = timestamp
       ? new Date(timestamp * 1000).toISOString()
       : new Date().toISOString()
