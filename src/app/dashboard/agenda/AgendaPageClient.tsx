@@ -30,6 +30,7 @@ interface Appointment {
   conversation_id?: string
   provider: string
   provider_reference_id?: string
+  schedule_type?: string
 }
 
 type AppointmentUpdatePayload = {
@@ -156,6 +157,7 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
       patient_phone: apt.patient_phone,
       description: apt.description,
       source: normalizeAppointmentOrigin(apt).origin,
+      schedule_type: apt.schedule_type,
     },
   }))
 

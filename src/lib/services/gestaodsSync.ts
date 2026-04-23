@@ -1,6 +1,7 @@
 import { addDays, format, subDays } from 'date-fns'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { GestaoDSService } from '@/lib/services/gestaods'
+import { sendImmediateAppointmentConfirmation } from '@/lib/services/appointmentNotificationService'
 
 type ClinicIntegrationConfig = {
   id: string
@@ -126,7 +127,7 @@ export async function syncGestaoDSClinic(params: {
     }
 
     if (!existing) {
-      const { error: insertError } = await supabase
+      const { data: insertedAppointment, error: insertError } = await supabase
         .from('appointments')
         .insert({
           clinic_id: config.clinic_id,
@@ -135,11 +136,33 @@ export async function syncGestaoDSClinic(params: {
           provider_reference_id: externalId,
           ...payload,
         })
+        .select('id, starts_at, status, patient_phone')
+        .single()
 
       if (insertError) {
         summary.errors.push(`Erro ao criar agendamento ${externalId}: ${insertError.message}`)
       } else {
         summary.created += 1
+
+        const isFutureAppointment = new Date(startsAt) > new Date()
+        const isActiveStatus = sourceStatus === 'scheduled' || sourceStatus === 'confirmed'
+        const hasValidPhone = Boolean(patientPhone && patientPhone !== '00000000000')
+
+        if (insertedAppointment?.id && isFutureAppointment && isActiveStatus && hasValidPhone) {
+          try {
+            await sendImmediateAppointmentConfirmation({
+              clinicId: config.clinic_id,
+              appointmentId: insertedAppointment.id,
+              conversationId: null,
+            })
+          } catch (notificationError) {
+            const message =
+              notificationError instanceof Error
+                ? notificationError.message
+                : 'erro desconhecido ao enviar confirmacao'
+            summary.errors.push(`Erro ao enviar confirmacao do agendamento ${externalId}: ${message}`)
+          }
+        }
       }
 
       continue

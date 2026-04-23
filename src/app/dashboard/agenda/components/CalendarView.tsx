@@ -30,6 +30,7 @@ interface CalendarEvent {
     patient_phone: string
     description?: string
     professional_id?: string
+    schedule_type?: string
   }
 }
 
@@ -58,20 +59,36 @@ const STATUS_COLORS: Record<AppointmentStatus, { solid: string; dark: string; li
  */
 function CustomEvent({ event }: { event: CalendarEvent }) {
   const name = event.resource.patient_name
+  const isExam = event.resource.schedule_type === 'exame'
 
   return (
-    <span
-      style={{
-        display: 'block',
-        fontWeight: 700,
-        fontSize: '0.82rem',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        letterSpacing: '-0.01em',
-      }}
-    >
-      {name}
+    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden' }}>
+      {isExam && (
+        <span style={{
+          fontSize: '0.65rem',
+          fontWeight: 700,
+          background: '#f97316',
+          color: '#fff',
+          borderRadius: '3px',
+          padding: '0 4px',
+          flexShrink: 0,
+          lineHeight: '1.4',
+        }}>
+          EXAME
+        </span>
+      )}
+      <span
+        style={{
+          fontWeight: 700,
+          fontSize: '0.82rem',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          letterSpacing: '-0.01em',
+        }}
+      >
+        {name}
+      </span>
     </span>
   )
 }
@@ -79,6 +96,7 @@ function CustomEvent({ event }: { event: CalendarEvent }) {
 /** Evento na view Agenda – mais espaço, mostra descrição se houver */
 function AgendaEvent({ event }: { event: CalendarEvent }) {
   const colors = STATUS_COLORS[event.resource.status]
+  const isExam = event.resource.schedule_type === 'exame'
   const STATUS_LABEL: Record<AppointmentStatus, string> = {
     scheduled: 'Agendado',
     confirmed: 'Confirmado',
@@ -99,6 +117,20 @@ function AgendaEvent({ event }: { event: CalendarEvent }) {
           flexShrink: 0,
         }}
       />
+      {isExam && (
+        <span style={{
+          fontSize: '0.65rem',
+          fontWeight: 700,
+          background: '#f97316',
+          color: '#fff',
+          borderRadius: '3px',
+          padding: '0 4px',
+          flexShrink: 0,
+          lineHeight: '1.4',
+        }}>
+          EXAME
+        </span>
+      )}
       <span style={{ fontWeight: 700, color: '#111827', fontSize: '0.9rem' }}>
         {event.resource.patient_name}
       </span>

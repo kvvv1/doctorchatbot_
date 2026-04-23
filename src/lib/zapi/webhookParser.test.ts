@@ -108,4 +108,14 @@ describe('parseWebhookPayload', () => {
     expect(parsed.normalizedText).toBe('14h20')
     expect(parsed.messageId).toBe('3EB0376AE8089A9D60B983')
   })
+
+  it('normalizes incoming brazilian phones to the canonical storage format', () => {
+    const parsed = parseWebhookPayload({
+      instanceId: 'instance-1',
+      phone: '(11) 99876-5432',
+      body: 'Oi',
+    })
+
+    expect(parsed.phone).toBe('5511998765432')
+  })
 })

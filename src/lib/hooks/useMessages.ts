@@ -13,7 +13,9 @@ import {
 	setCachedMessages,
 } from '@/lib/chat/store'
 
-const FALLBACK_REFRESH_INTERVAL = 60000
+const NORMAL_REFRESH_INTERVAL = 30000
+const DEGRADED_REFRESH_INTERVAL = 20000
+const CHANNEL_HEALTHCHECK_INTERVAL = 15000
 const IS_LOCAL = process.env.NEXT_PUBLIC_LOCAL_DB === 'sqlite'
 
 interface UseMessagesOptions {
@@ -111,6 +113,10 @@ export function useMessages({
 	const [outboxEntries, setOutboxEntries] = useState<OutboxEntry[]>([])
 	const [loading, setLoading] = useState(false)
 	const [error, setError] = useState<string | null>(null)
+	const [channelKey, setChannelKey] = useState(0)
+	const [channelStatus, setChannelStatus] = useState('CLOSED')
+	const [degradedMode, setDegradedMode] = useState(false)
+	const [lastRealtimeEventAt, setLastRealtimeEventAt] = useState(() => Date.now())
 
 	const syncOutbox = useCallback(async () => {
 		if (!conversationId) {
@@ -168,7 +174,6 @@ export function useMessages({
 				} else {
 					const supabase = createClient()
 
-					// Verify session is valid — refresh if expired
 					const {
 						data: { session },
 						error: sessionError,
@@ -259,7 +264,7 @@ export function useMessages({
 
 		const supabase = createClient()
 		const channel = supabase
-			.channel(`messages:${conversationId}`)
+			.channel(`messages:${conversationId}:${channelKey}`)
 			.on(
 				'postgres_changes',
 				{
@@ -273,6 +278,9 @@ export function useMessages({
 					new: Message
 					old: Message
 				}) => {
+					setLastRealtimeEventAt(Date.now())
+					setDegradedMode(false)
+
 					const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE'
 
 					setServerMessages((current) => {
@@ -294,15 +302,25 @@ export function useMessages({
 				},
 			)
 			.subscribe((status: string) => {
-				if (status === 'CHANNEL_ERROR') {
+				setChannelStatus(status)
+
+				if (status === 'SUBSCRIBED') {
+					setLastRealtimeEventAt(Date.now())
+					setDegradedMode(false)
 					void fetchMessages(false)
+				}
+
+				if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+					setDegradedMode(true)
+					void fetchMessages(false)
+					window.setTimeout(() => setChannelKey((current) => current + 1), 1000)
 				}
 			})
 
 		return () => {
 			supabase.removeChannel(channel)
 		}
-	}, [cleanupAcknowledgedEntries, conversationId, enabled, fetchMessages])
+	}, [channelKey, cleanupAcknowledgedEntries, conversationId, enabled, fetchMessages])
 
 	const flushPendingEntries = useCallback(async () => {
 		if (!conversationId || !phone || !navigator.onLine) return
@@ -331,10 +349,31 @@ export function useMessages({
 				void fetchMessages(false)
 				void flushPendingEntries()
 			}
-		}, FALLBACK_REFRESH_INTERVAL)
+		}, degradedMode ? DEGRADED_REFRESH_INTERVAL : NORMAL_REFRESH_INTERVAL)
+
+		const healthcheckInterval = window.setInterval(() => {
+			if (document.hidden) return
+
+			const staleForMs = Date.now() - lastRealtimeEventAt
+			const shouldReconnect =
+				channelStatus === 'CHANNEL_ERROR' ||
+				channelStatus === 'TIMED_OUT' ||
+				channelStatus === 'CLOSED' ||
+				staleForMs > 45000
+
+			if (!shouldReconnect) return
+
+			setDegradedMode(true)
+			void fetchMessages(false)
+			void flushPendingEntries()
+			setChannelKey((current) => current + 1)
+		}, CHANNEL_HEALTHCHECK_INTERVAL)
 
 		const handleResume = () => {
 			if (!document.hidden) {
+				if (channelStatus !== 'SUBSCRIBED') {
+					setChannelKey((current) => current + 1)
+				}
 				void fetchMessages(false)
 				void flushPendingEntries()
 			}
@@ -346,16 +385,17 @@ export function useMessages({
 
 		return () => {
 			window.clearInterval(interval)
+			window.clearInterval(healthcheckInterval)
 			window.removeEventListener('focus', handleResume)
 			window.removeEventListener('online', handleResume)
 			document.removeEventListener('visibilitychange', handleResume)
 		}
-	}, [conversationId, enabled, fetchMessages, flushPendingEntries])
+	}, [channelStatus, conversationId, degradedMode, enabled, fetchMessages, flushPendingEntries, lastRealtimeEventAt])
 
 	const sendMessage = useCallback(
 		async (content: string) => {
 			if (!conversationId || !phone) {
-				throw new Error('Conversa indisponível para envio')
+				throw new Error('Conversa indisponivel para envio')
 			}
 
 			const clientMessageId = crypto.randomUUID()
@@ -398,7 +438,7 @@ export function useMessages({
 		async (clientMessageId: string) => {
 			const target = outboxEntries.find((entry) => entry.clientMessageId === clientMessageId)
 			if (!target) {
-				throw new Error('Mensagem pendente não encontrada')
+				throw new Error('Mensagem pendente nao encontrada')
 			}
 
 			await flushEntry({

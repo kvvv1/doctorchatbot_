@@ -7,6 +7,7 @@ import SLAIndicator from './SLAIndicator'
 import { format, isToday, isYesterday } from 'date-fns'
 import type { ConversationStatusFilter } from '../workspace'
 import { normalizeBrazilianPhone } from '@/lib/utils/phone'
+import { getConversationMode, needsHumanAttention } from '@/lib/conversations/mode'
 
 interface ConversationListProps {
 	conversations: Conversation[]
@@ -81,8 +82,6 @@ export default function ConversationList({
 
 		return phone
 	}
-
-	const getStatusLabel = (_status: ConversationStatusFilter) => ''
 
 	return (
 		<div className="flex h-full w-full flex-col bg-white">
@@ -180,7 +179,8 @@ export default function ConversationList({
 						{conversations.map(conversation => {
 							const isSelected = conversation.id === selectedId
 							const initials = getInitials(conversation.patient_name, conversation.patient_phone)
-							const needsHumanAttention = !conversation.bot_enabled && conversation.status !== 'done'
+							const conversationMode = getConversationMode(conversation)
+							const requiresHuman = needsHumanAttention(conversation) && conversation.status !== 'done'
 							const unreadCount = conversation.unread_count ?? 0
 							const hasUnread = unreadCount > 0
 
@@ -223,7 +223,7 @@ export default function ConversationList({
 										<div className="min-w-0 flex-1">
 											<div className="flex items-baseline justify-between gap-2">
 												<div className="min-w-0">
-													<p className={`truncate text-sm ${needsHumanAttention || hasUnread ? 'font-semibold text-neutral-900' : 'font-medium text-neutral-900'}`}>
+													<p className={`truncate text-sm ${requiresHuman || hasUnread ? 'font-semibold text-neutral-900' : 'font-medium text-neutral-900'}`}>
 														{conversation.patient_name || 'Sem nome'}
 													</p>
 													<p className="mt-0.5 truncate text-[11px] text-neutral-500">
@@ -249,12 +249,12 @@ export default function ConversationList({
 													{conversation.last_message_preview || 'Sem mensagens ainda'}
 												</p>
 												<div className="shrink-0 flex items-center gap-1">
-													{needsHumanAttention ? (
+													{conversationMode !== 'bot' ? (
 														<span className="inline-flex items-center gap-0.5 rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-800">
 															<UserCircle className="size-2.5" />
-															HUMANO
+															{conversationMode === 'waiting_human' ? 'FILA HUM.' : 'HUMANO'}
 														</span>
-													) : conversation.bot_enabled && (
+													) : (
 														<span className="inline-flex items-center gap-0.5 rounded-full border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[9px] font-medium text-indigo-600">
 															<Bot className="size-2.5" />
 															BOT
@@ -286,7 +286,7 @@ export default function ConversationList({
 									)}
 
 									{/* Human attention indicator */}
-									{needsHumanAttention && !isSelected && (
+									{requiresHuman && !isSelected && (
 										<div className="absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-amber-400 to-amber-500" />
 									)}
 								</button>

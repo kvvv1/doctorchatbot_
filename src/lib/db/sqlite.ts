@@ -68,6 +68,9 @@ function runMigrations(db: Database.Database) {
       updated_at               TEXT NOT NULL
     );
 
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_conversations_unique_clinic_phone
+      ON conversations(clinic_id, patient_phone);
+
     CREATE TABLE IF NOT EXISTS messages (
       id               TEXT PRIMARY KEY,
       conversation_id  TEXT NOT NULL,
@@ -218,6 +221,13 @@ function runMigrations(db: Database.Database) {
       metadata   TEXT DEFAULT '{}',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS bot_processing_locks (
+      conversation_id TEXT PRIMARY KEY,
+      locked_until    TEXT NOT NULL,
+      created_at      TEXT NOT NULL,
+      updated_at      TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS working_hours (

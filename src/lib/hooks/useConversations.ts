@@ -13,7 +13,9 @@ import {
 	setCachedConversations,
 } from '@/lib/chat/store'
 
-const FALLBACK_REFRESH_INTERVAL = 90000
+const NORMAL_REFRESH_INTERVAL = 30000
+const DEGRADED_REFRESH_INTERVAL = 20000
+const CHANNEL_HEALTHCHECK_INTERVAL = 15000
 const IS_LOCAL = process.env.NEXT_PUBLIC_LOCAL_DB === 'sqlite'
 
 interface UseConversationsOptions {
@@ -44,6 +46,10 @@ export function useConversations({
 	const [conversations, setConversations] = useState<Conversation[]>([])
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
+	const [channelKey, setChannelKey] = useState(0)
+	const [channelStatus, setChannelStatus] = useState('CLOSED')
+	const [degradedMode, setDegradedMode] = useState(false)
+	const [lastRealtimeEventAt, setLastRealtimeEventAt] = useState(() => Date.now())
 
 	const fetchConversations = useCallback(
 		async (isInitial = false) => {
@@ -68,14 +74,13 @@ export function useConversations({
 				} else {
 					const supabase = createClient()
 
-					// Verify session is valid — refresh if expired
 					const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 					if (!session || sessionError) {
 						console.warn('[useConversations] No active session, attempting refresh...')
 						const { error: refreshError } = await supabase.auth.refreshSession()
 						if (refreshError) {
-							console.error('[useConversations] Session refresh failed — user must log in again:', refreshError.message)
-							setError('Sessão expirada. Por favor, faça login novamente.')
+							console.error('[useConversations] Session refresh failed:', refreshError.message)
+							setError('Sessao expirada. Por favor, faca login novamente.')
 							setLoading(false)
 							return
 						}
@@ -150,7 +155,7 @@ export function useConversations({
 
 		const supabase = createClient()
 		const channel = supabase
-			.channel(`conversations:${clinicId}`)
+			.channel(`conversations:${clinicId}:${channelKey}`)
 			.on(
 				'postgres_changes',
 				{
@@ -164,6 +169,9 @@ export function useConversations({
 					new: Conversation
 					old: Conversation
 				}) => {
+					setLastRealtimeEventAt(Date.now())
+					setDegradedMode(false)
+
 					const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE'
 					const nextLike =
 						eventType === 'DELETE'
@@ -178,15 +186,25 @@ export function useConversations({
 				},
 			)
 			.subscribe((status: string) => {
-				if (status === 'CHANNEL_ERROR') {
+				setChannelStatus(status)
+
+				if (status === 'SUBSCRIBED') {
+					setLastRealtimeEventAt(Date.now())
+					setDegradedMode(false)
 					void fetchConversations(false)
+				}
+
+				if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+					setDegradedMode(true)
+					void fetchConversations(false)
+					window.setTimeout(() => setChannelKey((current) => current + 1), 1000)
 				}
 			})
 
 		return () => {
 			supabase.removeChannel(channel)
 		}
-	}, [clinicId, enabled, fetchConversations])
+	}, [channelKey, clinicId, enabled, fetchConversations])
 
 	useEffect(() => {
 		if (!enabled || !clinicId) return
@@ -195,10 +213,30 @@ export function useConversations({
 			if (!document.hidden) {
 				void fetchConversations(false)
 			}
-		}, FALLBACK_REFRESH_INTERVAL)
+		}, degradedMode ? DEGRADED_REFRESH_INTERVAL : NORMAL_REFRESH_INTERVAL)
+
+		const healthcheckInterval = window.setInterval(() => {
+			if (document.hidden) return
+
+			const staleForMs = Date.now() - lastRealtimeEventAt
+			const shouldReconnect =
+				channelStatus === 'CHANNEL_ERROR' ||
+				channelStatus === 'TIMED_OUT' ||
+				channelStatus === 'CLOSED' ||
+				staleForMs > 45000
+
+			if (!shouldReconnect) return
+
+			setDegradedMode(true)
+			void fetchConversations(false)
+			setChannelKey((current) => current + 1)
+		}, CHANNEL_HEALTHCHECK_INTERVAL)
 
 		const handleVisibilityChange = () => {
 			if (!document.hidden) {
+				if (channelStatus !== 'SUBSCRIBED') {
+					setChannelKey((current) => current + 1)
+				}
 				void fetchConversations(false)
 			}
 		}
@@ -208,10 +246,11 @@ export function useConversations({
 
 		return () => {
 			window.clearInterval(interval)
+			window.clearInterval(healthcheckInterval)
 			window.removeEventListener('focus', handleVisibilityChange)
 			document.removeEventListener('visibilitychange', handleVisibilityChange)
 		}
-	}, [clinicId, enabled, fetchConversations])
+	}, [channelStatus, clinicId, degradedMode, enabled, fetchConversations, lastRealtimeEventAt])
 
 	const updateConversation = useCallback(
 		(conversationId: string, patch: Partial<Conversation>) => {

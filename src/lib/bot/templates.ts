@@ -430,6 +430,119 @@ Posso ajudar com alguma dessas opções:
   technicalError: withMenuHint(`Ops! Tive um problema técnico. Pode tentar novamente em instantes?
 
 Se o problema persistir, use a opção *5 — Falar com secretária*.`),
+
+  // -------------------------------------------------------------------------
+  // Exame — agendamento
+  // -------------------------------------------------------------------------
+  askExamForWhom: withMenuHint(`Para quem é esse exame? 👥
+
+1️⃣ Para mim
+2️⃣ Para outra pessoa
+3️⃣ Para mais de uma pessoa`),
+
+  askExamType: withMenuHint(`Vou agendar seu exame! 🩺
+
+Seu atendimento será:
+
+1️⃣ Particular
+2️⃣ Convênio`),
+
+  examParticularTransfer: `Para exames *Particulares*, nossa secretária cuida do agendamento pessoalmente. 👩‍⚕️
+
+Vou te transferir agora!`,
+
+  examToHuman: `Para agendar exames, nossa secretária vai te ajudar pessoalmente. 👩‍⚕️
+
+⏳ Aguarde um momento, alguém da nossa equipe entrará em contato em breve.
+
+0. Menu principal`,
+
+  scheduleExamAskName: withMenuHint(`Ótimo! Vou agendar seu exame. 🩺
+
+Por favor, me informe seu *nome completo*:`),
+
+  // Exam day list (mirrors scheduleDayList but says "exame")
+  scheduleDayListExame: (days: DayOption[], hasMore: boolean) => {
+    const lines = days.map((d, i) => `${i + 1}️⃣ ${d.label}`).join('\n')
+    let nextOption = days.length + 1
+    const moreOption = hasMore ? `\n${nextOption}️⃣ 📅 Ver mais datas` : ''
+    if (hasMore) nextOption++
+    const attendantOption = `\n${nextOption}️⃣ ☎️ Falar com atendente`
+    nextOption++
+    const menuOption = `\n${nextOption}️⃣ Voltar ao menu principal`
+    return `📅 Escolha o dia do exame:\n\n${lines}${moreOption}${attendantOption}${menuOption}`
+  },
+
+  // -------------------------------------------------------------------------
+  // Exame — reagendamento
+  // -------------------------------------------------------------------------
+  rescheduleExamToHuman: `Para *remarcar* seu exame, nossa secretária vai te ajudar pessoalmente. 👩‍⚕️
+
+⏳ Aguarde um momento, alguém da nossa equipe entrará em contato em breve.
+
+0. Menu principal`,
+
+  rescheduleExamNoAppointments: `Não encontrei exames agendados para o seu número. 🔍
+
+Para remarcar, você precisa ter um exame ativo. Posso ajudar com:
+
+1️⃣ Agendar um exame
+2️⃣ Falar com a secretária`,
+
+  whichExamReschedule: (appointments: AppointmentSummary[]) => {
+    const typeLabel = (a: AppointmentSummary) => a.appointmentType === 'convenio' ? ' · Convênio' : a.appointmentType === 'particular' ? ' · Particular' : ''
+    const nameLabel = (a: AppointmentSummary) => a.patientName ? ` · ${a.patientName.split(' ')[0]}` : ''
+    const lines = appointments.map((a, i) => `${i + 1}️⃣ ${a.label}${typeLabel(a)}${nameLabel(a)}`).join('\n')
+    return withMenuOption(`Encontrei ${appointments.length} exame(s) agendado(s). Qual deseja *remarcar*?\n\n${lines}`, appointments.length + 1)
+  },
+
+  rescheduleExamConfirmType: (label: string, tipo: string) => {
+    if (tipo === 'particular') {
+      return withMenuOption(`Seu exame é:\n📅 *${label}* · Particular\n\nDeseja remarcar este horário?\n\n1️⃣ Sim, remarcar`, 2)
+    }
+    return withMenuOption(`Seu exame é:\n📅 *${label}* · Convênio\n\nDeseja remarcar como:\n\n1️⃣ Manter Convênio\n2️⃣ Mudar para Particular`, 3)
+  },
+
+  rescheduleExamConfirmTypeUnknown: (label: string) =>
+    withMenuOption(`Seu exame:\n📅 *${label}*\n\nQual é o tipo do atendimento?\n\n1️⃣ Particular\n2️⃣ Convênio`, 3),
+
+  // -------------------------------------------------------------------------
+  // Exame — cancelamento
+  // -------------------------------------------------------------------------
+  cancelExamToHuman: `Para *cancelar* seu exame, nossa secretária vai te ajudar. 👩‍⚕️
+
+⏳ Aguarde um momento, alguém da nossa equipe entrará em contato em breve.
+
+0. Menu principal`,
+
+  cancelExamNoAppointments: `Não encontrei exames agendados para o seu número. 🔍
+
+Não há nada para cancelar no momento.`,
+
+  whichExamCancel: (appointments: AppointmentSummary[]) => {
+    const typeLabel = (a: AppointmentSummary) => a.appointmentType === 'convenio' ? ' · Convênio' : a.appointmentType === 'particular' ? ' · Particular' : ''
+    const nameLabel = (a: AppointmentSummary) => a.patientName ? ` · ${a.patientName.split(' ')[0]}` : ''
+    const lines = appointments.map((a, i) => `${i + 1}️⃣ ${a.label}${typeLabel(a)}${nameLabel(a)}`).join('\n')
+    return withMenuOption(`Encontrei ${appointments.length} exame(s) agendado(s). Qual deseja *cancelar*?\n\n${lines}`, appointments.length + 1)
+  },
+
+  cancelExamConfirmSingle: (appointment: AppointmentSummary) => {
+    const nameStr = appointment.patientName ? ` — *${appointment.patientName.split(' ')[0]}*` : ''
+    return withMenuOption(`Você deseja *cancelar* o exame do dia:\n📅 ${appointment.label}${nameStr}\n\n1️⃣ Sim, cancelar\n2️⃣ Não, manter`, 3)
+  },
+
+  cancelExamWithoutWaitlist: `✅ Exame cancelado.
+
+Se precisar agendar novamente no futuro, é só chamar! Obrigado. 😊
+
+0. Menu principal`,
+
+  cancelExamAskType: withMenuHint(`Entendido! Para cancelar o exame, me diga:
+
+Seu atendimento é:
+
+1️⃣ Particular
+2️⃣ Convênio`),
 }
 
 // ---------------------------------------------------------------------------

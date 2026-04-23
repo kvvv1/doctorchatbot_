@@ -40,6 +40,11 @@ const MENU_OPTIONS_MAP: Record<MenuKey, Omit<MenuOption, 'key'>> = {
 		description: 'Pacientes podem agendar novas consultas',
 		emoji: '📅',
 	},
+	schedule_exam: {
+		label: 'Agendar exame',
+		description: 'Pacientes podem iniciar agendamento de exames',
+		emoji: '🧪',
+	},
 	view_appointments: {
 		label: 'Ver meus agendamentos',
 		description: 'Pacientes podem visualizar seus agendamentos',
@@ -69,6 +74,7 @@ const MENU_OPTIONS_MAP: Record<MenuKey, Omit<MenuOption, 'key'>> = {
 
 const DEFAULT_ORDER: MenuKey[] = [
 	'schedule',
+	'schedule_exam',
 	'view_appointments',
 	'reschedule',
 	'cancel',
@@ -78,16 +84,13 @@ const DEFAULT_ORDER: MenuKey[] = [
 
 const DEFAULT_OPTIONS: NonNullable<BotSettings['menu_options']> = {
 	schedule: true,
+	schedule_exam: false,
 	view_appointments: true,
 	reschedule: true,
 	cancel: true,
 	attendant: true,
 	waitlist: false,
 }
-
-// ---------------------------------------------------------------------------
-// Sortable row
-// ---------------------------------------------------------------------------
 
 interface SortableRowProps {
 	option: MenuOption
@@ -112,48 +115,44 @@ function SortableRow({ option, position, enabled, onToggle }: SortableRowProps) 
 		<div
 			ref={setNodeRef}
 			style={style}
-			className={`flex items-center gap-3 p-3 bg-white rounded-lg border transition-colors ${
+			className={`flex items-center gap-3 rounded-lg border bg-white p-3 transition-colors ${
 				isDragging ? 'border-blue-400 shadow-md' : 'border-slate-200 hover:border-blue-300'
 			}`}
 		>
-			{/* Drag handle */}
 			<button
 				type="button"
 				{...attributes}
 				{...listeners}
-				className="touch-none cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 flex-shrink-0"
+				className="touch-none flex-shrink-0 cursor-grab text-slate-400 hover:text-slate-600 active:cursor-grabbing"
 				aria-label="Arrastar para reordenar"
 			>
 				<GripVertical className="h-5 w-5" />
 			</button>
 
-			{/* Position badge — shows dynamic number based on enabled items */}
 			<span
-				className={`flex-shrink-0 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${
+				className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${
 					enabled ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'
 				}`}
 			>
 				{enabled ? position : '—'}
 			</span>
 
-			{/* Emoji + label + description */}
-			<div className="flex-1 min-w-0">
+			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-2">
 					<span className="text-base">{option.emoji}</span>
 					<span
-						className={`font-medium text-sm ${enabled ? 'text-slate-800' : 'text-slate-400'}`}
+						className={`text-sm font-medium ${enabled ? 'text-slate-800' : 'text-slate-400'}`}
 					>
 						{option.label}
 					</span>
 				</div>
-				<p className="text-xs text-slate-400 mt-0.5 truncate">{option.description}</p>
+				<p className="mt-0.5 truncate text-xs text-slate-400">{option.description}</p>
 			</div>
 
-			{/* Toggle */}
 			<button
 				type="button"
 				onClick={() => onToggle(option.key)}
-				className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ${
+				className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
 					enabled ? 'bg-blue-600' : 'bg-slate-300'
 				}`}
 			>
@@ -167,43 +166,33 @@ function SortableRow({ option, position, enabled, onToggle }: SortableRowProps) 
 	)
 }
 
-// ---------------------------------------------------------------------------
-// Main editor
-// ---------------------------------------------------------------------------
-
 export default function BotMenuOptionsEditor({ settings, onChange }: BotMenuOptionsEditorProps) {
 	const [isOpen, setIsOpen] = useState(false)
 
 	const menuOptions = settings.menu_options ?? DEFAULT_OPTIONS
-
-	// Merge stored order with any new keys added to MENU_OPTIONS_MAP that the clinic
-	// doesn't have yet in their saved menu_order (e.g. 'waitlist' added later).
 	const storedOrder: MenuKey[] = (settings.menu_order as MenuKey[] | undefined) ?? DEFAULT_ORDER
 	const allKnownKeys = Object.keys(MENU_OPTIONS_MAP) as MenuKey[]
-	const missingKeys = allKnownKeys.filter((k) => !storedOrder.includes(k))
+	const missingKeys = allKnownKeys.filter((key) => !storedOrder.includes(key))
 	const menuOrder: MenuKey[] = [...storedOrder, ...missingKeys]
 
-	// Build ordered list of option objects
 	const orderedOptions: MenuOption[] = menuOrder
 		.filter((key): key is MenuKey => key in MENU_OPTIONS_MAP)
 		.map((key) => ({ key, ...MENU_OPTIONS_MAP[key] }))
 
-	// Dynamic position counter (only counts enabled items above current)
 	function getPosition(key: MenuKey): number {
-		let pos = 0
-		for (const k of menuOrder) {
-			if (menuOptions[k as MenuKey]) pos++
-			if (k === key) return pos
+		let position = 0
+		for (const currentKey of menuOrder) {
+			if (menuOptions[currentKey as MenuKey]) position += 1
+			if (currentKey === key) return position
 		}
-		return pos
+		return position
 	}
 
-	const enabledCount = menuOrder.filter((k) => menuOptions[k as MenuKey]).length
+	const enabledCount = menuOrder.filter((key) => menuOptions[key as MenuKey]).length
 
-	// Sensors support both pointer (desktop) and touch (mobile)
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-		useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
+		useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
 	)
 
 	const handleDragEnd = (event: DragEndEvent) => {
@@ -211,8 +200,7 @@ export default function BotMenuOptionsEditor({ settings, onChange }: BotMenuOpti
 		if (!over || active.id === over.id) return
 		const oldIndex = menuOrder.indexOf(active.id as MenuKey)
 		const newIndex = menuOrder.indexOf(over.id as MenuKey)
-		const newOrder = arrayMove(menuOrder, oldIndex, newIndex)
-		onChange({ ...settings, menu_order: newOrder })
+		onChange({ ...settings, menu_order: arrayMove(menuOrder, oldIndex, newIndex) })
 	}
 
 	const handleToggle = (key: MenuKey) => {
@@ -223,12 +211,11 @@ export default function BotMenuOptionsEditor({ settings, onChange }: BotMenuOpti
 	}
 
 	return (
-		<div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-			{/* Header */}
+		<div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 			<button
 				type="button"
 				onClick={() => setIsOpen(!isOpen)}
-				className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+				className="flex w-full items-center justify-between px-6 py-4 transition-colors hover:bg-slate-50"
 			>
 				<div className="flex items-center gap-3">
 					<span className="text-xl">📋</span>
@@ -244,10 +231,9 @@ export default function BotMenuOptionsEditor({ settings, onChange }: BotMenuOpti
 				/>
 			</button>
 
-			{/* Collapsible content */}
 			{isOpen && (
-				<div className="border-t border-slate-200 px-6 py-4 bg-slate-50">
-					<p className="text-sm text-slate-600 mb-4">
+				<div className="border-t border-slate-200 bg-slate-50 px-6 py-4">
+					<p className="mb-4 text-sm text-slate-600">
 						Arraste as linhas para reordenar. Ative ou desative cada opção com o toggle.
 					</p>
 
@@ -271,22 +257,21 @@ export default function BotMenuOptionsEditor({ settings, onChange }: BotMenuOpti
 						</SortableContext>
 					</DndContext>
 
-					<div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+					<div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
 						<p className="text-xs text-blue-800">
 							<strong>💡 Dica:</strong> A numeração no WhatsApp reflete a ordem e somente as opções ativadas.
 						</p>
 					</div>
 
-					{/* Waitlist notifications toggle — shown only when waitlist option is enabled */}
 					{!!menuOptions.waitlist && (
-						<div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+						<div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
 							<div className="flex items-start justify-between gap-3">
 								<div className="flex-1">
 									<p className="text-sm font-medium text-amber-900">
 										🔔 Notificações automáticas de encaixe
 									</p>
-									<p className="text-xs text-amber-700 mt-1">
-										Quando ativado, o bot notifica automaticamente o próximo paciente da lista de espera ao surgir um horário livre (cancelamento ou confirmação de presença).
+									<p className="mt-1 text-xs text-amber-700">
+										Quando ativado, o bot notifica automaticamente o próximo paciente da lista de espera ao surgir um horário livre.
 									</p>
 								</div>
 								<button
@@ -298,7 +283,7 @@ export default function BotMenuOptionsEditor({ settings, onChange }: BotMenuOpti
 												!(settings.waitlist_notifications_enabled ?? true),
 										})
 									}
-									className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 mt-0.5 ${
+									className={`relative mt-0.5 inline-flex h-5 w-9 items-center rounded-full transition-colors ${
 										(settings.waitlist_notifications_enabled ?? true)
 											? 'bg-amber-500'
 											: 'bg-slate-300'

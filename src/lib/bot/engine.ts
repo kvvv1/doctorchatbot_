@@ -165,7 +165,7 @@ export async function handleBotTurn(
       return handleConvenioSemCadastro(userMessage, ctx, botSettings)
 
     case 'agendar_nome':
-      return handleAgendarNome(userMessage, ctx)
+      return handleAgendarNome(userMessage, ctx, botSettings, clinicId)
 
     case 'agendar_cpf':
       return handleAgendarCpf(conversationId, userMessage, ctx, botSettings, clinicId)
@@ -195,10 +195,19 @@ export async function handleBotTurn(
       return handleAgendarAlterarCampo(userMessage, ctx, botSettings, clinicId)
 
     case 'agendar_alterar_paciente':
-      return handleAgendarAlterarPaciente(userMessage, ctx)
+      return handleAgendarAlterarPaciente(userMessage, ctx, botSettings, clinicId)
 
     case 'agendar_sem_slots_convenio':
       return await handleAgendarSemSlotsConvenio(userMessage, ctx, botSettings, clinicId)
+
+    case 'agendar_exame_tipo':
+      return handleAgendarExameTipo(userMessage, ctx, botSettings, clinicId)
+
+    case 'agendar_exame_convenio':
+      return handleAgendarExameConvenio(userMessage, ctx, botSettings, clinicId)
+
+    case 'agendar_exame_sem_slots_convenio':
+      return await handleAgendarExameSemSlotsConvenio(userMessage, ctx, botSettings, clinicId)
 
     case 'reagendar_qual':
       return handleQualAppointment(userMessage, ctx, 'reagendar', botSettings, clinicId)
@@ -230,6 +239,18 @@ export async function handleBotTurn(
     case 'reagendar_sem_slots_convenio':
       return await handleReagendarSemSlotsConvenio(userMessage, ctx, botSettings, clinicId)
 
+    case 'reagendar_exame_qual':
+      return handleQualExame(userMessage, ctx, 'reagendar', botSettings, clinicId)
+
+    case 'reagendar_exame_manter_tipo':
+      return handleReagendarExameManterTipo(userMessage, ctx, botSettings, clinicId)
+
+    case 'reagendar_exame_convenio':
+      return handleReagendarExameConvenio(userMessage, ctx, botSettings, clinicId)
+
+    case 'reagendar_exame_sem_slots_convenio':
+      return await handleReagendarExameSemSlotsConvenio(userMessage, ctx, botSettings, clinicId)
+
     case 'cancelar_qual':
       return handleQualAppointment(userMessage, ctx, 'cancelar', botSettings, clinicId)
 
@@ -241,6 +262,12 @@ export async function handleBotTurn(
 
     case 'cancelar_encaixe':
       return handleCancelarEncaixe(conversationId, userMessage, ctx, clinicId, botSettings)
+
+    case 'cancelar_exame_qual':
+      return handleQualExame(userMessage, ctx, 'cancelar', botSettings, clinicId)
+
+    case 'cancelar_exame_tipo':
+      return handleCancelarExameTipo(userMessage, ctx, botSettings, clinicId)
 
     case 'audio_recebido': {
       const escapedAudio = userMessage.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
@@ -323,8 +350,25 @@ async function handleMenu(
       return {
         message: templates.askScheduleForWhom,
         nextState: 'agendar_para_quem',
-        nextContext: { ...ctx, intent: 'schedule' },
+        nextContext: { ...ctx, intent: 'schedule', scheduleType: 'consulta' as const },
       }
+
+    case 'schedule_exam': {
+      if (botSettings?.bot_handles_exam === false) {
+        return {
+          message: templates.examToHuman,
+          nextState: 'atendente',
+          nextContext: { ...ctx, intent: 'schedule_exam' },
+          conversationStatus: 'waiting_human',
+          transferToHuman: true,
+        }
+      }
+      return {
+        message: templates.askExamForWhom,
+        nextState: 'agendar_para_quem',
+        nextContext: { ...ctx, intent: 'schedule', scheduleType: 'exame' as const },
+      }
+    }
 
     case 'reschedule': {
       // If clinic configured bot not to handle reschedule → transfer to human immediately
@@ -520,6 +564,21 @@ function isGreetingMessage(text: string): boolean {
   return /\b(oi|ola|bom dia|boa tarde|boa noite|opa|e ai|hey)\b/.test(normalized)
 }
 
+function isValidFullName(value: string): boolean {
+  const cleaned = value
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (cleaned.length < 5) return false
+
+  const parts = cleaned
+    .split(' ')
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  return parts.length >= 2 && parts.every((part) => part.length >= 2)
+}
+
 // ---- Tipo de atendimento (Particular / Convênio) ---------------------------
 
 function parseAppointmentType(msg: string): 'particular' | 'convenio' | null {
@@ -554,11 +613,15 @@ async function handleAgendarParaQuem(
 ): Promise<BotResponse> {
   const n = msg.trim().toLowerCase()
 
+  const isExame = ctx.scheduleType === 'exame'
+  const tipoState = isExame ? 'agendar_exame_tipo' : 'agendar_tipo'
+  const tipoMsg = isExame ? templates.askExamType : templates.askScheduleType
+
   // Option 1 — for me / para mim
   if (/^1$|para mim|eu mesmo|pra mim/i.test(n)) {
     return {
-      message: templates.askScheduleType,
-      nextState: 'agendar_tipo',
+      message: tipoMsg,
+      nextState: tipoState,
       nextContext: { ...ctx, multiBookingTotal: 1, multiBookingCurrent: 1 },
     }
   }
@@ -566,8 +629,8 @@ async function handleAgendarParaQuem(
   // Option 2 — for someone else / para outra pessoa
   if (/^2$|outra pessoa|outro|pra outra|para outra/i.test(n)) {
     return {
-      message: templates.askScheduleType,
-      nextState: 'agendar_tipo',
+      message: tipoMsg,
+      nextState: tipoState,
       nextContext: { ...ctx, multiBookingTotal: 1, multiBookingCurrent: 1 },
     }
   }
@@ -602,9 +665,10 @@ async function handleAgendarQuantos(
   else if (/^4$|quatro pessoas|4 pessoas/i.test(n)) total = 4
 
   if (total) {
+    const isExame = ctx.scheduleType === 'exame'
     return {
-      message: templates.askScheduleType,
-      nextState: 'agendar_tipo',
+      message: isExame ? templates.askExamType : templates.askScheduleType,
+      nextState: isExame ? 'agendar_exame_tipo' : 'agendar_tipo',
       nextContext: { ...ctx, multiBookingTotal: total, multiBookingCurrent: 1 },
     }
   }
@@ -950,56 +1014,71 @@ async function handleCancelarTipo(
 async function handleAgendarNome(
   msg: string,
   ctx: BotContext,
-): Promise<BotResponse> {
-  const name = msg.trim()
-  return {
-    message: templates.scheduleAskCpf(name),
-    nextState: 'agendar_cpf',
-    nextContext: { ...ctx, patientName: name },
-  }
-}
-
-async function handleAgendarCpf(
-  conversationId: string,
-  msg: string,
-  ctx: BotContext,
   botSettings?: BotSettings | null,
   clinicId?: string,
 ): Promise<BotResponse> {
-  const cpf = normalizeCpf(msg.trim())
-  
-  if (!cpf) {
+  const name = msg.replace(/\s+/g, ' ').trim()
+
+  if (!isValidFullName(name)) {
     return {
-      message: templates.invalidCpf,
-      nextState: 'agendar_cpf',
+      message: `Preciso do *nome completo do paciente* para continuar.\n\nPor favor, me envie nome e sobrenome.\n\n0. Menu principal`,
+      nextState: 'agendar_nome',
       nextContext: ctx,
     }
   }
 
+  const nextContext = { ...ctx, patientName: name }
+
   if (ctx.pendingScheduleSlot) {
     return {
       message: buildScheduleConfirmationMessage({
-        ctx: { ...ctx, patientCpf: cpf },
+        ctx: nextContext,
         slot: ctx.pendingScheduleSlot,
       }),
       nextState: 'agendar_confirmar',
-      nextContext: { ...ctx, patientCpf: cpf, pendingScheduleSlot: ctx.pendingScheduleSlot },
-      patientCpf: cpf,
+      nextContext: {
+        ...nextContext,
+        pendingScheduleSlot: ctx.pendingScheduleSlot,
+      },
     }
   }
 
   const dayListResponse = await showDayList({
     clinicId,
     botSettings,
-    ctx: { ...ctx, patientCpf: cpf },
+    ctx: nextContext,
     flow: 'agendar',
     offset: 0,
   })
 
-  return {
-    ...dayListResponse,
-    patientCpf: cpf,
+  return dayListResponse
+}
+
+async function handleAgendarCpf(
+  _conversationId: string,
+  _msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  if (ctx.pendingScheduleSlot) {
+    return {
+      message: buildScheduleConfirmationMessage({
+        ctx,
+        slot: ctx.pendingScheduleSlot,
+      }),
+      nextState: 'agendar_confirmar',
+      nextContext: { ...ctx, pendingScheduleSlot: ctx.pendingScheduleSlot },
+    }
   }
+
+  return showDayList({
+    clinicId,
+    botSettings,
+    ctx,
+    flow: 'agendar',
+    offset: 0,
+  })
 }
 
 async function handleConsultarCpf(
@@ -1133,15 +1212,6 @@ async function handleSlotEscolha(
 
   const slot = slots[choice]
 
-  // CRITICAL: If agendar flow and missing CPF, request it now but preserve the chosen slot
-  if (flow === 'agendar' && !ctx.patientCpf) {
-    return {
-      message: templates.scheduleAskCpf(ctx.patientName || 'Paciente'),
-      nextState: 'agendar_cpf',
-      nextContext: { ...ctx, pendingScheduleSlot: slot },
-    }
-  }
-
   if (flow === 'agendar') {
     return {
       message: buildScheduleConfirmationMessage({ ctx, slot }),
@@ -1187,31 +1257,33 @@ async function handleQualAppointment(
   }
 
   const chosen = appointments[choice]
+  const isExame = chosen.scheduleType === 'exame'
 
   if (flow === 'cancelar') {
     return {
-      message: templates.cancelConfirmSingle(chosen),
+      message: isExame ? templates.cancelExamConfirmSingle(chosen) : templates.cancelConfirmSingle(chosen),
       nextState: 'cancelar_confirmar',
-      nextContext: { ...ctx, appointmentId: chosen.id },
+      nextContext: { ...ctx, appointmentId: chosen.id, scheduleType: isExame ? 'exame' as const : 'consulta' as const },
     }
   }
 
   // reagendar — ask if they want to keep the same type or change
-  const newCtx = { ...ctx, appointmentId: chosen.id, appointmentType: chosen.appointmentType ?? ctx.appointmentType, appointments }
+  const newCtx = { ...ctx, appointmentId: chosen.id, appointmentType: chosen.appointmentType ?? ctx.appointmentType, scheduleType: isExame ? 'exame' as const : 'consulta' as const, appointments }
   const tipo = chosen.appointmentType
+  const manterTipoState = isExame ? 'reagendar_exame_manter_tipo' : 'reagendar_manter_tipo'
 
   if (tipo) {
     return {
-      message: templates.rescheduleConfirmType(chosen.label, tipo),
-      nextState: 'reagendar_manter_tipo',
+      message: isExame ? templates.rescheduleExamConfirmType(chosen.label, tipo) : templates.rescheduleConfirmType(chosen.label, tipo),
+      nextState: manterTipoState,
       nextContext: newCtx,
     }
   }
 
   // unknown type — ask
   return {
-    message: templates.rescheduleConfirmTypeUnknown(chosen.label),
-    nextState: 'reagendar_manter_tipo',
+    message: isExame ? templates.rescheduleExamConfirmTypeUnknown(chosen.label) : templates.rescheduleConfirmTypeUnknown(chosen.label),
+    nextState: manterTipoState,
     nextContext: { ...newCtx, appointmentType: undefined },
   }
 }
@@ -1810,11 +1882,12 @@ export function buildMenuMessage(botSettings?: BotSettings | null): string {
     reschedule: true,
     cancel: true,
     attendant: true,
+    schedule_exam: true,
     waitlist: false,
   }
 
   // Default order if menu_order is not set; also append any new keys missing from stored order
-  const DEFAULT_ORDER = ['schedule', 'view_appointments', 'reschedule', 'cancel', 'attendant', 'waitlist']
+  const DEFAULT_ORDER = ['schedule', 'view_appointments', 'reschedule', 'cancel', 'attendant', 'schedule_exam', 'waitlist']
   const storedOrder: string[] = botSettings?.menu_order ?? DEFAULT_ORDER
   const missingKeys = DEFAULT_ORDER.filter((k) => !storedOrder.includes(k))
   const menuOrder: string[] = [...storedOrder, ...missingKeys]
@@ -1825,6 +1898,7 @@ export function buildMenuMessage(botSettings?: BotSettings | null): string {
     reschedule: 'Remarcar consulta',
     cancel: 'Cancelar consulta',
     attendant: 'Falar com secretária',
+    schedule_exam: '🩺 Agendar exame',
     waitlist: '📋 Lista de espera',
   }
 
@@ -1997,6 +2071,9 @@ export async function sendBotResponse(
     if (response.conversationStatus) update.status = response.conversationStatus
     if (response.transferToHuman) update.bot_enabled = false
     if (response.patientCpf) update.cpf = response.patientCpf
+    if (typeof response.nextContext?.patientName === 'string' && isValidFullName(response.nextContext.patientName)) {
+      update.patient_name = response.nextContext.patientName.trim()
+    }
 
     let { error: convError } = await supabase
       .from('conversations')
@@ -2258,16 +2335,6 @@ async function handleAgendarHoraLista(
 
   const slot = slots[choice]
 
-  // CRITICAL: If we somehow reached here without a CPF (old session that pre-dates CPF collection),
-  // request it now but keep the chosen slot so the flow resumes after CPF.
-  if (!ctx.patientCpf) {
-    return {
-      message: templates.scheduleAskCpf(ctx.patientName || 'Paciente'),
-      nextState: 'agendar_cpf',
-      nextContext: { ...ctx, pendingScheduleSlot: slot },
-    }
-  }
-
   return {
     message: buildScheduleConfirmationMessage({ ctx, slot }),
     nextState: 'agendar_confirmar',
@@ -2336,6 +2403,7 @@ async function handleAgendarConfirmar(
     confirmTemplate: botSettings?.message_confirm_schedule,
     appointmentType: ctx.appointmentType || 'particular',
     selectedConvenio: ctx.selectedConvenio || null,
+    scheduleType: ctx.scheduleType || 'consulta',
   })
 
   if (!result.success) {
@@ -2484,25 +2552,56 @@ async function handleAgendarAlterarCampo(
 async function handleAgendarAlterarPaciente(
   msg: string,
   ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
 ): Promise<BotResponse> {
-  const patientName = msg.trim()
+  const patientName = msg.replace(/\s+/g, ' ').trim()
 
-  if (!patientName) {
+  if (!isValidFullName(patientName)) {
     return {
-      message: templates.scheduleAskPatientName,
+      message: `Preciso do *nome completo do paciente* para continuar.\n\nPor favor, me envie nome e sobrenome.\n\n0. Menu principal`,
       nextState: 'agendar_alterar_paciente',
       nextContext: ctx,
     }
   }
 
+  if (ctx.pendingScheduleSlot) {
+    return {
+      message: buildScheduleConfirmationMessage({
+        ctx: { ...ctx, patientName },
+        slot: ctx.pendingScheduleSlot,
+      }),
+      nextState: 'agendar_confirmar',
+      nextContext: {
+        ...ctx,
+        patientName,
+        pendingScheduleSlot: ctx.pendingScheduleSlot,
+      },
+    }
+  }
+
+  if (!clinicId || !botSettings) {
+    return {
+      message: templates.scheduleAskPatientName,
+      nextState: 'agendar_alterar_paciente',
+      nextContext: {
+        ...ctx,
+        patientName,
+      },
+    }
+  }
+
   return {
-    message: templates.scheduleAskCpf(patientName),
-    nextState: 'agendar_cpf',
-    nextContext: {
-      ...ctx,
-      patientName,
-      patientCpf: undefined,
-    },
+    ...(await showDayList({
+      clinicId,
+      botSettings,
+      ctx: {
+        ...ctx,
+        patientName,
+      },
+      flow: 'agendar',
+      offset: 0,
+    })),
   }
 }
 
@@ -2558,6 +2657,372 @@ async function handleAgendarSemSlotsConvenio(
     nextState: 'agendar_sem_slots_convenio',
     nextContext: ctx,
   }, ctx)
+}
+
+// ---------------------------------------------------------------------------
+// Exam scheduling handlers
+// ---------------------------------------------------------------------------
+
+async function handleAgendarExameTipo(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const tipo = parseAppointmentType(msg)
+
+  if (tipo === 'particular') {
+    if (botSettings?.bot_handles_exam_particular === true) {
+      return {
+        message: templates.scheduleExamAskName,
+        nextState: 'agendar_nome',
+        nextContext: { ...ctx, appointmentType: 'particular', scheduleType: 'exame' as const },
+      }
+    }
+    return {
+      message: templates.examParticularTransfer,
+      nextState: 'atendente',
+      nextContext: { ...ctx, appointmentType: 'particular', scheduleType: 'exame' as const },
+      conversationStatus: 'waiting_human',
+      transferToHuman: true,
+    }
+  }
+
+  if (tipo === 'convenio') {
+    const ctxWithType = { ...ctx, appointmentType: 'convenio' as const, scheduleType: 'exame' as const }
+    const convenios = botSettings?.convenios ?? []
+    if (convenios.length === 0) {
+      return {
+        message: templates.noConvenioConfigured,
+        nextState: 'convenio_sem_cadastro',
+        nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName, scheduleType: 'exame' as const },
+      }
+    }
+    return {
+      message: templates.askConvenio(convenios),
+      nextState: 'agendar_exame_convenio',
+      nextContext: ctxWithType,
+    }
+  }
+
+  return {
+    message: templates.askExamType,
+    nextState: 'agendar_exame_tipo',
+    nextContext: ctx,
+  }
+}
+
+async function handleAgendarExameConvenio(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const convenios = botSettings?.convenios ?? []
+  const normalized = msg.trim().toLowerCase()
+  const byNumber = parseInt(normalized, 10)
+  let selected: string | undefined
+
+  if (!isNaN(byNumber) && byNumber >= 1 && byNumber <= convenios.length) {
+    selected = convenios[byNumber - 1]
+  } else {
+    selected = convenios.find((c) => c.toLowerCase().includes(normalized))
+  }
+
+  if (!selected) {
+    return {
+      message: templates.askConvenio(convenios),
+      nextState: 'agendar_exame_convenio',
+      nextContext: ctx,
+    }
+  }
+
+  const ctxWithConvenio = { ...ctx, selectedConvenio: selected, scheduleType: 'exame' as const }
+
+  const solicita = botSettings?.convenios_solicita_carteirinha ?? []
+  if (solicita.includes(selected)) {
+    return {
+      message: templates.askCarteirinha(selected),
+      nextState: 'convenio_aguardando_carteirinha',
+      nextContext: ctxWithConvenio,
+    }
+  }
+
+  if (!ctxWithConvenio.patientName) {
+    return {
+      message: templates.scheduleExamAskName,
+      nextState: 'agendar_nome',
+      nextContext: ctxWithConvenio,
+    }
+  }
+  return showDayList({ clinicId, botSettings, ctx: ctxWithConvenio, flow: 'agendar', offset: 0 })
+}
+
+async function handleAgendarExameSemSlotsConvenio(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  if (!clinicId || !botSettings) return technicalError(ctx)
+
+  const normalizedMsg = msg.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+
+  if (normalizedMsg === '1' || /(?:^|\D)1(?:\D|$)|particular|ver particular|horario particular/.test(normalizedMsg)) {
+    return await showDayList({
+      clinicId,
+      botSettings,
+      ctx: { ...ctx, appointmentType: 'particular', scheduleType: 'exame' as const },
+      flow: 'agendar',
+      offset: 0,
+    })
+  }
+
+  if (normalizedMsg === '2' || /(?:^|\D)2(?:\D|$)|secretaria|falar|atendente/.test(normalizedMsg)) {
+    return {
+      message: templates.attendantTransfer,
+      nextState: 'atendente',
+      nextContext: ctx,
+      conversationStatus: 'waiting_human',
+      transferToHuman: true,
+    }
+  }
+
+  if (normalizedMsg === '3' || /(?:^|\D)3(?:\D|$)|menu|voltar/.test(normalizedMsg)) {
+    return {
+      message: buildMenuMessage(botSettings),
+      nextState: 'menu',
+      nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
+    }
+  }
+
+  return withRetry({
+    message: templates.invalidChoice(3),
+    nextState: 'agendar_exame_sem_slots_convenio',
+    nextContext: ctx,
+  }, ctx)
+}
+
+async function handleQualExame(
+  msg: string,
+  ctx: BotContext,
+  flow: 'cancelar' | 'reagendar',
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const appointments = (ctx.appointments ?? []).filter(a => a.scheduleType === 'exame' || a.scheduleType == null)
+  const choice = resolveChoiceIndex(msg, appointments.map(a => a.label))
+
+  if (choice < 0 || choice >= appointments.length) {
+    return withRetry({
+      message: templates.invalidChoice(appointments.length),
+      nextState: flow === 'cancelar' ? 'cancelar_exame_qual' : 'reagendar_exame_qual',
+      nextContext: ctx,
+    }, ctx)
+  }
+
+  const chosen = appointments[choice]
+
+  if (flow === 'cancelar') {
+    return {
+      message: templates.cancelExamConfirmSingle(chosen),
+      nextState: 'cancelar_confirmar',
+      nextContext: { ...ctx, appointmentId: chosen.id, scheduleType: 'exame' as const },
+    }
+  }
+
+  const newCtx = { ...ctx, appointmentId: chosen.id, appointmentType: chosen.appointmentType ?? ctx.appointmentType, scheduleType: 'exame' as const, appointments }
+  const tipo = chosen.appointmentType
+
+  if (tipo) {
+    return {
+      message: templates.rescheduleExamConfirmType(chosen.label, tipo),
+      nextState: 'reagendar_exame_manter_tipo',
+      nextContext: newCtx,
+    }
+  }
+
+  return {
+    message: templates.rescheduleExamConfirmTypeUnknown(chosen.label),
+    nextState: 'reagendar_exame_manter_tipo',
+    nextContext: { ...newCtx, appointmentType: undefined },
+  }
+}
+
+async function handleReagendarExameManterTipo(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const normalized = msg.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+  const currentType = ctx.appointmentType as 'particular' | 'convenio' | undefined
+  let chosenType: 'particular' | 'convenio' | null = null
+
+  if (currentType) {
+    if (currentType === 'particular') {
+      if (normalized === '1' || normalized.includes('sim') || normalized.includes('remarcar') || normalized.includes('confirmar')) {
+        chosenType = 'particular'
+      } else if (normalized === '2' || normalized.includes('voltar') || normalized.includes('menu') || normalized.includes('nao') || normalized.includes('não')) {
+        return {
+          message: buildMenuMessage(botSettings),
+          nextState: 'menu',
+          nextContext: baseIdentityContext(ctx),
+        }
+      }
+    } else {
+      if (normalized === '1' || normalized.includes('manter') || normalized.includes('mesmo') || normalized === 'convenio') {
+        chosenType = 'convenio'
+      } else if (normalized === '2' || normalized.includes('mudar') || normalized.includes('trocar') || normalized.includes('particular')) {
+        chosenType = 'particular'
+      }
+    }
+  } else {
+    if (normalized === '1' || normalized.includes('particular')) {
+      chosenType = 'particular'
+    } else if (normalized === '2' || normalized.includes('convenio') || normalized.includes('plano')) {
+      chosenType = 'convenio'
+    }
+  }
+
+  if (!chosenType) {
+    const apptLabel = ctx.appointments?.find(a => a.id === ctx.appointmentId)?.label ?? ''
+    return withRetry({
+      message: currentType
+        ? templates.rescheduleExamConfirmType(apptLabel, currentType)
+        : templates.rescheduleExamConfirmTypeUnknown(apptLabel),
+      nextState: 'reagendar_exame_manter_tipo',
+      nextContext: ctx,
+    }, ctx)
+  }
+
+  const newCtx = { ...ctx, appointmentType: chosenType, scheduleType: 'exame' as const }
+
+  if (chosenType === 'convenio') {
+    const convenios = (botSettings?.convenios ?? []).filter((s: string) => s.trim() !== '')
+    if (convenios.length > 0) {
+      return {
+        message: templates.askConvenio(convenios),
+        nextState: 'reagendar_exame_convenio',
+        nextContext: newCtx,
+      }
+    }
+  }
+
+  return showDayList({ clinicId, botSettings, ctx: newCtx, flow: 'reagendar', offset: 0 })
+}
+
+async function handleReagendarExameConvenio(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const convenios = (botSettings?.convenios ?? []).filter((s: string) => s.trim() !== '')
+  const normalized = msg.trim().toLowerCase()
+  const byNumber = parseInt(normalized, 10)
+  let selected: string | undefined
+
+  if (!isNaN(byNumber) && byNumber >= 1 && byNumber <= convenios.length) {
+    selected = convenios[byNumber - 1]
+  } else {
+    selected = convenios.find((c: string) => c.toLowerCase().includes(normalized))
+  }
+
+  if (!selected) {
+    return {
+      message: templates.askConvenio(convenios),
+      nextState: 'reagendar_exame_convenio',
+      nextContext: ctx,
+    }
+  }
+
+  const ctxWithConvenio = { ...ctx, selectedConvenio: selected, appointmentType: 'convenio' as const, scheduleType: 'exame' as const }
+  return showDayList({ clinicId, botSettings, ctx: ctxWithConvenio, flow: 'reagendar', offset: 0 })
+}
+
+async function handleReagendarExameSemSlotsConvenio(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  if (!clinicId || !botSettings) return technicalError(ctx)
+
+  const normalizedMsg = msg.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+
+  if (normalizedMsg === '1' || /(?:^|\D)1(?:\D|$)|particular|ver particular|horario particular/.test(normalizedMsg)) {
+    return await showDayList({
+      clinicId,
+      botSettings,
+      ctx: { ...ctx, appointmentType: 'particular', scheduleType: 'exame' as const },
+      flow: 'reagendar',
+      offset: 0,
+    })
+  }
+
+  if (normalizedMsg === '2' || /(?:^|\D)2(?:\D|$)|secretaria|falar|atendente/.test(normalizedMsg)) {
+    return {
+      message: templates.attendantTransfer,
+      nextState: 'atendente',
+      nextContext: ctx,
+      conversationStatus: 'waiting_human',
+      transferToHuman: true,
+    }
+  }
+
+  if (normalizedMsg === '3' || /(?:^|\D)3(?:\D|$)|menu|voltar/.test(normalizedMsg)) {
+    return {
+      message: buildMenuMessage(botSettings),
+      nextState: 'menu',
+      nextContext: { patientPhone: ctx.patientPhone, patientName: ctx.patientName },
+    }
+  }
+
+  return withRetry({
+    message: templates.invalidChoice(3),
+    nextState: 'reagendar_exame_sem_slots_convenio',
+    nextContext: ctx,
+  }, ctx)
+}
+
+async function handleCancelarExameTipo(
+  msg: string,
+  ctx: BotContext,
+  botSettings?: BotSettings | null,
+  clinicId?: string,
+): Promise<BotResponse> {
+  const tipo = parseAppointmentType(msg)
+
+  if (tipo === 'particular') {
+    const ctxWithType = { ...ctx, appointmentType: 'particular' as const, scheduleType: 'exame' as const }
+    if (ctxWithType.appointments && ctxWithType.appointments.length > 1) {
+      const exames = ctxWithType.appointments.filter(a => a.scheduleType === 'exame' || a.scheduleType == null)
+      return { message: templates.whichExamCancel(exames), nextState: 'cancelar_exame_qual', nextContext: { ...ctxWithType, appointments: exames } }
+    }
+    if (ctxWithType.appointments && ctxWithType.appointments.length === 1) {
+      return { message: templates.cancelExamConfirmSingle(ctxWithType.appointments[0]), nextState: 'cancelar_confirmar', nextContext: { ...ctxWithType, appointmentId: ctxWithType.appointments[0].id } }
+    }
+    return { message: templates.cancelExamWithoutWaitlist, nextState: 'menu', nextContext: baseIdentityContext(ctx) }
+  }
+
+  if (tipo === 'convenio') {
+    const ctxWithType = { ...ctx, appointmentType: 'convenio' as const, scheduleType: 'exame' as const }
+    const exames = (ctxWithType.appointments ?? []).filter(a => a.scheduleType === 'exame' || a.scheduleType == null)
+    if (exames.length > 1) {
+      return { message: templates.whichExamCancel(exames), nextState: 'cancelar_exame_qual', nextContext: { ...ctxWithType, appointments: exames } }
+    }
+    if (exames.length === 1) {
+      return { message: templates.cancelExamConfirmSingle(exames[0]), nextState: 'cancelar_confirmar', nextContext: { ...ctxWithType, appointmentId: exames[0].id } }
+    }
+    return { message: templates.cancelExamWithoutWaitlist, nextState: 'menu', nextContext: baseIdentityContext(ctx) }
+  }
+
+  return {
+    message: templates.cancelExamAskType,
+    nextState: 'cancelar_exame_tipo',
+    nextContext: ctx,
+  }
 }
 
 async function handleReagendarDiaLista(

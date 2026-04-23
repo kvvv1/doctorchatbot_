@@ -5,6 +5,8 @@ const cancelAppointmentMock = vi.fn()
 const rescheduleAppointmentMock = vi.fn()
 const formatDateForApiMock = vi.fn()
 const getAppointmentByIdMock = vi.fn()
+const getPatientMock = vi.fn()
+const registerPatientMock = vi.fn()
 
 vi.mock('@/lib/services/gestaods', () => ({
   GestaoDSService: class {
@@ -13,6 +15,8 @@ vi.mock('@/lib/services/gestaods', () => ({
     rescheduleAppointment = rescheduleAppointmentMock
     formatDateForApi = formatDateForApiMock
     getAppointmentById = getAppointmentByIdMock
+    getPatient = getPatientMock
+    registerPatient = registerPatientMock
   },
   GestaoDSServiceHelpers: {
     extractAppointmentId: (payload: unknown) => {
@@ -117,6 +121,8 @@ describe('integrationRouter - GestaoDS paths', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     formatDateForApiMock.mockImplementation(async (date: Date) => date.toISOString())
+    getPatientMock.mockResolvedValue({ success: true, data: { id: 1 } })
+    registerPatientMock.mockResolvedValue({ success: true, data: { id: 1 } })
   })
 
   it('creates external appointment in GestaoDS when cpf and integration are present', async () => {
@@ -158,7 +164,7 @@ describe('integrationRouter - GestaoDS paths', () => {
     expect(result.providerReferenceId).toBe('gestaods-apt-1')
   })
 
-  it('returns error when cpf is missing for GestaoDS creation', async () => {
+  it('creates external appointment in GestaoDS without cpf and sends convenio details', async () => {
     const supabase = createSupabaseMock({
       'clinic_integrations:list': {
         data: [
@@ -175,6 +181,11 @@ describe('integrationRouter - GestaoDS paths', () => {
       'conversations:cpf-by-phone': { data: null, error: null },
     })
 
+    bookAppointmentMock.mockResolvedValue({
+      success: true,
+      data: { token: 'gestaods-apt-2' },
+    })
+
     const result = await createExternalAppointment({
       supabase,
       clinicId: 'clinic-1',
@@ -183,10 +194,22 @@ describe('integrationRouter - GestaoDS paths', () => {
       startsAt: new Date('2026-04-06T10:00:00.000Z'),
       endsAt: new Date('2026-04-06T10:30:00.000Z'),
       conversationId: 'conv-1',
+      appointmentType: 'convenio',
+      selectedConvenio: 'Unimed',
     })
 
-    expect(result.synced).toBe(false)
-    expect(result.error).toContain('CPF')
+    expect(result.synced).toBe(true)
+    expect(result.providerReferenceId).toBe('gestaods-apt-2')
+    expect(bookAppointmentMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cpf: '',
+        tipo_consulta: 'convenio',
+        convenio: 'Unimed',
+        nome_convenio: 'Unimed',
+        nome_completo: 'Paciente Teste',
+        celular: '5511999999999',
+      }),
+    )
   })
 
   it('reschedules GestaoDS appointment and returns new external id', async () => {
@@ -208,9 +231,10 @@ describe('integrationRouter - GestaoDS paths', () => {
       },
     })
 
-    rescheduleAppointmentMock.mockResolvedValue({
+    cancelAppointmentMock.mockResolvedValue({ success: true, data: { ok: true } })
+    bookAppointmentMock.mockResolvedValue({
       success: true,
-      data: { newAppointmentId: 'gestaods-apt-2' },
+      data: { token: 'gestaods-apt-2' },
     })
 
     const result = await updateExternalAppointment({
@@ -253,9 +277,10 @@ describe('integrationRouter - GestaoDS paths', () => {
       data: { paciente: { cpf: '123.456.789-01' } },
     })
 
-    rescheduleAppointmentMock.mockResolvedValue({
+    cancelAppointmentMock.mockResolvedValue({ success: true, data: { ok: true } })
+    bookAppointmentMock.mockResolvedValue({
       success: true,
-      data: { newAppointmentId: 'gestaods-apt-2' },
+      data: { token: 'gestaods-apt-2' },
     })
 
     const result = await updateExternalAppointment({

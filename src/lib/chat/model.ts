@@ -5,6 +5,7 @@ import type {
 	MessageSender,
 	MessageType,
 } from '@/lib/types/database'
+import { needsHumanAttention } from '@/lib/conversations/mode'
 
 export type OutboxStatus = 'queued' | 'sending' | 'sent' | 'failed'
 
@@ -65,8 +66,8 @@ export function normalizeMessage(value: PartialMessage): Message {
 
 export function sortConversationsByPriority(conversations: Conversation[]) {
 	return [...conversations].sort((left, right) => {
-		const leftNeedsHuman = !left.bot_enabled && left.status !== 'done'
-		const rightNeedsHuman = !right.bot_enabled && right.status !== 'done'
+		const leftNeedsHuman = needsHumanAttention(left) && left.status !== 'done'
+		const rightNeedsHuman = needsHumanAttention(right) && right.status !== 'done'
 
 		if (leftNeedsHuman && !rightNeedsHuman) return -1
 		if (!leftNeedsHuman && rightNeedsHuman) return 1

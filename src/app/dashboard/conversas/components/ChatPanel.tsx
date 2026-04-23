@@ -32,6 +32,11 @@ import {
 	Info,
 } from 'lucide-react'
 import ConversationContextPanel from './ConversationContextPanel'
+import {
+	canHumanSendMessage,
+	getConversationMode,
+	needsHumanAttention,
+} from '@/lib/conversations/mode'
 
 interface ChatPanelProps {
 	conversation: Conversation | null
@@ -57,7 +62,7 @@ const STATUS_ACTIONS: Array<{ status: ConversationStatus; label: string }> = [
 	{ status: 'done', label: 'Finalizar conversa' },
 ]
 
-const BOT_STATE_LABELS: Record<BotState, string> = {
+const BOT_STATE_LABELS: Partial<Record<BotState, string>> = {
 	menu: 'Menu principal',
 	agendar_para_quem: 'Para quem é a consulta',
 	agendar_quantos: 'Quantas pessoas',
@@ -278,8 +283,9 @@ export default function ChatPanel({
 		}
 	}
 
-	const botIsActive = conversation.bot_enabled
-	const needsHumanAttention = !botIsActive && conversation.status !== 'done'
+	const conversationMode = getConversationMode(conversation)
+	const botIsActive = conversationMode === 'bot'
+	const humanAttentionActive = needsHumanAttention(conversation) && conversation.status !== 'done'
 	const botStateLabel = BOT_STATE_LABELS[conversation.bot_state] ?? 'Menu principal'
 
 	return (
@@ -491,12 +497,14 @@ export default function ChatPanel({
 				</div>
 			</div>
 
-			{needsHumanAttention && (
+			{humanAttentionActive && (
 				<div className="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2">
 					<div className="flex items-center gap-2">
 						<UserCircle className="size-4 shrink-0 text-amber-700" />
 						<p className="text-xs font-medium text-amber-800">
-							Atendimento manual ativo — bot pausado
+							{conversationMode === 'waiting_human'
+								? 'Paciente aguardando atendimento humano'
+								: 'Atendimento manual ativo - bot pausado'}
 						</p>
 					</div>
 					<button
@@ -617,11 +625,11 @@ export default function ChatPanel({
 
 			<MessageInput
 				onSend={onSendMessage}
-				disabled={!conversation || conversation.status === 'waiting_human'}
+				disabled={!conversation || !canHumanSendMessage(conversation)}
 				clinicId={conversation?.clinic_id}
 				value={draftMessage}
 				onChange={onDraftMessageChange}
-				waitingHuman={conversation?.status === 'waiting_human'}
+				waitingHuman={conversationMode === 'waiting_human'}
 				onTakeOver={openTakeoverModal}
 			/>
 

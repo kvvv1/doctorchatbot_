@@ -15,6 +15,7 @@ import {
 import type { Conversation } from '@/lib/types/database'
 import { usePatientAppointments } from '@/lib/hooks/usePatientAppointments'
 import StatusBadge from './StatusBadge'
+import { getConversationMode, getConversationModeLabel } from '@/lib/conversations/mode'
 
 interface ConversationContextPanelProps {
 	conversation: Conversation | null
@@ -80,6 +81,7 @@ function PanelBody({
 		.sort((left, right) => {
 			return new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime()
 		})[0]
+	const conversationMode = getConversationMode(conversation)
 
 	return (
 		<div className="flex h-full flex-col">
@@ -113,12 +115,12 @@ function PanelBody({
 							<StatusBadge status={conversation.status} />
 							<span
 								className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-									conversation.bot_enabled
+									conversationMode === 'bot'
 										? 'bg-emerald-100 text-emerald-700'
 										: 'bg-amber-100 text-amber-700'
 								}`}
 							>
-								{conversation.bot_enabled ? 'Bot ativo' : 'Humano ativo'}
+								{getConversationModeLabel(conversationMode)}
 							</span>
 						</div>
 					</div>
@@ -196,15 +198,15 @@ function PanelBody({
 						</button>
 						<button
 							type="button"
-							onClick={conversation.bot_enabled ? onTakeOver : onReturnToBot}
+							onClick={conversationMode === 'bot' ? onTakeOver : onReturnToBot}
 							className={`flex items-center gap-2 rounded-2xl border px-3 py-3 text-sm font-medium shadow-sm transition-colors ${
-								conversation.bot_enabled
+								conversationMode === 'bot'
 									? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
 									: 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
 							}`}
 						>
 							<HandMetal className="size-4" />
-							{conversation.bot_enabled ? 'Assumir' : 'Devolver'}
+							{conversationMode === 'bot' ? 'Assumir' : 'Devolver'}
 						</button>
 					</div>
 				</section>

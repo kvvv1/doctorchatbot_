@@ -24,11 +24,13 @@ export async function GET() {
 		const supabase = createAdminClient()
 
 		// Try to get existing settings
-		let { data: settings, error } = await supabase
+		const { data, error } = await supabase
 			.from('notification_settings')
 			.select('*')
 			.eq('clinic_id', profile.clinic.id)
 			.single()
+
+		let settings = data
 
 		// If not found, create with defaults
 		if (error && error.code === 'PGRST116') {
@@ -111,6 +113,15 @@ export async function POST(request: Request) {
 				return NextResponse.json({ error: error.message }, { status: 500 })
 			}
 
+			const { error: refreshError } = await supabase.rpc(
+				'refresh_future_appointment_reminders_for_clinic',
+				{ target_clinic_id: profile.clinic.id }
+			)
+
+			if (refreshError) {
+				console.error('Error refreshing future reminders after settings update:', refreshError)
+			}
+
 			return NextResponse.json({ settings })
 		} else {
 			// Create new settings
@@ -123,6 +134,15 @@ export async function POST(request: Request) {
 			if (error) {
 				console.error('Error creating notification settings:', error)
 				return NextResponse.json({ error: error.message }, { status: 500 })
+			}
+
+			const { error: refreshError } = await supabase.rpc(
+				'refresh_future_appointment_reminders_for_clinic',
+				{ target_clinic_id: profile.clinic.id }
+			)
+
+			if (refreshError) {
+				console.error('Error refreshing future reminders after settings creation:', refreshError)
 			}
 
 			return NextResponse.json({ settings })

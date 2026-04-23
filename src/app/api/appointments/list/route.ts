@@ -6,6 +6,7 @@ import {
   matchesAppointmentSourceFilter,
   normalizeAppointmentOrigin,
 } from '@/lib/appointments/source'
+import { getBrazilianPhoneLookupCandidates } from '@/lib/utils/phone'
 
 export async function GET(request: NextRequest) {
   try {
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status)
     }
     if (patientPhone) {
-      query = query.eq('patient_phone', patientPhone)
+      query = query.in('patient_phone', getBrazilianPhoneLookupCandidates(patientPhone))
     }
     if (professionalId) {
       query = query.eq('professional_id', professionalId)

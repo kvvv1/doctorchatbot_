@@ -42,8 +42,11 @@ export async function createExternalAppointment(params: {
   appointmentType?: 'particular' | 'convenio'
   /** Nome do plano de convênio selecionado (ex: "Unimed") */
   selectedConvenio?: string | null
+  /** Tipo de agendamento: consulta ou exame */
+  scheduleType?: 'consulta' | 'exame'
 }): Promise<ExternalCreateResult> {
   const resolution = await resolveClinicIntegration(params.supabase, params.clinicId)
+  const isExam = params.scheduleType === 'exame'
 
   if (resolution.provider === 'google' && resolution.google) {
     try {
@@ -51,7 +54,7 @@ export async function createExternalAppointment(params: {
         accessToken: resolution.google.accessToken,
         refreshToken: resolution.google.refreshToken,
         calendarId: resolution.google.calendarId,
-        title: `Consulta - ${params.patientName}`,
+        title: isExam ? `Exame - ${params.patientName}` : `Consulta - ${params.patientName}`,
         startsAt: params.startsAt,
         endsAt: params.endsAt,
         description:
@@ -92,49 +95,56 @@ export async function createExternalAppointment(params: {
           conversationId: params.conversationId,
         })
 
-    if (!cpf) {
-      return {
-        provider: 'gestaods',
-        synced: false,
-        error: 'CPF do paciente não encontrado. Informe o CPF ao criar o agendamento.',
-      }
-    }
-
     const gestaoService = new GestaoDSService(
       resolution.gestaods.apiToken,
       resolution.gestaods.isDev
     )
 
-    // Ensure patient exists in GestãoDS: look up by CPF, register if not found
-    const patientResult = await gestaoService.getPatient(cpf)
-    if (!patientResult.success) {
-      // Patient not found — register with available info
-      const registerResult = await gestaoService.registerPatient({
-        cpf,
-        nome_completo: params.patientName,
-        email: `${cpf.replace(/\D/g, '')}@paciente.local`,
-        celular: params.patientPhone || '',
-        enviar_whatsapp_lembrete: true,
-      })
-      if (!registerResult.success) {
-        console.warn('[integrationRouter] registerPatient failed — proceeding with booking anyway:', registerResult.error)
+    if (cpf) {
+      const patientResult = await gestaoService.getPatient(cpf)
+      if (!patientResult.success) {
+        const registerResult = await gestaoService.registerPatient({
+          cpf,
+          nome_completo: params.patientName,
+          email: `${cpf.replace(/\D/g, '')}@paciente.local`,
+          celular: params.patientPhone || '',
+          enviar_whatsapp_lembrete: true,
+        })
+        if (!registerResult.success) {
+          console.warn('[integrationRouter] registerPatient failed - proceeding with booking anyway:', registerResult.error)
+        } else {
+          console.log('[integrationRouter] Patient registered in GestaoDS:', { cpf, name: params.patientName })
+        }
       } else {
-        console.log('[integrationRouter] Patient registered in GestãoDS:', { cpf, name: params.patientName })
+        console.log('[integrationRouter] Patient found in GestaoDS:', { cpf })
       }
-    } else {
-      console.log('[integrationRouter] Patient found in GestãoDS:', { cpf })
     }
 
     const startsAtFormatted = await gestaoService.formatDateForApi(params.startsAt)
     const endsAtFormatted = await gestaoService.formatDateForApi(params.endsAt)
+    const bookingNotes = [
+      params.description?.trim() || null,
+      params.selectedConvenio ? `Convenio selecionado: ${params.selectedConvenio}` : null,
+    ].filter(Boolean).join(' | ')
 
-    const bookingResult = await gestaoService.bookAppointment({
-      cpf,
+    const bookingPayload = {
+      cpf: cpf || '',
       data_agendamento: startsAtFormatted,
       data_fim_agendamento: endsAtFormatted,
       primeiro_atendimento: false,
       tipo_consulta: params.appointmentType || 'particular',
-    })
+      nome_completo: params.patientName,
+      celular: params.patientPhone || '',
+      telefone: params.patientPhone || '',
+      convenio: params.selectedConvenio || undefined,
+      nome_convenio: params.selectedConvenio || undefined,
+      observacao: bookingNotes || undefined,
+      descricao: bookingNotes || undefined,
+    }
+
+    const bookingResult = isExam
+      ? await gestaoService.bookExam(bookingPayload)
+      : await gestaoService.bookAppointment(bookingPayload)
 
     if (!bookingResult.success) {
       return {
@@ -175,6 +185,7 @@ export async function updateExternalAppointment(params: {
   endsAt: Date
   description?: string | null
   appointmentType?: 'particular' | 'convenio' | null
+  scheduleType?: 'consulta' | 'exame'
 }): Promise<{ synced: boolean; error?: string; providerReferenceId?: string }> {
   if (params.provider === 'gestaods') {
     const resolution = await resolveClinicIntegration(params.supabase, params.clinicId)
@@ -277,7 +288,7 @@ export async function updateExternalAppointment(params: {
       refreshToken: resolution.google.refreshToken,
       calendarId: resolution.google.calendarId,
       eventId: params.providerReferenceId,
-      title: `Consulta - ${params.patientName}`,
+      title: params.scheduleType === 'exame' ? `Exame - ${params.patientName}` : `Consulta - ${params.patientName}`,
       description: params.description || undefined,
       startsAt: params.startsAt,
       endsAt: params.endsAt,
@@ -503,7 +514,6 @@ async function resolvePatientCpf(params: {
   patientPhone: string
   conversationId?: string | null
 }): Promise<string | null> {
-  const normalizeCpf = normalizeRawCpf
   const phoneCandidates = getBrazilianPhoneLookupCandidates(params.patientPhone)
 
   if (params.conversationId) {

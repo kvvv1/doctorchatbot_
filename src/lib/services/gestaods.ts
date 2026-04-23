@@ -32,6 +32,27 @@ export interface GestaoDSAppointmentRequest {
     token: string
     primeiro_atendimento?: boolean
     tipo_consulta?: 'particular' | 'convenio' // Appointment type
+    nome_completo?: string
+    celular?: string
+    telefone?: string
+    convenio?: string
+    nome_convenio?: string
+    observacao?: string
+    descricao?: string
+}
+
+// NOTE: verify the exact exam endpoint at https://apidev.gestaods.com.br/
+// Current assumption: endpoint 'exame/agendar/' with same payload structure
+export interface GestaoDSExamRequest {
+    data_agendamento: string // dd/mm/yyyy hh:mm:ss
+    data_fim_agendamento: string // dd/mm/yyyy hh:mm:ss
+    cpf: string
+    token: string
+    primeiro_atendimento?: boolean
+    tipo_consulta?: 'particular' | 'convenio'
+    nome_completo?: string
+    celular?: string
+    observacao?: string
 }
 
 export interface GestaoDSPatientAppointmentsRequest {
@@ -398,6 +419,8 @@ export class GestaoDSService {
             console.log('[GestaoDS] bookAppointment request:', {
                 endpoint: 'agendamento/agendar/',
                 cpf: body.cpf ? body.cpf.substring(0, 5) + '***' : undefined,
+                patientName: body.nome_completo,
+                convenio: body.convenio || body.nome_convenio,
                 data_agendamento: body.data_agendamento,
                 data_fim_agendamento: body.data_fim_agendamento,
                 primeiro_atendimento: body.primeiro_atendimento,
@@ -421,6 +444,46 @@ export class GestaoDSService {
             return { success: true, data }
         } catch (error) {
             console.error('GestaoDS bookAppointment error:', error)
+            return { success: false, error: String(error) }
+        }
+    }
+
+    /**
+     * Realiza um agendamento de EXAME
+     * NOTE: verify exact endpoint at https://apidev.gestaods.com.br/
+     * Update 'exame/agendar/' if the real endpoint path differs.
+     */
+    async bookExam(params: Omit<GestaoDSExamRequest, 'token'>): Promise<GestaoDSResponse<unknown>> {
+        try {
+            const body: GestaoDSExamRequest = {
+                ...params,
+                token: this.apiToken
+            }
+            console.log('[GestaoDS] bookExam request:', {
+                endpoint: 'exame/agendar/',
+                cpf: body.cpf ? body.cpf.substring(0, 5) + '***' : undefined,
+                data_agendamento: body.data_agendamento,
+                data_fim_agendamento: body.data_fim_agendamento,
+            })
+
+            const response = await this.fetchWithEnvironmentFallback('exame/agendar/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(body)
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}))
+                return { success: false, error: errorData.detail || response.statusText }
+            }
+
+            const data = await response.json()
+            return { success: true, data }
+        } catch (error) {
+            console.error('GestaoDS bookExam error:', error)
             return { success: false, error: String(error) }
         }
     }

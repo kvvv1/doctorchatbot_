@@ -19,6 +19,7 @@ import {
 	readConversationWorkspaceFromStorage,
 	sanitizeConversationWorkspace,
 } from './workspace'
+import { needsHumanAttention } from '@/lib/conversations/mode'
 
 interface ConversasPageClientProps {
 	clinicId: string
@@ -263,13 +264,13 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 
 		if (showOnlyHumanNeeded) {
 			filtered = filtered.filter(
-				(conversation) => !conversation.bot_enabled && conversation.status !== 'done',
+				(conversation) => needsHumanAttention(conversation) && conversation.status !== 'done',
 			)
 		}
 
 		return filtered.sort((a, b) => {
-			const aNeedsHuman = !a.bot_enabled && a.status !== 'done'
-			const bNeedsHuman = !b.bot_enabled && b.status !== 'done'
+			const aNeedsHuman = needsHumanAttention(a) && a.status !== 'done'
+			const bNeedsHuman = needsHumanAttention(b) && b.status !== 'done'
 
 			if (aNeedsHuman && !bNeedsHuman) return -1
 			if (!aNeedsHuman && bNeedsHuman) return 1
@@ -283,7 +284,7 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 	const humanNeededCount = useMemo(
 		() =>
 			allConversations.filter(
-				(conversation) => !conversation.bot_enabled && conversation.status !== 'done',
+				(conversation) => needsHumanAttention(conversation) && conversation.status !== 'done',
 			).length,
 		[allConversations],
 	)

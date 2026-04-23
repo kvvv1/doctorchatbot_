@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/server'
 import { checkAppointmentConflicts, checkWorkingHours, checkTimeOff } from '@/lib/services/appointmentConflictService'
 import { createExternalAppointment } from '@/lib/integrations/integrationRouter'
 import { resolveAppointmentOrigin } from '@/lib/appointments/source'
+import { sendImmediateAppointmentConfirmation } from '@/lib/services/appointmentNotificationService'
+import { normalizePhoneForStorage } from '@/lib/utils/phone'
 
 interface CreateAppointmentBody {
 	conversationId?: string
@@ -60,6 +62,14 @@ export async function POST(request: NextRequest) {
 		) {
 			return NextResponse.json(
 				{ error: 'Missing required fields' },
+				{ status: 400 }
+			)
+		}
+
+		const normalizedPatientPhone = normalizePhoneForStorage(body.patientPhone)
+		if (!normalizedPatientPhone) {
+			return NextResponse.json(
+				{ error: 'Invalid patient phone' },
 				{ status: 400 }
 			)
 		}
@@ -126,7 +136,7 @@ export async function POST(request: NextRequest) {
 			.insert({
 				clinic_id: profile.clinic_id,
 				conversation_id: body.conversationId || null,
-				patient_phone: body.patientPhone,
+				patient_phone: normalizedPatientPhone,
 				patient_name: body.patientName,
 				starts_at: startsAt.toISOString(),
 				ends_at: endsAt.toISOString(),
@@ -173,7 +183,7 @@ export async function POST(request: NextRequest) {
 				supabase,
 				clinicId: profile.clinic_id,
 				patientName: body.patientName,
-				patientPhone: body.patientPhone,
+				patientPhone: normalizedPatientPhone,
 				startsAt,
 				endsAt,
 				description: body.description,
@@ -203,6 +213,16 @@ export async function POST(request: NextRequest) {
 			} else {
 				eventError = 'Failed to sync external integration'
 			}
+		}
+
+		try {
+			await sendImmediateAppointmentConfirmation({
+				clinicId: profile.clinic_id,
+				appointmentId: appointment.id,
+				conversationId: body.conversationId || null,
+			})
+		} catch (notificationError) {
+			console.error('Error sending immediate appointment confirmation notification:', notificationError)
 		}
 
 		return NextResponse.json({

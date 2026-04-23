@@ -3,9 +3,13 @@
  */
 
 export type ReminderType =
+	| 'appointment_48h'
 	| 'appointment_24h'
+	| 'appointment_12h'
 	| 'appointment_2h'
 	| 'appointment_1h'
+	| 'appointment_created_confirmation'
+	| 'custom_reminder'
 	| 'no_response_alert'
 	| 'follow_up'
 	| 'confirmation_request'
@@ -28,6 +32,8 @@ export interface Reminder {
 	recipient_phone: string
 	message_template: string
 	message_sent: string | null
+	zapi_message_id?: string | null
+	metadata?: Record<string, unknown> | null
 	response_received: boolean
 	response_at: string | null
 	response_content: string | null
@@ -65,15 +71,23 @@ export interface NotificationSettings {
 	clinic_id: string
 	reminder_48h_enabled: boolean
 	reminder_48h_template: string
+	reminder_48h_hours_before: number
 	reminder_24h_enabled: boolean
 	reminder_24h_template: string
+	reminder_24h_hours_before: number
+	reminder_12h_enabled: boolean
+	reminder_12h_template: string
+	reminder_12h_hours_before: number
 	reminder_2h_enabled: boolean
 	reminder_2h_template: string
+	reminder_2h_hours_before: number
 	reminder_1h_enabled: boolean
 	reminder_1h_template: string
 	confirmation_enabled: boolean
 	confirmation_template: string
 	confirmation_hours_before: number
+	appointment_confirmed_enabled: boolean
+	appointment_confirmed_template: string
 	no_response_alert_enabled: boolean
 	no_response_alert_hours: number
 	follow_up_enabled: boolean

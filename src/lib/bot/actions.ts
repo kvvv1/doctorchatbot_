@@ -20,6 +20,7 @@ import {
   updateExternalAppointment,
 } from '@/lib/integrations/integrationRouter'
 import { GestaoDSService, GestaoDSServiceHelpers } from '@/lib/services/gestaods'
+import { sendImmediateAppointmentConfirmation } from '@/lib/services/appointmentNotificationService'
 import type { AppointmentSummary, Slot } from './context'
 
 // ---------------------------------------------------------------------------
@@ -290,6 +291,16 @@ export async function createAppointment(params: {
     }
   }
 
+  try {
+    await sendImmediateAppointmentConfirmation({
+      clinicId: params.clinicId,
+      appointmentId: data.id,
+      conversationId: params.conversationId,
+    })
+  } catch (notificationError) {
+    console.error('[bot/actions] Failed to send immediate appointment notification:', notificationError)
+  }
+
   const label = formatSlotLabel(startsAt)
   const dataStr = format(startsAt, "EEE, dd/MM", { locale: ptBR })
   const horarioStr = format(startsAt, "HH'h'mm", { locale: ptBR })
@@ -327,6 +338,7 @@ export async function createAppointmentFromSlot(params: {
   confirmTemplate?: string
   appointmentType?: 'particular' | 'convenio'
   selectedConvenio?: string | null
+  scheduleType?: 'consulta' | 'exame'
 }): Promise<ActionResult> {
   const supabase = createAdminClient()
 
@@ -338,6 +350,7 @@ export async function createAppointmentFromSlot(params: {
     appointmentType: params.appointmentType,
   })
 
+  const scheduleLabel = params.scheduleType === 'exame' ? 'Exame' : 'Agendamento'
   const externalResult = await createExternalAppointment({
     supabase,
     clinicId: params.clinicId,
@@ -347,11 +360,12 @@ export async function createAppointmentFromSlot(params: {
     startsAt: new Date(params.slot.startsAt),
     endsAt: new Date(params.slot.endsAt),
     description: params.selectedConvenio
-      ? `Agendamento via WhatsApp - ${params.selectedConvenio}`
-      : 'Agendamento via WhatsApp',
+      ? `${scheduleLabel} via WhatsApp - ${params.selectedConvenio}`
+      : `${scheduleLabel} via WhatsApp`,
     conversationId: params.conversationId,
     appointmentType: params.appointmentType,
     selectedConvenio: params.selectedConvenio,
+    scheduleType: params.scheduleType,
   })
 
   if (externalResult.provider !== 'none' && !externalResult.synced) {
@@ -380,10 +394,11 @@ export async function createAppointmentFromSlot(params: {
       provider: externalResult.synced ? externalResult.provider : 'manual',
       provider_reference_id: externalResult.providerReferenceId || null,
       description: params.selectedConvenio
-        ? `Agendamento via WhatsApp - ${params.selectedConvenio}`
-        : 'Agendamento via WhatsApp',
+        ? `${scheduleLabel} via WhatsApp - ${params.selectedConvenio}`
+        : `${scheduleLabel} via WhatsApp`,
       appointment_type: params.appointmentType || 'particular',
       selected_convenio: params.selectedConvenio || null,
+      schedule_type: params.scheduleType || 'consulta',
     })
     .select('id')
     .single()
@@ -398,6 +413,16 @@ export async function createAppointmentFromSlot(params: {
   }
 
   console.log('[bot/actions] Appointment created successfully:', { appointmentId: data?.id })
+
+  try {
+    await sendImmediateAppointmentConfirmation({
+      clinicId: params.clinicId,
+      appointmentId: data.id,
+      conversationId: params.conversationId,
+    })
+  } catch (notificationError) {
+    console.error('[bot/actions] Failed to send immediate appointment notification:', notificationError)
+  }
 
   const slotDate = new Date(params.slot.startsAt)
   const dataStr = format(slotDate, "EEE, dd/MM", { locale: ptBR })
@@ -949,7 +974,7 @@ export async function getPatientAppointments(
 
   const { data, error } = await supabase
     .from('appointments')
-    .select('id, starts_at, status, appointment_type, patient_name')
+    .select('id, starts_at, status, appointment_type, schedule_type, patient_name')
     .eq('clinic_id', clinicId)
     .in('patient_phone', phoneCandidates)
     .in('status', ['scheduled', 'confirmed'])
@@ -965,6 +990,7 @@ export async function getPatientAppointments(
         label: formatSlotLabel(new Date(a.starts_at)),
         status: a.status,
         appointmentType: (a.appointment_type as 'particular' | 'convenio' | null) ?? null,
+        scheduleType: (a.schedule_type as 'consulta' | 'exame' | null) ?? null,
         patientName: (a.patient_name as string | null) ?? null,
       }))
 

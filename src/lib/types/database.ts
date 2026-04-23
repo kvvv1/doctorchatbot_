@@ -175,6 +175,7 @@ export interface BotSettings {
 	// --- Menu options ---
 	menu_options?: {
 		schedule: boolean
+		schedule_exam?: boolean
 		view_appointments: boolean
 		reschedule: boolean
 		cancel: boolean
@@ -192,6 +193,10 @@ export interface BotSettings {
 	bot_handles_cancel?: boolean
 	/** When true, bot can schedule Particular appointments automatically (no human transfer). Default: false */
 	bot_handles_particular?: boolean
+	/** When true, bot can schedule exams automatically. Default: true */
+	bot_handles_exam?: boolean
+	/** When true, bot can schedule particular exams automatically. Default: false */
+	bot_handles_exam_particular?: boolean
 	/** Weekday keys reserved for Particular appointments (e.g. ["mon","wed"]).
 	 *  Convênio patients will not see these days in the available date list. */
 	particular_days?: string[]

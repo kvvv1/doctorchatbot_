@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSessionProfile } from '@/lib/auth/getSessionProfile'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getBrazilianPhoneLookupCandidates, normalizePhoneForStorage } from '@/lib/utils/phone'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,7 +51,10 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
   // Normalize phone: keep only digits
-  const phone = patientPhone.replace(/\D/g, '')
+  const phone = normalizePhoneForStorage(patientPhone)
+  if (!phone) {
+    return NextResponse.json({ error: 'Telefone invalido' }, { status: 400 })
+  }
 
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + 30)
@@ -60,7 +64,7 @@ export async function POST(request: NextRequest) {
     .from('conversations')
     .select('id')
     .eq('clinic_id', session.clinic.id)
-    .eq('patient_phone', phone)
+    .in('patient_phone', getBrazilianPhoneLookupCandidates(phone))
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle()

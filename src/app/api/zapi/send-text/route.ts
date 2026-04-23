@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { zapiSendChoices, zapiSendText, validateCredentials } from '@/lib/zapi/client';
 import { assertSubscriptionActive } from '@/lib/services/subscriptionService';
+import { normalizePhoneForStorage } from '@/lib/utils/phone';
 
 /**
  * POST /api/zapi/send-text
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
     // Parse body first to check if this is an internal call
     const body = await request.json();
     const { conversationId, phone, text, internalCall, choices, choicesTitle, clientMessageId } = body;
+    const normalizedPhone = normalizePhoneForStorage(typeof phone === 'string' ? phone : null);
 
     let clinicId: string;
     let supabase;
@@ -108,7 +110,7 @@ export async function POST(request: NextRequest) {
     // 1.5 Check subscription status
     try {
       await assertSubscriptionActive(clinicId);
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         { ok: false, error: 'Assinatura inativa. Acesse /dashboard/billing para regularizar.' },
         { status: 402 }
@@ -118,7 +120,7 @@ export async function POST(request: NextRequest) {
     // 2. Validate parameters
 
     // 2. Validate parameters
-    if (!conversationId || !phone || !text) {
+    if (!conversationId || !normalizedPhone || !text) {
       return NextResponse.json(
         { 
           ok: false, 
@@ -232,7 +234,7 @@ export async function POST(request: NextRequest) {
       if (normalizedChoices.length >= 1) {
         zapiResult = await zapiSendChoices(
           credentials,
-          phone,
+          normalizedPhone,
           text,
           normalizedChoices,
           typeof choicesTitle === 'string' && choicesTitle.trim().length > 0
@@ -240,7 +242,7 @@ export async function POST(request: NextRequest) {
             : 'Opções disponíveis'
         );
       } else {
-        zapiResult = await zapiSendText(credentials, phone, text);
+        zapiResult = await zapiSendText(credentials, normalizedPhone, text);
       }
     } catch (error) {
       console.error('[Send Text] Z-API send failed:', error);
@@ -252,7 +254,7 @@ export async function POST(request: NextRequest) {
         message: 'Falha ao enviar mensagem via Z-API',
         metadata: { 
           conversationId, 
-          phone, 
+          phone: normalizedPhone, 
           error: error instanceof Error ? error.message : String(error) 
         },
       });
@@ -272,6 +274,7 @@ export async function POST(request: NextRequest) {
         conversation_id: conversationId,
         sender: 'human',
         content: text,
+        zapi_message_id: zapiResult.messageId || null,
         client_message_id: typeof clientMessageId === 'string' ? clientMessageId.trim() || null : null,
         message_type: 'text',
         delivery_status: 'sent',
@@ -311,7 +314,7 @@ export async function POST(request: NextRequest) {
           message: 'Mensagem enviada mas falhou ao salvar no banco',
           metadata: { 
             conversationId, 
-            phone,
+            phone: normalizedPhone,
             zapiMessageId: zapiResult.messageId,
             error: messageError.message 
           },
@@ -335,6 +338,8 @@ export async function POST(request: NextRequest) {
         .update({
           last_message_at: new Date().toISOString(),
           last_message_preview: truncatedPreview,
+          bot_enabled: false,
+          status: 'in_progress',
           updated_at: new Date().toISOString(),
         })
         .eq('id', conversationId);
@@ -353,7 +358,7 @@ export async function POST(request: NextRequest) {
       message: 'Mensagem enviada com sucesso',
       metadata: { 
         conversationId, 
-        phone,
+        phone: normalizedPhone,
         zapiMessageId: zapiResult.messageId,
         textLength: text.length 
       },

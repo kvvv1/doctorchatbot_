@@ -23,6 +23,9 @@ export type BotState =
   | 'agendar_alterar_campo'   // patient chooses which booking field to change
   | 'agendar_alterar_paciente'// patient changes the patient name before booking
   | 'agendar_sem_slots_convenio' // no slots in convênio, offer particular or secretary
+  | 'agendar_exame_tipo'      // exam: patient picks Particular or Convênio
+  | 'agendar_exame_convenio'  // exam: patient selects which insurance plan
+  | 'agendar_exame_sem_slots_convenio' // exam: no slots in convênio
   | 'reagendar_qual'          // patient has multiple appointments — pick which one
   | 'reagendar_manter_tipo'   // patient confirms or changes appointment type before reschedule
   | 'reagendar_convenio'      // patient selects which insurance plan for reschedule
@@ -33,10 +36,16 @@ export type BotState =
   | 'reagendar_dia_lista'     // patient picks a day from an interactive list (reschedule)
   | 'reagendar_hora_lista'    // patient picks a time slot from an interactive list (reschedule)
   | 'reagendar_sem_slots_convenio' // no slots in convênio, offer particular or secretary
+  | 'reagendar_exame_qual'    // exam reschedule: patient picks which exam
+  | 'reagendar_exame_manter_tipo' // exam reschedule: confirm or change type
+  | 'reagendar_exame_convenio'    // exam reschedule: select insurance plan
+  | 'reagendar_exame_sem_slots_convenio' // exam reschedule: no slots in convênio
   | 'cancelar_qual'           // patient has multiple appointments — pick which one
   | 'cancelar_tipo'           // patient picks Particular or Convênio before cancel
   | 'cancelar_confirmar'
   | 'cancelar_encaixe'
+  | 'cancelar_exame_qual'     // exam cancel: patient picks which exam
+  | 'cancelar_exame_tipo'     // exam cancel: patient picks Particular or Convênio
   | 'audio_recebido'      // patient sent audio/video — offered menu or human
   | 'atendente'
   | 'ver_agendamentos'
@@ -71,6 +80,7 @@ export type AppointmentSummary = {
   label: string     // e.g. "Segunda, 14/04 às 10h00"
   status: string
   appointmentType?: 'particular' | 'convenio' | null
+  scheduleType?: 'consulta' | 'exame' | null
   patientName?: string | null
 }
 
@@ -88,6 +98,8 @@ export type BotContext = {
   appointmentType?: 'particular' | 'convenio'
   // Selected insurance plan name
   selectedConvenio?: string
+  // Whether this is a consulta or exame flow
+  scheduleType?: 'consulta' | 'exame'
 
   // Scheduling flow — raw text from patient before parsing (legacy)
   requestedDay?: string
@@ -124,6 +136,14 @@ export type BotContext = {
   retryCount?: number
   /** ISO datetime of the appointment slot that was just canceled (set by handleCancelarConfirmar) */
   canceledStartsAt?: string
+  /** One-time menu guidance already sent after repeated free text in menu */
+  menuGuidanceSentAt?: string
+  /** Last free-text message ignored after the one-time guidance */
+  lastIgnoredFreeText?: string
+  /** ISO timestamp for the latest ignored free-text message */
+  lastIgnoredFreeTextAt?: string
+  /** Count of consecutive free-text messages ignored after guidance */
+  ignoredFreeTextCount?: number
 
   // Multi-booking flow (scheduling for multiple people)
   multiBookingTotal?: number    // total number of people to book for

@@ -51,7 +51,8 @@ const DEFAULT_SETTINGS: NotificationSettings = {
 	custom_reminders: [],
 }
 
-export default function NotificationSettingsTab({ clinicId }: { clinicId: string }) {
+export default function NotificationSettingsTab({ clinicId: _clinicId }: { clinicId: string }) {
+	void _clinicId
 	const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_SETTINGS)
 	const [loading, setLoading] = useState(true)
 	const [saving, setSaving] = useState(false)
@@ -330,6 +331,9 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 							<p className="text-xs text-neutral-900">
 								Enviado na véspera à noite / manhã do dia
 							</p>
+							<p className="mt-1 text-[11px] text-sky-700">
+								Quando ativo, esse lembrete sai com botões para confirmar presença ou cancelar.
+							</p>
 						</div>
 					</div>
 					<button
@@ -457,6 +461,9 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 							<p className="text-xs text-neutral-900">
 								Enviado imediatamente após criar a consulta
 							</p>
+							<p className="mt-1 text-[11px] text-emerald-700">
+								Essa notificação envia botões de confirmar/cancelar e, ao cancelar, oferece remarcação.
+							</p>
 						</div>
 					</div>
 					<button
@@ -514,7 +521,7 @@ export default function NotificationSettingsTab({ clinicId }: { clinicId: string
 
 				{(settings.custom_reminders || []).length === 0 && (
 					<p className="text-xs text-neutral-900 text-center py-4">
-						Nenhum lembrete personalizado. Clique em "Adicionar" para criar.
+						Nenhum lembrete personalizado. Clique em &quot;Adicionar&quot; para criar.
 					</p>
 				)}
 

@@ -10,6 +10,10 @@ import type { Conversation, Message } from '@/lib/types/database'
 import { getBotSettings } from './botSettingsService'
 import { createNotification } from './notificationService'
 import { zapiGetProfilePicture } from '@/lib/zapi/client'
+import {
+  getBrazilianPhoneLookupCandidates,
+  normalizePhoneForStorage,
+} from '@/lib/utils/phone'
 
 export interface IncomingMessageData {
   clinicId: string
@@ -43,8 +47,17 @@ export async function handleIncomingMessage(
   data: IncomingMessageData
 ): Promise<ProcessResult> {
   const supabase = createAdminClient()
+  const normalizedPhone = normalizePhoneForStorage(data.phone)
 
   try {
+    if (!normalizedPhone) {
+      return {
+        success: false,
+        createdConversation: false,
+        error: 'Invalid phone number',
+      }
+    }
+
     // 0. Check for duplicate message (deduplication)
     if (data.zapiMessageId) {
       const { data: existingMessage } = await supabase
@@ -70,8 +83,7 @@ export async function handleIncomingMessage(
     const { conversation, created } = await findOrCreateConversation(
       supabase,
       data.clinicId,
-      data.phone,
-      data.name
+      normalizedPhone
     )
 
     if (!conversation) {
@@ -166,8 +178,11 @@ export async function saveFromMeMessage(data: {
   zapiMessageId?: string | null
   timestamp?: number | null
 }): Promise<void> {
-  const { supabase, clinicId, phone, text, zapiMessageId, timestamp } = data
+  const { supabase, clinicId, text, zapiMessageId, timestamp } = data
   try {
+    const normalizedPhone = normalizePhoneForStorage(data.phone)
+    if (!normalizedPhone) return
+
     // Skip empty messages — Z-API fires fromMe webhooks for interactive button/list
     // messages where the body text is empty (the content is in the button structure).
     // These are not real secretary messages and should be silently ignored.
@@ -177,6 +192,8 @@ export async function saveFromMeMessage(data: {
     // If we have a message ID, check if it was already saved by the bot sender —
     // Z-API fires a fromMe webhook for every outgoing message (bot or human).
     // Bot messages are already inserted with that same zapi_message_id, so skip them.
+    // We retry once after 600ms because the bot's DB insert may still be in-flight
+    // when the fromMe webhook arrives, causing a race condition that creates duplicates.
     if (zapiMessageId) {
       const { data: existing } = await supabase
         .from('messages')
@@ -184,6 +201,15 @@ export async function saveFromMeMessage(data: {
         .eq('zapi_message_id', zapiMessageId)
         .maybeSingle()
       if (existing) return // Already saved by the bot flow — not a secretary message
+
+      // Bot save may be in-flight — wait and re-check before treating as a new secretary message
+      await new Promise(r => setTimeout(r, 600))
+      const { data: existingAfterWait } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('zapi_message_id', zapiMessageId)
+        .maybeSingle()
+      if (existingAfterWait) return // Bot saved it during the wait — skip
     }
 
     // Find the existing conversation (do NOT create one)
@@ -191,9 +217,7 @@ export async function saveFromMeMessage(data: {
       .from('conversations')
       .select('id')
       .eq('clinic_id', clinicId)
-      .eq('patient_phone', phone)
-      .order('last_message_at', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false })
+      .in('patient_phone', getBrazilianPhoneLookupCandidates(normalizedPhone))
       .limit(1)
       .maybeSingle()
 
@@ -220,6 +244,8 @@ export async function saveFromMeMessage(data: {
       supabase.from('conversations').update({
         last_message_at: messageTimestamp,
         last_message_preview: preview,
+        bot_enabled: false,
+        status: 'in_progress',
         updated_at: new Date().toISOString(),
       }).eq('id', conversation.id),
     ])
@@ -234,9 +260,10 @@ export async function saveFromMeMessage(data: {
 async function findOrCreateConversation(
   supabase: ReturnType<typeof createAdminClient>,
   clinicId: string,
-  phone: string,
-  name: string | null
+  phone: string
 ): Promise<{ conversation: Conversation | null; created: boolean }> {
+  const phoneCandidates = getBrazilianPhoneLookupCandidates(phone)
+
   // Try to find existing conversation — use limit(1) + maybeSingle to avoid
   // crashing when multiple rows exist (which would cause .single() to error and
   // create yet another duplicate conversation).
@@ -244,23 +271,13 @@ async function findOrCreateConversation(
     .from('conversations')
     .select('*')
     .eq('clinic_id', clinicId)
-    .eq('patient_phone', phone)
+    .in('patient_phone', phoneCandidates)
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
   if (existing && !findError) {
-    // Update name if provided and different
-    if (name && name !== existing.patient_name) {
-      await supabase
-        .from('conversations')
-        .update({ patient_name: name, updated_at: new Date().toISOString() })
-        .eq('id', existing.id)
-      
-      existing.patient_name = name
-    }
-
     return { conversation: existing as Conversation, created: false }
   }
 
@@ -272,7 +289,7 @@ async function findOrCreateConversation(
   const newConversation = {
     clinic_id: clinicId,
     patient_phone: phone,
-    patient_name: name,
+    patient_name: null,
     status: 'new' as const,
     bot_enabled: botEnabled,
     bot_state: 'menu',
@@ -296,7 +313,7 @@ async function findOrCreateConversation(
       .from('conversations')
       .select('*')
       .eq('clinic_id', clinicId)
-      .eq('patient_phone', phone)
+      .in('patient_phone', phoneCandidates)
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(1)
@@ -444,15 +461,22 @@ function truncateText(text: string, maxLength: number): string {
 export async function logWebhookActivity(data: {
   level: 'info' | 'warn' | 'error'
   action: string
-  details: Record<string, any>
+  details: Record<string, unknown>
+  phone?: string | null
+  conversationId?: string | null
 }) {
   try {
     const supabase = createAdminClient()
+    const normalizedPhone = normalizePhoneForStorage(data.phone)
     
     await supabase.from('logs').insert({
       level: data.level,
       action: data.action,
-      details: data.details,
+      details: {
+        ...data.details,
+        conversationId: data.conversationId || data.details.conversationId || null,
+        normalizedPhone,
+      },
       created_at: new Date().toISOString(),
     })
   } catch (error) {

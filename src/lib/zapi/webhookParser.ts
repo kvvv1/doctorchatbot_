@@ -5,6 +5,8 @@
  * for internal processing.
  */
 
+import { normalizePhoneForStorage } from '@/lib/utils/phone'
+
 export interface ParsedWebhookMessage {
   instanceId: string
   token: string | null
@@ -13,6 +15,7 @@ export interface ParsedWebhookMessage {
   messageText: string
   normalizedText: string
   messageId: string | null
+  interactiveReplyId: string | null
   timestamp: Date
   isFromMe: boolean
 }
@@ -39,7 +42,9 @@ export interface ZapiWebhookPayload {
     message?: string
   }
   body?: string // alternative format
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   message?: any // another alternative (string or nested object, depending on Z-API webhook shape)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any
 }
 
@@ -69,59 +74,50 @@ const CONNECTION_STATUS_MAP: Record<string, ParsedConnectionStatus> = {
  * @returns Normalized message data
  * @throws Error if required fields are missing or invalid
  */
-export function parseWebhookPayload(payload: any): ParsedWebhookMessage {
+export function parseWebhookPayload(payload: unknown): ParsedWebhookMessage {
   if (!payload || typeof payload !== 'object') {
     throw new Error('Invalid payload: must be an object')
   }
 
+  const candidate = payload as ZapiWebhookPayload
+
   // Extract instanceId (required)
-  const instanceId = payload.instanceId || payload.instance
+  const instanceId = candidate.instanceId || candidate.instance
   if (!instanceId || typeof instanceId !== 'string') {
     throw new Error('Missing or invalid instanceId')
   }
 
   // Extract token (for authentication)
-  const token = payload.token || payload.clientToken || null
+  const token = candidate.token || candidate.clientToken || null
 
   // Extract phone (required)
-  const phone = normalizePhone(payload.phone)
+  const phone = normalizePhone(candidate.phone)
   if (!phone) {
     throw new Error('Missing or invalid phone number')
   }
 
   // Check if message is from us (ignore these)
-  const isFromMe = payload.fromMe === true
+  const isFromMe = candidate.fromMe === true
 
   // Extract message text and normalized bot input
-  const { messageText, normalizedText } = extractMessageText(payload)
+  const { messageText, normalizedText } = extractMessageText(candidate)
 
   // Extract sender name
-  const name = extractSenderName(payload)
+  const name = extractSenderName(candidate)
 
   // Extract timestamp first (needed for synthetic message ID below)
-  const timestamp = extractTimestamp(payload)
+  const timestamp = extractTimestamp(candidate)
 
   // Extract message ID
   // For interactive replies (button/list clicks) Z-API often omits messageId.
   // Generate a synthetic dedup key so duplicate webhook deliveries are ignored.
-  let messageId: string | null = getString(payload.messageId) || null
+  const interactiveReplyId = extractInteractiveReplyId(candidate)
+  let messageId: string | null = getString(candidate.messageId) || null
   if (!messageId) {
-    const interactiveId =
-      getString(payload.selectedButtonId) ||
-      getString(payload.selectedRowId) ||
-      getString(payload.buttonsResponseMessage?.selectedButtonId) ||
-      getString(payload.listResponseMessage?.selectedRowId) ||
-      getString(payload.listResponseMessage?.singleSelectReply?.selectedRowId) ||
-      getString(payload.message?.buttonsResponseMessage?.selectedButtonId) ||
-      getString(payload.message?.listResponseMessage?.singleSelectReply?.selectedRowId) ||
-      getString(payload.data?.buttonsResponseMessage?.selectedButtonId) ||
-      getString(payload.data?.listResponseMessage?.singleSelectReply?.selectedRowId) ||
-      getString(payload.buttonReply?.id) ||
-      getString(payload.listReply?.id)
-    if (interactiveId && phone) {
+    if (interactiveReplyId && phone) {
       // Round to 10-second buckets so late duplicate deliveries still match.
       const bucket = Math.floor(timestamp.getTime() / 10000)
-      messageId = `interactive_${phone}_${interactiveId}_${bucket}`
+      messageId = `interactive_${phone}_${interactiveReplyId}_${bucket}`
     }
   }
 
@@ -133,6 +129,7 @@ export function parseWebhookPayload(payload: any): ParsedWebhookMessage {
     messageText,
     normalizedText,
     messageId,
+    interactiveReplyId,
     timestamp,
     isFromMe,
   }
@@ -142,23 +139,12 @@ export function parseWebhookPayload(payload: any): ParsedWebhookMessage {
  * Normalizes phone number format.
  * Removes extra characters and ensures it's in a consistent format.
  */
-function normalizePhone(phone: any): string | null {
+function normalizePhone(phone: unknown): string | null {
   if (!phone || typeof phone !== 'string') {
     return null
   }
 
-  // Remove common formatting characters
-  let normalized = phone.replace(/[\s\-\(\)]/g, '')
-
-  // Remove @ suffix if present (some Z-API formats include @c.us)
-  normalized = normalized.replace(/@.*$/, '')
-
-  // Ensure we have at least some digits
-  if (!/\d{8,}/.test(normalized)) {
-    return null
-  }
-
-  return normalized
+  return normalizePhoneForStorage(phone.replace(/@.*$/, ''))
 }
 
 /**
@@ -222,31 +208,7 @@ function extractInteractiveReply(payload: ZapiWebhookPayload): {
   messageText: string
   normalizedText: string
 } | null {
-  const candidateId =
-    getString(payload.selectedId) ||
-    getString(payload.selectedRowId) ||
-    getString(payload.selectedButtonId) ||
-    getString(payload.buttonId) ||
-    getString(payload.rowId) ||
-    getString(payload.listResponse?.selectedRowId) ||
-    getString(payload.listResponseMessage?.selectedRowId) ||
-    getString(payload.listResponseMessage?.singleSelectReply?.selectedRowId) ||
-    getString(payload.message?.buttonsResponseMessage?.selectedButtonId) ||
-    getString(payload.message?.listResponseMessage?.selectedRowId) ||
-    getString(payload.message?.listResponseMessage?.singleSelectReply?.selectedRowId) ||
-    getString(payload.data?.buttonsResponseMessage?.selectedButtonId) ||
-    getString(payload.data?.listResponseMessage?.selectedRowId) ||
-    getString(payload.data?.listResponseMessage?.singleSelectReply?.selectedRowId) ||
-    getString(payload.buttonsResponseMessage?.selectedButtonId) ||
-    getString(payload.buttonsResponseMessage?.buttonId) ||
-    getString(payload.buttonReply?.id) ||
-    getString(payload.listReply?.id) ||
-    getString(payload.selectedButton?.id) ||
-    getString(payload.selectedRow?.id) ||
-    getString(payload.data?.selectedId) ||
-    getString(payload.data?.selectedRowId) ||
-    getString(payload.data?.selectedButtonId) ||
-    getString(payload.data?.buttonId)
+  const candidateId = extractInteractiveReplyId(payload)
 
   const candidateLabelText =
     getString(payload.buttonsResponseMessage?.message) ||
@@ -316,6 +278,36 @@ function extractInteractiveReply(payload: ZapiWebhookPayload): {
     messageText,
     normalizedText,
   }
+}
+
+function extractInteractiveReplyId(payload: ZapiWebhookPayload): string | null {
+  return (
+    getString(payload.selectedId) ||
+    getString(payload.selectedRowId) ||
+    getString(payload.selectedButtonId) ||
+    getString(payload.buttonId) ||
+    getString(payload.rowId) ||
+    getString(payload.listResponse?.selectedRowId) ||
+    getString(payload.listResponseMessage?.selectedRowId) ||
+    getString(payload.listResponseMessage?.singleSelectReply?.selectedRowId) ||
+    getString(payload.message?.buttonsResponseMessage?.selectedButtonId) ||
+    getString(payload.message?.listResponseMessage?.selectedRowId) ||
+    getString(payload.message?.listResponseMessage?.singleSelectReply?.selectedRowId) ||
+    getString(payload.data?.buttonsResponseMessage?.selectedButtonId) ||
+    getString(payload.data?.listResponseMessage?.selectedRowId) ||
+    getString(payload.data?.listResponseMessage?.singleSelectReply?.selectedRowId) ||
+    getString(payload.buttonsResponseMessage?.selectedButtonId) ||
+    getString(payload.buttonsResponseMessage?.buttonId) ||
+    getString(payload.buttonReply?.id) ||
+    getString(payload.listReply?.id) ||
+    getString(payload.selectedButton?.id) ||
+    getString(payload.selectedRow?.id) ||
+    getString(payload.data?.selectedId) ||
+    getString(payload.data?.selectedRowId) ||
+    getString(payload.data?.selectedButtonId) ||
+    getString(payload.data?.buttonId) ||
+    null
+  )
 }
 
 function dedupeRepeatedLines(value: string): string {
@@ -388,29 +380,31 @@ export function shouldProcessWebhook(parsed: ParsedWebhookMessage): boolean {
  * Parses status-only webhook payloads from Z-API.
  * Returns null when payload doesn't look like a connection status event.
  */
-export function parseConnectionStatusWebhook(payload: any): ParsedConnectionStatusWebhook | null {
+export function parseConnectionStatusWebhook(payload: unknown): ParsedConnectionStatusWebhook | null {
   if (!payload || typeof payload !== 'object') {
     return null
   }
 
+  const candidate = payload as ZapiWebhookPayload
+
   const instanceId =
-    getString(payload.instanceId) ||
-    getString(payload.instance) ||
-    getString(payload.instance_id) ||
-    getString(payload.data?.instanceId)
+    getString(candidate.instanceId) ||
+    getString(candidate.instance) ||
+    getString(candidate.instance_id) ||
+    getString(candidate.data?.instanceId)
 
   if (!instanceId) {
     return null
   }
 
   const rawStatus =
-    getString(payload.connectionStatus) ||
-    getString(payload.status) ||
-    getString(payload.event) ||
-    getString(payload.type) ||
-    getString(payload.data?.connectionStatus) ||
-    getString(payload.data?.status) ||
-    getString(payload.value)
+    getString(candidate.connectionStatus) ||
+    getString(candidate.status) ||
+    getString(candidate.event) ||
+    getString(candidate.type) ||
+    getString(candidate.data?.connectionStatus) ||
+    getString(candidate.data?.status) ||
+    getString(candidate.value)
 
   const status = normalizeConnectionStatus(rawStatus)
   if (!status) {
@@ -418,13 +412,13 @@ export function parseConnectionStatusWebhook(payload: any): ParsedConnectionStat
   }
 
   const token =
-    getString(payload.token) ||
-    getString(payload.clientToken) ||
-    getString(payload.data?.token) ||
+    getString(candidate.token) ||
+    getString(candidate.clientToken) ||
+    getString(candidate.data?.token) ||
     null
 
   // If a payload has phone/message fields, this should be handled by message flow.
-  const hasMessageShape = !!(payload.phone || payload.text || payload.message || payload.body)
+  const hasMessageShape = !!(candidate.phone || candidate.text || candidate.message || candidate.body)
   if (hasMessageShape) {
     return null
   }
