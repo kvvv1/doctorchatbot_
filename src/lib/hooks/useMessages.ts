@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Conversation, Message } from '@/lib/types/database'
 import { mergeMessagesWithOutbox, normalizeMessage, type OutboxEntry } from '@/lib/chat/model'
+import { getBrazilianPhoneLookupCandidates } from '@/lib/utils/phone'
 import {
 	getCachedMessages,
 	listOutboxEntries,
@@ -190,10 +191,30 @@ export function useMessages({
 						}
 					}
 
+					let conversationIds = [conversationId]
+					const phoneCandidates = getBrazilianPhoneLookupCandidates(phone)
+
+					if (phoneCandidates.length > 0) {
+						const { data: relatedConversations } = await supabase
+							.from('conversations')
+							.select('id')
+							.in('patient_phone', phoneCandidates)
+
+						if (relatedConversations && relatedConversations.length > 0) {
+							conversationIds = Array.from(
+								new Set(
+									relatedConversations
+										.map((conversation) => conversation.id)
+										.filter((id): id is string => Boolean(id)),
+								),
+							)
+						}
+					}
+
 					const { data, error: fetchError } = await supabase
 						.from('messages')
 						.select('*')
-						.eq('conversation_id', conversationId)
+						.in('conversation_id', conversationIds)
 						.order('created_at', { ascending: true })
 
 					if (fetchError) throw fetchError
@@ -224,7 +245,7 @@ export function useMessages({
 				if (isInitial) setLoading(false)
 			}
 		},
-		[cleanupAcknowledgedEntries, conversationId, enabled],
+		[cleanupAcknowledgedEntries, conversationId, enabled, phone],
 	)
 
 	const reconcileConversation = useCallback(
