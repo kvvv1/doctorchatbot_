@@ -144,11 +144,15 @@ export async function syncGestaoDSClinic(params: {
       } else {
         summary.created += 1
 
-        const isFutureAppointment = new Date(startsAt) > new Date()
+        const now = new Date()
+        const appointmentDate = new Date(startsAt)
+        const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+        const isFutureAppointment = appointmentDate > now
+        const isWithinConfirmationWindow = appointmentDate <= sevenDaysFromNow
         const isActiveStatus = sourceStatus === 'scheduled' || sourceStatus === 'confirmed'
         const hasValidPhone = Boolean(patientPhone && patientPhone !== '00000000000')
 
-        if (insertedAppointment?.id && isFutureAppointment && isActiveStatus && hasValidPhone) {
+        if (insertedAppointment?.id && isFutureAppointment && isWithinConfirmationWindow && isActiveStatus && hasValidPhone) {
           try {
             await sendImmediateAppointmentConfirmation({
               clinicId: config.clinic_id,

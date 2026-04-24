@@ -1985,7 +1985,7 @@ export async function sendBotResponse(
           metadata: { source: 'bot_engine_preamble' },
           created_at: new Date().toISOString(),
         })
-        await new Promise(r => setTimeout(r, 400))
+        await new Promise(r => setTimeout(r, 1200 + Math.random() * 800))
       }
       // Single interactive list bubble: cleanedMessage is the list context text
       const listText = interactive.message.trim() || 'Escolha uma opção:'
@@ -2008,7 +2008,7 @@ export async function sendBotResponse(
 
     // 1b. Send follow-up message (e.g. menu after alert)
     if (response.followUpMessage?.trim()) {
-      await new Promise(r => setTimeout(r, 500))
+      await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000))
       const followUpText = response.followUpMessage.trim()
       const followUpInteractive = extractInteractiveChoices(followUpText)
       if (followUpInteractive && followUpInteractive.choices.length >= 1) {

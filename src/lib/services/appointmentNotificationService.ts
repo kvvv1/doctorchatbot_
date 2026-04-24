@@ -415,13 +415,18 @@ export async function processPendingNotificationReminders(limit = 100): Promise<
   let failed = 0
   const errors: string[] = []
 
-  for (const reminder of reminders as ReminderRecord[]) {
+  for (let i = 0; i < (reminders as ReminderRecord[]).length; i++) {
+    const reminder = (reminders as ReminderRecord[])[i]
     const result = await sendReminderById(reminder.id)
     if (result.success) {
       sent += 1
     } else {
       failed += 1
       errors.push(`Reminder ${reminder.id}: ${result.error || 'Failed to send'}`)
+    }
+    // Anti-ban: random delay between sends to avoid WhatsApp rate detection
+    if (i < (reminders as ReminderRecord[]).length - 1) {
+      await new Promise(r => setTimeout(r, 3000 + Math.random() * 5000))
     }
   }
 
@@ -475,7 +480,8 @@ export async function resendInteractiveReminderButtons(params?: {
   let failed = 0
   const errors: string[] = []
 
-  for (const reminder of actionableReminders) {
+  for (let i = 0; i < actionableReminders.length; i++) {
+    const reminder = actionableReminders[i]
     const payload = await getReminderWithAppointment(reminder.id)
     if (!payload?.appointment) {
       failed += 1
@@ -523,6 +529,10 @@ export async function resendInteractiveReminderButtons(params?: {
       .eq('id', reminder.id)
 
     sent += 1
+    // Anti-ban: random delay between sends to avoid WhatsApp rate detection
+    if (i < actionableReminders.length - 1) {
+      await new Promise(r => setTimeout(r, 3000 + Math.random() * 5000))
+    }
   }
 
   return {

@@ -187,6 +187,11 @@ export async function processPendingReminders(): Promise<{
 
 			failed++
 		}
+
+		// Anti-ban: random delay between sends to avoid WhatsApp rate detection
+		if (reminders.indexOf(reminder) < reminders.length - 1) {
+			await new Promise(r => setTimeout(r, 3000 + Math.random() * 5000))
+		}
 	}
 
 	console.log(`[Reminders] Completed: ${succeeded} succeeded, ${failed} failed`)

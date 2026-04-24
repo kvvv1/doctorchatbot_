@@ -1108,10 +1108,7 @@ async function triggerBotResponse(
           created_at: new Date().toISOString(),
         })
       }
-      await new Promise(r => setTimeout(r, 400))
-    }
-
-    // Pre-load appointments into context whenever the patient might need them.
+      await new Promise(r => setTimeout(r, 1500 + Math.random() * 1500))
     // This covers: menu intent for cancel/reschedule/view, and the ver_agendamentos state.
     // We do it ONCE here so the engine always receives real data without extra round-trips.
     if (!currentContext.appointments) {
@@ -1151,6 +1148,15 @@ async function triggerBotResponse(
       phone,
       clinicId
     )
+
+    // 6b. Human-like typing delay before responding.
+    // Scales with response length: ~40ms/char, clamped to 1500–4000ms.
+    // Prevents WhatsApp from detecting sub-second bot response patterns.
+    {
+      const responseLength = (response.message?.length || 0) + (response.preambleMessage?.length || 0)
+      const typingMs = Math.min(Math.max(responseLength * 40, 1500), 4000)
+      await new Promise(r => setTimeout(r, typingMs))
+    }
 
     // 7. Send bot response
     const sent = await sendBotResponse(conversationId, phone, response, clinicId)
