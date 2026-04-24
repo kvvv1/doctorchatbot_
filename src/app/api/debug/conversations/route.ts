@@ -32,8 +32,18 @@ export async function GET() {
     // 4. Admin query (bypasses RLS)
     const adminResult = await admin
       .from('conversations')
-      .select('id, clinic_id, status, patient_phone, bot_enabled, bot_state, updated_at', { count: 'exact' })
+      .select('id, clinic_id, status, patient_phone, bot_enabled, bot_state, updated_at, reconciliation_state', { count: 'exact' })
       .limit(10)
+
+    const degradedResult = await admin
+      .from('conversations')
+      .select('id', { count: 'exact', head: true })
+      .neq('reconciliation_state', 'healthy')
+
+    const backlogResult = await admin
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .in('external_status', ['pending', 'unknown'])
 
     const duplicateGroups = new Map<string, number>()
     for (const row of adminResult.data ?? []) {
@@ -71,6 +81,10 @@ export async function GET() {
       duplicate_phone_groups: [...duplicateGroups.entries()]
         .filter(([, count]) => count > 1)
         .map(([key, count]) => ({ key, count })),
+      diagnostics: {
+        degraded_count: degradedResult.count ?? 0,
+        pending_or_unknown_backlog: backlogResult.count ?? 0,
+      },
     })
   } catch (err) {
     return NextResponse.json({ fatal_error: String(err) }, { status: 500 })

@@ -7,6 +7,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Conversation } from '@/lib/types/database'
+import { pickCanonicalConversation } from '@/lib/conversations/canonical'
 import { getBotSettings } from './botSettingsService'
 import { createNotification } from './notificationService'
 import { zapiGetProfilePicture } from '@/lib/zapi/client'
@@ -180,15 +181,21 @@ export async function saveFromMeMessage(data: {
     if (!cleanText || cleanText === '[Mensagem sem texto]') return
 
     // Find the existing conversation (do NOT create one)
-    const { data: conversation } = await supabase
+    const { data: relatedConversations } = await supabase
       .from('conversations')
-      .select('id')
+      .select('*')
       .eq('clinic_id', clinicId)
       .in('patient_phone', getBrazilianPhoneLookupCandidates(normalizedPhone))
-      .limit(1)
-      .maybeSingle()
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .order('updated_at', { ascending: false })
+      .order('created_at', { ascending: false })
 
-    if (!conversation) return // No conversation yet — silently skip
+    const conversation = pickCanonicalConversation(
+      (relatedConversations ?? []) as Conversation[],
+      ((relatedConversations ?? [])[0] as Conversation | undefined) ?? null,
+    )
+
+    if (!conversation) return
 
     const messageTimestamp = timestamp
       ? new Date(timestamp * 1000).toISOString()
@@ -226,6 +233,13 @@ export async function saveFromMeMessage(data: {
       status: 'in_progress',
       updated_at: new Date().toISOString(),
     }).eq('id', conversation.id)
+
+    console.info('[InboxService] Reconciled fromMe message', {
+      clinicId,
+      phone: normalizedPhone,
+      conversationId: conversation.id,
+      zapiMessageId: zapiMessageId || null,
+    })
   } catch (err) {
     console.error('[InboxService] Error saving fromMe message:', err)
   }

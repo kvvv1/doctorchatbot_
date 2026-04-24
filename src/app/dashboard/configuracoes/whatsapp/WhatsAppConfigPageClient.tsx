@@ -41,6 +41,7 @@ const STATUS_TOOLTIPS: Record<WhatsAppStatus, string> = {
 };
 
 const POLLING_INTERVAL = 5000; // 5 segundos
+const SYNC_ENSURE_INTERVAL = 5 * 60 * 1000;
 
 export default function WhatsAppConfigPageClient() {
   const router = useRouter();
@@ -60,6 +61,7 @@ export default function WhatsAppConfigPageClient() {
   // Referências
   const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+  const lastSyncEnsureAtRef = useRef(0);
 
   // Buscar status inicial
   const fetchStatus = useCallback(async (silent = false) => {
@@ -200,6 +202,7 @@ export default function WhatsAppConfigPageClient() {
       }
 
       setSyncConfigured(true);
+      lastSyncEnsureAtRef.current = Date.now();
     } catch (err) {
       console.error('Failed to configure sync:', err);
       if (!silent) {
@@ -249,6 +252,20 @@ export default function WhatsAppConfigPageClient() {
       stopPolling();
     };
   }, [configureSync, qrCode, startPolling, status, stopPolling, syncConfigured]);
+
+  useEffect(() => {
+    if (status !== 'connected') return;
+
+    const ensureSync = () => {
+      const now = Date.now();
+      if (now - lastSyncEnsureAtRef.current < SYNC_ENSURE_INTERVAL) return;
+      void configureSync(true);
+    };
+
+    ensureSync();
+    const interval = window.setInterval(ensureSync, SYNC_ENSURE_INTERVAL);
+    return () => window.clearInterval(interval);
+  }, [configureSync, status]);
 
   // Buscar status ao montar
   useEffect(() => {

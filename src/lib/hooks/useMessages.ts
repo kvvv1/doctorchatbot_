@@ -17,6 +17,8 @@ import {
 const NORMAL_REFRESH_INTERVAL = 30000
 const DEGRADED_REFRESH_INTERVAL = 20000
 const CHANNEL_HEALTHCHECK_INTERVAL = 15000
+const ACTIVE_RECONCILE_INTERVAL = 45000
+const DEGRADED_RECONCILE_INTERVAL = 20000
 const IS_LOCAL = process.env.NEXT_PUBLIC_LOCAL_DB === 'sqlite'
 
 interface UseMessagesOptions {
@@ -119,9 +121,11 @@ export function useMessages({
 	const [channelKey, setChannelKey] = useState(0)
 	const [channelStatus, setChannelStatus] = useState('CLOSED')
 	const [degradedMode, setDegradedMode] = useState(false)
+	const [conversationScopeIds, setConversationScopeIds] = useState<string[]>([])
 	const [lastRealtimeEventAt, setLastRealtimeEventAt] = useState(() => Date.now())
 	const [reconciling, setReconciling] = useState(false)
 	const reconcileInFlightRef = useRef(false)
+	const lastAutoReconcileAtRef = useRef(0)
 
 	const syncOutbox = useCallback(async () => {
 		if (!conversationId) {
@@ -160,6 +164,7 @@ export function useMessages({
 		async (isInitial = false) => {
 			if (!conversationId || !enabled) {
 				setServerMessages([])
+				setConversationScopeIds([])
 				setLoading(false)
 				return
 			}
@@ -169,6 +174,7 @@ export function useMessages({
 
 				let nextMessages: Message[] = []
 				if (IS_LOCAL) {
+					setConversationScopeIds([conversationId])
 					const response = await fetch(`/api/local/messages/${conversationId}`, {
 						cache: 'no-store',
 					})
@@ -204,12 +210,13 @@ export function useMessages({
 							conversationIds = Array.from(
 								new Set(
 									relatedConversations
-										.map((conversation) => conversation.id)
-										.filter((id): id is string => Boolean(id)),
+										.map((conversation: { id: string | null }) => conversation.id)
+										.filter((id: string | null): id is string => Boolean(id)),
 								),
 							)
 						}
 					}
+					setConversationScopeIds(conversationIds)
 
 					const { data, error: fetchError } = await supabase
 						.from('messages')
@@ -275,6 +282,9 @@ export function useMessages({
 				})
 
 				await fetchMessages(false)
+				if (reason !== 'manual') {
+					lastAutoReconcileAtRef.current = Date.now()
+				}
 				return result
 			} finally {
 				reconcileInFlightRef.current = false
@@ -288,6 +298,7 @@ export function useMessages({
 		if (!conversationId || !enabled) {
 			setServerMessages([])
 			setOutboxEntries([])
+			setConversationScopeIds([])
 			setLoading(false)
 			return
 		}
@@ -309,60 +320,64 @@ export function useMessages({
 				setOutboxEntries(cachedOutbox)
 			}
 
-				await fetchMessages(true)
-				await syncOutbox()
-			}
+			await fetchMessages(true)
+			await syncOutbox()
+		}
 
 		void bootstrap()
 
 		return () => {
 			cancelled = true
 		}
-		}, [conversationId, enabled, fetchMessages, syncOutbox])
+	}, [conversationId, enabled, fetchMessages, syncOutbox])
 
 	useEffect(() => {
-		if (!conversationId || !enabled || IS_LOCAL) return
+		if (!conversationId || !enabled || IS_LOCAL || conversationScopeIds.length === 0) return
 
 		const supabase = createClient()
-		const channel = supabase
-			.channel(`messages:${conversationId}:${channelKey}`)
-			.on(
+		let channel = supabase.channel(`messages:${conversationId}:${channelKey}:${conversationScopeIds.join(',')}`)
+		const handlePayload = (payload: {
+			eventType: 'INSERT' | 'UPDATE' | 'DELETE'
+			new: Message
+			old: Message
+		}) => {
+			setLastRealtimeEventAt(Date.now())
+			setDegradedMode(false)
+
+			const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE'
+
+			setServerMessages((current) => {
+				const next =
+					eventType === 'DELETE'
+						? current.filter((message) => message.id !== (payload.old as Message).id)
+						: current
+								.filter((message) => message.id !== (payload.new as Message).id)
+								.concat(normalizeMessage(payload.new as Message))
+								.sort(
+									(left, right) =>
+										new Date(left.created_at).getTime() - new Date(right.created_at).getTime(),
+								)
+
+				void setCachedMessages(conversationId, next)
+				void cleanupAcknowledgedEntries(next)
+				return next
+			})
+		}
+
+		for (const scopeConversationId of conversationScopeIds) {
+			channel = channel.on(
 				'postgres_changes',
 				{
 					event: '*',
 					schema: 'public',
 					table: 'messages',
-					filter: `conversation_id=eq.${conversationId}`,
+					filter: `conversation_id=eq.${scopeConversationId}`,
 				},
-				(payload: {
-					eventType: 'INSERT' | 'UPDATE' | 'DELETE'
-					new: Message
-					old: Message
-				}) => {
-					setLastRealtimeEventAt(Date.now())
-					setDegradedMode(false)
-
-					const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE'
-
-					setServerMessages((current) => {
-						const next =
-							eventType === 'DELETE'
-								? current.filter((message) => message.id !== (payload.old as Message).id)
-								: current
-										.filter((message) => message.id !== (payload.new as Message).id)
-										.concat(normalizeMessage(payload.new as Message))
-										.sort(
-											(left, right) =>
-												new Date(left.created_at).getTime() - new Date(right.created_at).getTime(),
-										)
-
-						void setCachedMessages(conversationId, next)
-						void cleanupAcknowledgedEntries(next)
-						return next
-					})
-				},
+				handlePayload,
 			)
-			.subscribe((status: string) => {
+		}
+
+		channel = channel.subscribe((status: string) => {
 				setChannelStatus(status)
 
 				if (status === 'SUBSCRIBED') {
@@ -381,7 +396,7 @@ export function useMessages({
 		return () => {
 			supabase.removeChannel(channel)
 		}
-	}, [channelKey, cleanupAcknowledgedEntries, conversationId, enabled, fetchMessages])
+	}, [channelKey, cleanupAcknowledgedEntries, conversationId, conversationScopeIds, enabled, fetchMessages])
 
 	const flushPendingEntries = useCallback(async () => {
 		if (!conversationId || !phone || !navigator.onLine) return
@@ -452,6 +467,24 @@ export function useMessages({
 			document.removeEventListener('visibilitychange', handleResume)
 		}
 	}, [channelStatus, conversationId, degradedMode, enabled, fetchMessages, flushPendingEntries, lastRealtimeEventAt])
+
+	useEffect(() => {
+		if (!conversationId || !enabled || IS_LOCAL) return
+
+		const interval = window.setInterval(() => {
+			if (document.hidden || !navigator.onLine) return
+
+			const now = Date.now()
+			const cadence = degradedMode ? DEGRADED_RECONCILE_INTERVAL : ACTIVE_RECONCILE_INTERVAL
+			if (now - lastAutoReconcileAtRef.current < cadence) return
+
+			void reconcileConversation('auto-open')
+		}, degradedMode ? DEGRADED_RECONCILE_INTERVAL : ACTIVE_RECONCILE_INTERVAL)
+
+		return () => {
+			window.clearInterval(interval)
+		}
+	}, [conversationId, degradedMode, enabled, reconcileConversation])
 
 	const sendMessage = useCallback(
 		async (content: string) => {

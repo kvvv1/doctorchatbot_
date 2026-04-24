@@ -175,6 +175,17 @@ export async function persistCanonicalMessage(
       })
     }
 
+    console.info('[MessageReconciliation] Updated canonical message', {
+      conversationId: params.conversationId,
+      messageId: updated.id,
+      zapiMessageId: updatePayload.zapi_message_id,
+      clientMessageId: updatePayload.client_message_id,
+      dedupRule: existing._dedupRule,
+      externalStatus: mergedExternalStatus,
+      sender: params.sender,
+      origin: params.origin,
+    })
+
     return {
       message: updated as Message,
       created: false,
@@ -218,6 +229,16 @@ export async function persistCanonicalMessage(
     deliveryStatus: nextDeliveryStatus,
     createdAt,
     updatedAt,
+  })
+
+  console.info('[MessageReconciliation] Inserted canonical message', {
+    conversationId: params.conversationId,
+    messageId: inserted.id,
+    zapiMessageId: insertPayload.zapi_message_id,
+    clientMessageId: insertPayload.client_message_id,
+    externalStatus: nextExternalStatus,
+    sender: params.sender,
+    origin: params.origin,
   })
 
   return {

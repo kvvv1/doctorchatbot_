@@ -14,6 +14,11 @@ type PendingMessageRow = {
   created_at: string
 }
 
+type RelatedConversationRow = {
+  id: string
+  last_message_at: string | null
+}
+
 function findChatForConversation(chats: Awaited<ReturnType<typeof zapiGetChats>>, phone: string) {
   const candidates = new Set(getBrazilianPhoneLookupCandidates(phone))
   return chats.find((chat) => chat.phone && candidates.has(chat.phone))
@@ -56,10 +61,30 @@ export async function POST(
       return NextResponse.json({ ok: false, error: 'Conversa não encontrada' }, { status: 404 })
     }
 
+    const phoneCandidates = getBrazilianPhoneLookupCandidates(conversation.patient_phone)
+    const { data: relatedConversations } = await supabase
+      .from('conversations')
+      .select('id, last_message_at')
+      .eq('clinic_id', profile.clinic_id)
+      .in('patient_phone', phoneCandidates)
+
+    const scopedConversations = (relatedConversations || []) as RelatedConversationRow[]
+
+    const relatedConversationIds =
+      scopedConversations
+        .map((item: RelatedConversationRow) => item.id)
+        .filter((id): id is string => Boolean(id))
+
+    const localLastMessageAt =
+      scopedConversations
+        .map((item: RelatedConversationRow) => item.last_message_at)
+        .filter((value): value is string => Boolean(value))
+        .sort((left: string, right: string) => new Date(right).getTime() - new Date(left).getTime())[0] ?? conversation.last_message_at
+
     const { data: pendingMessages } = await supabase
       .from('messages')
       .select('id, sender, webhook_seen, sent_by_me_seen, created_at')
-      .eq('conversation_id', conversationId)
+      .in('conversation_id', relatedConversationIds.length > 0 ? relatedConversationIds : [conversationId])
       .in('external_status', ['pending', 'unknown'])
       .lte('created_at', new Date(Date.now() - 600000).toISOString())
 
@@ -97,7 +122,7 @@ export async function POST(
     const reconciliationState = resolveReconciliationState({
       pendingOldCount: actionablePendingMessages.length,
       remoteLastMessageAt,
-      localLastMessageAt: conversation.last_message_at,
+      localLastMessageAt,
     })
 
     const now = new Date().toISOString()
@@ -115,13 +140,23 @@ export async function POST(
     await supabase
       .from('conversations')
       .update(conversationPatch)
-      .eq('id', conversationId)
+      .in('id', relatedConversationIds.length > 0 ? relatedConversationIds : [conversationId])
+
+    console.info('[Conversation Reconcile] Completed', {
+      conversationId,
+      scopedConversationIds: relatedConversationIds,
+      pendingOldCount: actionablePendingMessages.length,
+      remoteLastMessageAt,
+      localLastMessageAt,
+      reconciliationState,
+      chatFound: Boolean(matchedChat),
+    })
 
     return NextResponse.json({
       ok: true,
       reconciliationState,
       remoteLastMessageAt,
-      localLastMessageAt: conversation.last_message_at,
+      localLastMessageAt,
       pendingOldCount: actionablePendingMessages.length,
       chatFound: Boolean(matchedChat),
     })

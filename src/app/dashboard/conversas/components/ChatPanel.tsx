@@ -66,34 +66,34 @@ const STATUS_ACTIONS: Array<{ status: ConversationStatus; label: string }> = [
 
 const BOT_STATE_LABELS: Partial<Record<BotState, string>> = {
 	menu: 'Menu principal',
-	agendar_para_quem: 'Para quem é a consulta',
+	agendar_para_quem: 'Para quem Ã© a consulta',
 	agendar_quantos: 'Quantas pessoas',
 	agendar_tipo: 'Tipo de atendimento',
-	agendar_convenio: 'Selecionando convênio',
+	agendar_convenio: 'Selecionando convÃªnio',
 	convenio_aguardando_carteirinha: 'Aguardando foto da carteirinha',
-	convenio_sem_cadastro: 'Sem convênios cadastrados',
+	convenio_sem_cadastro: 'Sem convÃªnios cadastrados',
 	agendar_nome: 'Coletando nome',
 	agendar_cpf: 'Coletando CPF',
 	consultar_cpf: 'Localizando por CPF',
 	agendar_dia: 'Coletando data',
-	agendar_hora: 'Coletando horário',
-	agendar_slot_escolha: 'Escolhendo horário',
+	agendar_hora: 'Coletando horÃ¡rio',
+	agendar_slot_escolha: 'Escolhendo horÃ¡rio',
 	agendar_dia_lista: 'Escolhendo data',
-	agendar_hora_lista: 'Escolhendo horário',
-	agendar_sem_slots_convenio: 'Sem horários em convênio',
+	agendar_hora_lista: 'Escolhendo horÃ¡rio',
+	agendar_sem_slots_convenio: 'Sem horÃ¡rios em convÃªnio',
 	agendar_confirmar: 'Confirmando agendamento',
 	agendar_alterar_campo: 'Escolhendo o que alterar',
 	agendar_alterar_paciente: 'Alterando paciente',
 	reagendar_qual: 'Selecionando consulta',
 	reagendar_manter_tipo: 'Confirmando tipo de atendimento',
-	reagendar_convenio: 'Selecionando convênio (remarcar)',
+	reagendar_convenio: 'Selecionando convÃªnio (remarcar)',
 	reagendar_tipo: 'Tipo de atendimento',
-	reagendar_dia: 'Remarcando — data',
-	reagendar_hora: 'Remarcando — horário',
-	reagendar_slot_escolha: 'Escolhendo horário',
-	reagendar_dia_lista: 'Remarcando — data',
-	reagendar_hora_lista: 'Remarcando — horário',
-	reagendar_sem_slots_convenio: 'Sem horários em convênio (remarcar)',
+	reagendar_dia: 'Remarcando â€” data',
+	reagendar_hora: 'Remarcando â€” horÃ¡rio',
+	reagendar_slot_escolha: 'Escolhendo horÃ¡rio',
+	reagendar_dia_lista: 'Remarcando â€” data',
+	reagendar_hora_lista: 'Remarcando â€” horÃ¡rio',
+	reagendar_sem_slots_convenio: 'Sem horÃ¡rios em convÃªnio (remarcar)',
 	cancelar_qual: 'Selecionando consulta',
 	cancelar_tipo: 'Tipo de atendimento',
 	cancelar_confirmar: 'Confirmando cancelamento',
@@ -101,10 +101,10 @@ const BOT_STATE_LABELS: Partial<Record<BotState, string>> = {
 	atendente: 'Transferido p/ atendente',
 	ver_agendamentos: 'Visualizando consultas',
 	ver_agendamento_selecionado: 'Consulta selecionada',
-	confirmar_presenca: 'Confirmando presença',
-	lista_espera_faixa: 'Lista de espera - preferência',
+	confirmar_presenca: 'Confirmando presenÃ§a',
+	lista_espera_faixa: 'Lista de espera - preferÃªncia',
 	sem_horario: 'Sem horarios disponiveis',
-	audio_recebido: 'Áudio recebido',
+	audio_recebido: 'Ãudio recebido',
 }
 
 function getDeliveryLabel(message: Message) {
@@ -140,7 +140,7 @@ export default function ChatPanel({
 	onRetryMessage,
 	onReconcileConversation,
 	reconciling = false,
-	defaultTakeoverMessage = 'Olá! Sou um atendente da clínica e estou aqui para te ajudar. 😊',
+	defaultTakeoverMessage = 'OlÃ¡! Sou um atendente da clÃ­nica e estou aqui para te ajudar. ðŸ˜Š',
 	takeoverMessageEnabled = true,
 }: ChatPanelProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -218,11 +218,11 @@ export default function ChatPanel({
 
 	const handleExportHistory = () => {
 		const header =
-			`Histórico de Conversa\n` +
+			`HistÃ³rico de Conversa\n` +
 			`Paciente: ${conversation.patient_name || 'Sem nome'}\n` +
 			`Telefone: ${conversation.patient_phone}\n` +
 			`Status: ${conversation.status}\n` +
-			`Data: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}\n` +
+			`Data: ${format(new Date(), "dd/MM/yyyy 'Ã s' HH:mm", { locale: ptBR })}\n` +
 			(conversation.notes ? `\nNotas:\n${conversation.notes}\n` : '') +
 			`\n${'='.repeat(50)}\n\n`
 
@@ -274,7 +274,7 @@ export default function ChatPanel({
 		// Reset modal state to defaults each time
 		const firstName = conversation?.patient_name?.split(' ')[0]
 		const personalizedMsg = firstName
-			? defaultTakeoverMessage.replace('Olá!', `Olá, ${firstName}!`)
+			? defaultTakeoverMessage.replace('OlÃ¡!', `OlÃ¡, ${firstName}!`)
 			: defaultTakeoverMessage
 		setTakeoverMsg(personalizedMsg)
 		setSendTakeoverMsg(takeoverMessageEnabled)
@@ -347,7 +347,7 @@ export default function ChatPanel({
 							<p className="text-xs text-neutral-400">{conversation.patient_phone}</p>
 							{conversation.reconciliation_state !== 'healthy' && (
 								<>
-									<span className="text-neutral-300">Â·</span>
+									<span className="text-neutral-300">·</span>
 									<span
 										className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
 											conversation.reconciliation_state === 'degraded'
@@ -356,14 +356,14 @@ export default function ChatPanel({
 										}`}
 									>
 										{conversation.reconciliation_state === 'degraded'
-											? 'SincronizaÃ§Ã£o degradada'
+											? 'Sincronização degradada'
 											: 'Precisa reconciliar'}
 									</span>
 								</>
 							)}
 							{botIsActive && (
 								<>
-									<span className="text-neutral-300">·</span>
+									<span className="text-neutral-300">Â·</span>
 									<span className="flex items-center gap-1 text-[10px] font-medium text-indigo-600">
 										<Bot className="size-3" />
 										{botStateLabel}
@@ -416,7 +416,7 @@ export default function ChatPanel({
 						<button
 							onClick={() => setShowActionsMenu(!showActionsMenu)}
 							className="flex size-8 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-900 transition-colors hover:bg-neutral-50"
-							title="Mais ações"
+							title="Mais aÃ§Ãµes"
 						>
 							<MoreVertical className="size-4" />
 						</button>
@@ -450,7 +450,7 @@ export default function ChatPanel({
 										className="flex w-full items-center gap-2 px-3 py-2 text-sm text-neutral-900 transition-colors hover:bg-neutral-50"
 									>
 										<Download className="size-4" />
-										Exportar histórico
+										Exportar histÃ³rico
 									</button>
 									<button
 										onClick={() => {
@@ -599,91 +599,90 @@ export default function ChatPanel({
 				) : (
 					<div className="space-y-2">
 						{(() => {
-							// Find index of first human message to insert handoff divider before it
-							const firstHumanIdx = messages.findIndex(m => m.sender === 'human')
-							return messages.map((message, idx) => {
-							const isFromPatient = message.sender === 'patient'
-							const deliveryLabel = getDeliveryLabel(message)
-							return (
-								<>
-									{idx === firstHumanIdx && firstHumanIdx > 0 && (
-										<div key={`divider-${message.id}`} className="flex items-center gap-3 py-2">
-											<div className="flex-1 border-t border-dashed border-amber-300" />
-											<span className="flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-700">
-												<UserCircle className="size-3.5" />
-												Início do atendimento humano
-											</span>
-											<div className="flex-1 border-t border-dashed border-amber-300" />
-										</div>
-									)}
-								<div
-									key={message.id}
-									className={`flex items-end gap-2 ${isFromPatient ? '' : 'flex-row-reverse'}`}
-								>
-									<div
-										className={`mb-1 flex size-6 shrink-0 items-center justify-center rounded-full shadow-sm ${
-											isFromPatient ? 'bg-white' : 'bg-sky-500/10'
-										}`}
-									>
-										{getSenderIcon(message.sender)}
-									</div>
+							const firstHumanIdx = messages.findIndex((message) => message.sender === 'human')
 
-									<div
-										className={`flex max-w-[75%] flex-col gap-1 rounded-lg px-3 py-2 shadow-sm ${
-											isFromPatient
-												? 'rounded-bl-none bg-white'
-												: message.sender === 'bot'
-													? 'rounded-br-none bg-[#dcf8c6]'
-													: 'rounded-br-none bg-gradient-to-br from-sky-500 to-indigo-500 text-white'
-										}`}
-									>
-										<p
-											className={`whitespace-pre-wrap text-[13px] leading-relaxed ${
-												isFromPatient || message.sender === 'bot'
-													? 'text-neutral-800'
-													: 'text-white'
-											}`}
-										>
-											{message.content}
-										</p>
-										<div className="flex items-center justify-end gap-2">
-											{deliveryLabel && (
-												<span
-													className={`text-[10px] md:hidden ${
-														message.delivery_status === 'failed'
-															? 'text-red-200'
-															: 'text-sky-100'
-													}`}
-												>
-													{deliveryLabel}
+							return messages.map((message, idx) => {
+								const isFromPatient = message.sender === 'patient'
+								const deliveryLabel = getDeliveryLabel(message)
+
+								return (
+									<div key={message.id}>
+										{idx === firstHumanIdx && firstHumanIdx > 0 && (
+											<div className="flex items-center gap-3 py-2">
+												<div className="flex-1 border-t border-dashed border-amber-300" />
+												<span className="flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-700">
+													<UserCircle className="size-3.5" />
+													Início do atendimento humano
 												</span>
-											)}
-											<span
-												className={`text-[10px] ${
-													isFromPatient || message.sender === 'bot'
-														? 'text-neutral-400'
-														: 'text-sky-100'
+												<div className="flex-1 border-t border-dashed border-amber-300" />
+											</div>
+										)}
+
+										<div className={`flex items-end gap-2 ${isFromPatient ? '' : 'flex-row-reverse'}`}>
+											<div
+												className={`mb-1 flex size-6 shrink-0 items-center justify-center rounded-full shadow-sm ${
+													isFromPatient ? 'bg-white' : 'bg-sky-500/10'
 												}`}
 											>
-												{formatMessageTime(message.created_at)}
-											</span>
-											{message.delivery_status === 'failed' &&
-												message.client_message_id &&
-												onRetryMessage && (
-													<button
-														type="button"
-														onClick={() => void onRetryMessage(message.client_message_id!)}
-														className="rounded-full p-0.5 text-red-200 transition-colors hover:bg-white/10 hover:text-white"
-														title="Tentar novamente"
+												{getSenderIcon(message.sender)}
+											</div>
+
+											<div
+												className={`flex max-w-[75%] flex-col gap-1 rounded-lg px-3 py-2 shadow-sm ${
+													isFromPatient
+														? 'rounded-bl-none bg-white'
+														: message.sender === 'bot'
+															? 'rounded-br-none bg-[#dcf8c6]'
+															: 'rounded-br-none bg-gradient-to-br from-sky-500 to-indigo-500 text-white'
+												}`}
+											>
+												<p
+													className={`whitespace-pre-wrap text-[13px] leading-relaxed ${
+														isFromPatient || message.sender === 'bot'
+															? 'text-neutral-800'
+															: 'text-white'
+													}`}
+												>
+													{message.content}
+												</p>
+												<div className="flex items-center justify-end gap-2">
+													{deliveryLabel && (
+														<span
+															className={`text-[10px] md:hidden ${
+																message.delivery_status === 'failed'
+																	? 'text-red-200'
+																	: 'text-sky-100'
+															}`}
+														>
+															{deliveryLabel}
+														</span>
+													)}
+													<span
+														className={`text-[10px] ${
+															isFromPatient || message.sender === 'bot'
+																? 'text-neutral-400'
+																: 'text-sky-100'
+														}`}
 													>
-														<RotateCcw className="size-3" />
-													</button>
-												)}
+														{formatMessageTime(message.created_at)}
+													</span>
+													{message.delivery_status === 'failed' &&
+														message.client_message_id &&
+														onRetryMessage && (
+															<button
+																type="button"
+																onClick={() => void onRetryMessage(message.client_message_id!)}
+																className="rounded-full p-0.5 text-red-200 transition-colors hover:bg-white/10 hover:text-white"
+																title="Tentar novamente"
+															>
+																<RotateCcw className="size-3" />
+															</button>
+														)}
+												</div>
+											</div>
 										</div>
 									</div>
-								</div>
-								</>
-							)
+								)
 							})
 						})()}
 						<div ref={messagesEndRef} />
@@ -727,7 +726,7 @@ export default function ChatPanel({
 						<div className="border-b border-neutral-100 px-6 py-4">
 							<h3 className="text-base font-semibold text-neutral-900">Assumir atendimento</h3>
 							<p className="mt-0.5 text-sm text-neutral-500">
-								Você vai desligar o bot e passar a atender manualmente.
+								VocÃª vai desligar o bot e passar a atender manualmente.
 							</p>
 						</div>
 						<div className="px-6 py-4 space-y-4">
@@ -748,7 +747,7 @@ export default function ChatPanel({
 									value={takeoverMsg}
 									onChange={(e) => setTakeoverMsg(e.target.value)}
 									className="w-full resize-none rounded-lg border border-neutral-300 px-3 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
-									placeholder="Mensagem que será enviada ao paciente..."
+									placeholder="Mensagem que serÃ¡ enviada ao paciente..."
 								/>
 							)}
 						</div>
