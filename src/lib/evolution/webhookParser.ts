@@ -182,36 +182,13 @@ function extractText(data: Record<string, unknown>): {
   if (msg?.contactMessage || data.messageType === 'contactMessage')
     return { messageText: '[Contato]', normalizedText: '[Contato]' }
 
-  if (data.messageType === 'pollCreationMessageV3' || data.messageType === 'pollCreationMessage')
-    return { messageText: '[Enquete]', normalizedText: '[Enquete]' }
-
   return { messageText: '[Mensagem sem texto]', normalizedText: '[Mensagem sem texto]' }
-}
-
-function extractPollVote(data: Record<string, unknown>): {
-  messageText: string
-  normalizedText: string
-} | null {
-  if (data.messageType !== 'pollUpdateMessage') return null
-  const msg = data.message as Record<string, unknown> | undefined
-  const pollUpdate = msg?.pollUpdateMessage as Record<string, unknown> | undefined
-  if (!pollUpdate) return null
-  const vote = pollUpdate.vote as Record<string, unknown> | undefined
-  if (!vote) return null
-  const selected = Array.isArray(vote.selectedOptions) ? vote.selectedOptions : []
-  if (selected.length === 0) return null
-  const optionName = str((selected[0] as Record<string, unknown>)?.optionName)
-  if (!optionName) return null
-  return { messageText: optionName, normalizedText: optionName }
 }
 
 function extractInteractiveReply(data: Record<string, unknown>): {
   messageText: string
   normalizedText: string
 } | null {
-  const pollVote = extractPollVote(data)
-  if (pollVote) return pollVote
-
   const id = extractInteractiveId(data)
 
   const msg = data.message as Record<string, unknown> | undefined
