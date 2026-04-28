@@ -6,6 +6,8 @@ import {
 import {
   handleConnectionStatusWebhook,
   handleMessageWebhook,
+  handleDeliveryStatusUpdates,
+  handleSendMessageConfirmation,
 } from '@/app/api/webhooks/_shared/webhookCore'
 
 /**
@@ -31,10 +33,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
     }
 
-    // Connection status event (connection.update)
-    const parsedStatus = parseConnectionStatusWebhook(payload)
-    if (parsedStatus) {
-      return handleConnectionStatusWebhook(parsedStatus)
+    const event = (payload as { event?: string }).event
+
+    // Connection status event
+    if (event?.startsWith('connection.')) {
+      const parsedStatus = parseConnectionStatusWebhook(payload)
+      if (parsedStatus) return handleConnectionStatusWebhook(parsedStatus)
+      return NextResponse.json({ ok: true, skipped: true })
+    }
+
+    // Delivery status updates (messages.update)
+    if (event === 'messages.update') {
+      return handleDeliveryStatusUpdates(payload)
+    }
+
+    // Send confirmation (send.message)
+    if (event === 'send.message') {
+      return handleSendMessageConfirmation(payload)
     }
 
     // Message event (messages.upsert)

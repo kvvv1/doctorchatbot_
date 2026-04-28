@@ -274,6 +274,101 @@ export async function handleMessageWebhook(
 }
 
 // ---------------------------------------------------------------------------
+// Delivery status handler (MESSAGES_UPDATE)
+// ---------------------------------------------------------------------------
+
+const DELIVERY_STATUS_MAP: Record<string, string> = {
+  ERROR: 'failed',
+  PENDING: 'queued',
+  SERVER_ACK: 'sent',
+  DELIVERY_ACK: 'delivered',
+  READ: 'read',
+  PLAYED: 'read',
+}
+
+export async function handleDeliveryStatusUpdates(payload: unknown): Promise<NextResponse> {
+  const p = payload as { data?: unknown[] }
+  const updates = Array.isArray(p.data) ? p.data : []
+  if (updates.length === 0) return NextResponse.json({ ok: true })
+
+  const supabase = createAdminClient()
+  const now = new Date().toISOString()
+
+  for (const item of updates) {
+    const u = item as { key?: { id?: string; fromMe?: boolean }; update?: { status?: string } }
+    if (!u.key?.fromMe) continue
+    const messageId = u.key?.id
+    const status = u.update?.status ? DELIVERY_STATUS_MAP[u.update.status] : null
+    if (!messageId || !status) continue
+
+    const { error } = await supabase
+      .from('messages')
+      .update({ delivery_status: status, updated_at: now })
+      .eq('zapi_message_id', messageId)
+      .eq('direction', 'outbound')
+
+    if (error) {
+      console.error('[Webhook] Failed to update delivery status:', { messageId, status, error })
+    } else {
+      console.log('[Webhook] Delivery status updated:', { messageId, status })
+    }
+  }
+
+  return NextResponse.json({ ok: true })
+}
+
+// ---------------------------------------------------------------------------
+// Send confirmation handler (SEND_MESSAGE)
+// ---------------------------------------------------------------------------
+
+export async function handleSendMessageConfirmation(payload: unknown): Promise<NextResponse> {
+  const p = payload as { instance?: string; data?: { key?: { id?: string; fromMe?: boolean; remoteJid?: string }; messageTimestamp?: number } }
+  const key = p.data?.key
+  if (!key?.fromMe || !key?.id || !key?.remoteJid) return NextResponse.json({ ok: true })
+
+  const messageId = key.id
+  const phone = key.remoteJid.replace(/@.*$/, '').replace(/\D/g, '')
+  if (!phone) return NextResponse.json({ ok: true })
+
+  const supabase = createAdminClient()
+
+  // Find conversations for this phone
+  const { data: conversations } = await supabase
+    .from('conversations')
+    .select('id')
+    .or(`patient_phone.eq.${phone},patient_phone.eq.55${phone},patient_phone.eq.${phone.replace(/^55/, '')}`)
+    .limit(5)
+
+  if (!conversations?.length) return NextResponse.json({ ok: true })
+
+  const conversationIds = conversations.map(c => c.id)
+  const cutoff = new Date(Date.now() - 60000).toISOString()
+
+  // Patch most recent outbound message without zapiMessageId for this phone
+  const { data: msg } = await supabase
+    .from('messages')
+    .select('id')
+    .in('conversation_id', conversationIds)
+    .eq('direction', 'outbound')
+    .is('zapi_message_id', null)
+    .gte('created_at', cutoff)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (msg) {
+    await supabase
+      .from('messages')
+      .update({ zapi_message_id: messageId, delivery_status: 'sent', updated_at: new Date().toISOString() })
+      .eq('id', msg.id)
+
+    console.log('[Webhook] SEND_MESSAGE: patched zapiMessageId:', { msgId: msg.id, messageId })
+  }
+
+  return NextResponse.json({ ok: true })
+}
+
+// ---------------------------------------------------------------------------
 // Helpers (all private to this module)
 // ---------------------------------------------------------------------------
 

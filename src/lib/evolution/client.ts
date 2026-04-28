@@ -221,7 +221,7 @@ export async function zapiSendText(
     `/message/sendText/${encodeURIComponent(instanceId)}`,
     {
       method: 'POST',
-      body: JSON.stringify({ number, text, options: { delay: 0 } }),
+      body: JSON.stringify({ number, text, options: { delay: 0, presence: 'composing' } }),
     },
     apiKey,
     45000,
@@ -345,8 +345,9 @@ export async function zapiUpdateWebhookReceived(
           webhookBase64: false,
           events: [
             'MESSAGES_UPSERT',
-            'CONNECTION_UPDATE',
             'MESSAGES_UPDATE',
+            'SEND_MESSAGE',
+            'CONNECTION_UPDATE',
           ],
         },
       }),
