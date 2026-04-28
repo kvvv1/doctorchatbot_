@@ -86,26 +86,13 @@ export async function zapiGetQr(credentials: ZapiCredentials): Promise<ZapiQrRes
   const apiKey = resolveApiKey(token)
   const encodedId = encodeURIComponent(instanceId)
 
-  // Try /instance/connect first (works when instance is disconnected)
-  try {
-    const data = await evolutionRequest<unknown>(
-      `/instance/connect/${encodedId}`,
-      { method: 'GET' },
-      apiKey,
-    )
-    const parsed = extractQr(data)
-    if (parsed) return parsed
-  } catch {
-    // fallthrough to qrcode endpoint
-  }
-
-  // When already in 'connecting' state, Evolution serves the current QR via /qrcode
-  const qrData = await evolutionRequest<unknown>(
-    `/instance/qrcode/${encodedId}?image=true`,
+  const data = await evolutionRequest<unknown>(
+    `/instance/connect/${encodedId}`,
     { method: 'GET' },
     apiKey,
   )
-  const parsed = extractQr(qrData)
+
+  const parsed = extractQr(data)
   if (parsed) return parsed
 
   throw new Error('Evolution: resposta sem QR Code. Verifique se a instância está desconectada.')
@@ -122,25 +109,25 @@ function extractQr(data: unknown): ZapiQrResponse | null {
 
   if (!isRecord(data)) return null
 
-  // Evolution wraps the QR inside nested objects
-  const inner =
-    (isRecord(data.qrcode) ? data.qrcode : null) ||
-    (isRecord(data.base64) ? null : null) || // base64 at root
-    data
+  // Evolution API may nest QR under data.qrcode (object) or data.base64 (string)
+  const qrcodeObj = isRecord(data.qrcode) ? data.qrcode : null
 
   const base64 =
-    toString((inner as Record<string, unknown>).base64) ||
-    toString((inner as Record<string, unknown>).qrcode) ||
     toString(data.base64) ||
-    toString(data.qrcode) ||
+    (qrcodeObj && toString(qrcodeObj.base64)) ||
+    (qrcodeObj && toString(qrcodeObj.image)) ||
     toString(data.image)
 
-  if (base64) return { type: 'base64', value: base64 }
+  if (base64) {
+    const value = base64.startsWith('data:image/') ? base64 : `data:image/png;base64,${base64}`
+    return { type: 'base64', value }
+  }
 
   const text =
-    toString((inner as Record<string, unknown>).code) ||
     toString(data.code) ||
-    toString(data.value)
+    (qrcodeObj && toString(qrcodeObj.code)) ||
+    toString(data.value) ||
+    (qrcodeObj && toString(qrcodeObj.pairingCode))
 
   if (text) return { type: 'text', value: text }
 

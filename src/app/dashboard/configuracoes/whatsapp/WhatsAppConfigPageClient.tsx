@@ -699,15 +699,7 @@ export default function WhatsAppConfigPageClient() {
                             )}
                           </div>
                           
-                          {/* Overlay conectando */}
-                          {status === 'connecting' && (
-                            <div className="absolute inset-0 bg-white/90 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                              <div className="text-center">
-                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-gray-900 mb-2"></div>
-                                <p className="text-sm text-gray-600">Aguardando...</p>
-                              </div>
-                            </div>
-                          )}
+                          {/* Overlay só quando conectando SEM QR (após scan confirmado) */}
                         </div>
                       ) : (
                         <div className="text-center py-8">
