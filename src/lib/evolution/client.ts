@@ -62,8 +62,13 @@ async function evolutionRequest<T>(
     }
 
     if (!response.ok) {
-      console.error('[Evolution] Request failed:', { status: response.status, data, url })
+      const detail =
+        isRecord(data) && isRecord(data.response) && Array.isArray(data.response.message)
+          ? data.response.message
+          : null
+      console.error('[Evolution] Request failed:', { status: response.status, data, url, detail })
       const message =
+        (detail && detail.join(', ')) ||
         (isRecord(data) &&
           (toString(data.message) || toString(data.error) || toString(data.reason))) ||
         (typeof data === 'string' && data.trim()) ||
@@ -300,7 +305,7 @@ export async function zapiSendChoices(
         description: message,
         buttonText: 'Ver opções',
         footerText: '',
-        values: [
+        sections: [
           {
             title,
             rows: cleaned.map(o => ({
