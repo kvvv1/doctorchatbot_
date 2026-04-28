@@ -128,8 +128,8 @@ export default function WhatsAppConfigPageClient() {
       }
 
       setQrCode(data.qr);
-      setStatus('connecting');
-      
+      setStatus('disconnected');
+
       // Iniciar polling após gerar QR
       startPolling();
     } catch (err) {
@@ -158,8 +158,8 @@ export default function WhatsAppConfigPageClient() {
       }
 
       setQrCode(data.qr);
-      setStatus('connecting');
-      
+      setStatus('disconnected');
+
       // Iniciar polling após reconectar
       startPolling();
     } catch (err) {
