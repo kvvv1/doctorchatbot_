@@ -37,12 +37,13 @@ async function evolutionRequest<T>(
   path: string,
   options: RequestInit,
   apiKey: string,
+  timeoutMs = 15000,
 ): Promise<T> {
   const url = `${EVOLUTION_BASE_URL}${path}`
   try {
     const response = await fetch(url, {
       ...options,
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(timeoutMs),
       headers: {
         'Content-Type': 'application/json',
         apikey: apiKey,
@@ -213,7 +214,7 @@ export async function zapiSendText(
   const apiKey = resolveApiKey(token)
   const number = phone.replace(/[^0-9]/g, '')
 
-  console.log('[Evolution] Sending text:', { instanceId, number, textLength: text.length })
+  console.log('[Evolution] Sending text:', { instanceId, number, textLength: text.length, url: `${EVOLUTION_BASE_URL}/message/sendText/${encodeURIComponent(instanceId)}` })
 
   const data = await evolutionRequest<Record<string, unknown>>(
     `/message/sendText/${encodeURIComponent(instanceId)}`,
@@ -222,9 +223,10 @@ export async function zapiSendText(
       body: JSON.stringify({ number, text }),
     },
     apiKey,
+    45000,
   )
 
-  console.log('[Evolution] Message sent:', data)
+  console.log('[Evolution] Message sent:', JSON.stringify(data))
 
   const messageId =
     toString((data.key as Record<string, unknown>)?.id) ||
@@ -396,13 +398,17 @@ export async function zapiGetChats(credentials: ZapiCredentials): Promise<ZapiCh
   const { instanceId, token } = credentials
   const apiKey = resolveApiKey(token)
 
-  const data = await evolutionRequest<unknown>(
-    `/chat/findChats/${encodeURIComponent(instanceId)}`,
-    { method: 'GET' },
-    apiKey,
-  )
-
-  return normalizeChats(data)
+  try {
+    const data = await evolutionRequest<unknown>(
+      `/chat/findChats/${encodeURIComponent(instanceId)}`,
+      { method: 'GET' },
+      apiKey,
+    )
+    return normalizeChats(data)
+  } catch (error) {
+    console.warn('[Evolution] zapiGetChats failed, returning empty list:', error)
+    return []
+  }
 }
 
 function normalizeChats(data: unknown): ZapiChat[] {
