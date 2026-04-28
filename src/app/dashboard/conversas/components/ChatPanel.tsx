@@ -345,22 +345,6 @@ export default function ChatPanel({
 						</h2>
 						<div className="mt-0.5 flex items-center gap-1.5">
 							<p className="text-xs text-neutral-400">{conversation.patient_phone}</p>
-							{conversation.reconciliation_state !== 'healthy' && (
-								<>
-									<span className="text-neutral-300">·</span>
-									<span
-										className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
-											conversation.reconciliation_state === 'degraded'
-												? 'bg-red-50 text-red-700'
-												: 'bg-amber-50 text-amber-700'
-										}`}
-									>
-										{conversation.reconciliation_state === 'degraded'
-											? 'Sincronização degradada'
-											: 'Precisa reconciliar'}
-									</span>
-								</>
-							)}
 							{botIsActive && (
 								<>
 									<span className="text-neutral-300">Â·</span>
@@ -553,38 +537,12 @@ export default function ChatPanel({
 				</div>
 			)}
 
-			{conversation.reconciliation_state !== 'healthy' && (
-				<div
-					className={`flex items-center justify-between border-b px-4 py-2 ${
-						conversation.reconciliation_state === 'degraded'
-							? 'border-red-200 bg-red-50'
-							: 'border-amber-200 bg-amber-50'
-					}`}
-				>
-					<p
-						className={`text-xs font-medium ${
-							conversation.reconciliation_state === 'degraded'
-								? 'text-red-800'
-								: 'text-amber-800'
-						}`}
-					>
-						{conversation.reconciliation_state === 'degraded'
-							? 'Encontramos mensagens pendentes antigas nesta conversa.'
-							: 'A conversa precisa de reconciliação com a Z-API para validar o último estado.'}
-					</p>
-					{onReconcileConversation && (
-						<button
-							onClick={() => void onReconcileConversation()}
-							disabled={reconciling}
-							className="text-[11px] font-semibold underline disabled:opacity-60"
-						>
-							{reconciling ? 'Sincronizando...' : 'Sincronizar agora'}
-						</button>
-					)}
-				</div>
-			)}
-
-			<div ref={messagesContainerRef} className="flex-1 overflow-y-auto bg-neutral-50 p-4">
+			<div ref={messagesContainerRef} className="relative flex-1 overflow-y-auto bg-neutral-50 p-4">
+				{(reconciling || loading) && (
+					<div className="absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-neutral-100">
+						<div className="h-full w-1/3 animate-[slide_1.4s_ease-in-out_infinite] bg-sky-400" />
+					</div>
+				)}
 				{loading && messages.length === 0 ? (
 					<div className="flex h-full items-center justify-center">
 						<div className="size-6 animate-spin rounded-full border-2 border-neutral-200 border-t-sky-500" />
