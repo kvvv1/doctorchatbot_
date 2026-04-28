@@ -1,11 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { assertSubscriptionActive } from '@/lib/services/subscriptionService'
-import {
-  validateCredentials,
-  zapiSendChoices,
-  zapiSendText,
-  type ZapiChoiceOption,
-} from '@/lib/zapi/client'
+import { validateCredentials, type ZapiChoiceOption } from '@/lib/zapi/client'
+import { sendText, sendChoices, isValidProvider, type WhatsAppProvider } from '@/lib/whatsapp/sender'
 
 type SendInternalZapiMessageParams = {
   clinicId: string
@@ -37,9 +33,11 @@ export async function sendInternalZapiMessage(
 
   const { data: instance, error: instanceError } = await supabase
     .from('whatsapp_instances')
-    .select('instance_id, token, client_token')
+    .select('instance_id, token, client_token, provider')
     .eq('clinic_id', params.clinicId)
-    .eq('provider', 'zapi')
+    .in('provider', ['zapi', 'evolution'])
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .single()
 
   if (instanceError || !instance) {
@@ -48,7 +46,12 @@ export async function sendInternalZapiMessage(
     return { success: false, error: message }
   }
 
+  const provider: WhatsAppProvider = isValidProvider(instance.provider)
+    ? instance.provider
+    : 'zapi'
+
   const credentials = {
+    provider,
     instanceId: instance.instance_id,
     token: instance.token,
     clientToken: instance.client_token || undefined,
@@ -63,24 +66,25 @@ export async function sendInternalZapiMessage(
   try {
     const result =
       params.choices && params.choices.length >= 1
-        ? await zapiSendChoices(
+        ? await sendChoices(
             credentials,
             params.phone,
             params.text,
             params.choices,
             params.choicesTitle || 'Opções disponíveis'
           )
-        : await zapiSendText(credentials, params.phone, params.text)
+        : await sendText(credentials, params.phone, params.text)
 
     await supabase.from('logs').insert({
       clinic_id: params.clinicId,
       level: 'info',
-      action: 'zapi.send.success',
+      action: 'whatsapp.send.success',
       message: 'Mensagem enviada com sucesso',
       metadata: {
         conversationId: params.conversationId,
         phone: params.phone,
-        zapiMessageId: result.messageId,
+        provider,
+        messageId: result.messageId,
         textLength: params.text.length,
         internalCall: true,
       },
@@ -106,8 +110,8 @@ async function logInternalSendFailure(
     await supabase.from('logs').insert({
       clinic_id: params.clinicId,
       level: 'error',
-      action: 'zapi.send.failed',
-      message: 'Falha ao enviar mensagem via Z-API',
+      action: 'whatsapp.send.failed',
+      message: 'Falha ao enviar mensagem via WhatsApp',
       metadata: {
         conversationId: params.conversationId,
         phone: params.phone,

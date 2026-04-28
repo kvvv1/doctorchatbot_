@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Conversation } from '@/lib/types/database'
 import {
@@ -49,7 +49,11 @@ export function useConversations({
 	const [channelKey, setChannelKey] = useState(0)
 	const [channelStatus, setChannelStatus] = useState('CLOSED')
 	const [degradedMode, setDegradedMode] = useState(false)
-	const [lastRealtimeEventAt, setLastRealtimeEventAt] = useState(() => Date.now())
+
+	// Refs for values read inside interval callbacks — avoids recreating intervals on every realtime event
+	const lastRealtimeEventAtRef = useRef(Date.now())
+	const channelStatusRef = useRef('CLOSED')
+	const degradedModeRef = useRef(false)
 
 	const fetchConversations = useCallback(
 		async (isInitial = false) => {
@@ -169,7 +173,8 @@ export function useConversations({
 					new: Conversation
 					old: Conversation
 				}) => {
-					setLastRealtimeEventAt(Date.now())
+					lastRealtimeEventAtRef.current = Date.now()
+					degradedModeRef.current = false
 					setDegradedMode(false)
 
 					const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE'
@@ -186,15 +191,18 @@ export function useConversations({
 				},
 			)
 			.subscribe((status: string) => {
+				channelStatusRef.current = status
 				setChannelStatus(status)
 
 				if (status === 'SUBSCRIBED') {
-					setLastRealtimeEventAt(Date.now())
+					lastRealtimeEventAtRef.current = Date.now()
+					degradedModeRef.current = false
 					setDegradedMode(false)
 					void fetchConversations(false)
 				}
 
 				if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+					degradedModeRef.current = true
 					setDegradedMode(true)
 					void fetchConversations(false)
 					window.setTimeout(() => setChannelKey((current) => current + 1), 1000)
@@ -213,20 +221,22 @@ export function useConversations({
 			if (!document.hidden) {
 				void fetchConversations(false)
 			}
-		}, degradedMode ? DEGRADED_REFRESH_INTERVAL : NORMAL_REFRESH_INTERVAL)
+		}, degradedModeRef.current ? DEGRADED_REFRESH_INTERVAL : NORMAL_REFRESH_INTERVAL)
 
 		const healthcheckInterval = window.setInterval(() => {
 			if (document.hidden) return
 
-			const staleForMs = Date.now() - lastRealtimeEventAt
+			const staleForMs = Date.now() - lastRealtimeEventAtRef.current
+			const status = channelStatusRef.current
 			const shouldReconnect =
-				channelStatus === 'CHANNEL_ERROR' ||
-				channelStatus === 'TIMED_OUT' ||
-				channelStatus === 'CLOSED' ||
+				status === 'CHANNEL_ERROR' ||
+				status === 'TIMED_OUT' ||
+				status === 'CLOSED' ||
 				staleForMs > 45000
 
 			if (!shouldReconnect) return
 
+			degradedModeRef.current = true
 			setDegradedMode(true)
 			void fetchConversations(false)
 			setChannelKey((current) => current + 1)
@@ -234,7 +244,7 @@ export function useConversations({
 
 		const handleVisibilityChange = () => {
 			if (!document.hidden) {
-				if (channelStatus !== 'SUBSCRIBED') {
+				if (channelStatusRef.current !== 'SUBSCRIBED') {
 					setChannelKey((current) => current + 1)
 				}
 				void fetchConversations(false)
@@ -250,7 +260,7 @@ export function useConversations({
 			window.removeEventListener('focus', handleVisibilityChange)
 			document.removeEventListener('visibilitychange', handleVisibilityChange)
 		}
-	}, [channelStatus, clinicId, degradedMode, enabled, fetchConversations, lastRealtimeEventAt])
+	}, [clinicId, enabled, fetchConversations])
 
 	const updateConversation = useCallback(
 		(conversationId: string, patch: Partial<Conversation>) => {

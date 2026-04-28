@@ -7,7 +7,8 @@
 import { addDays, setHours, setMinutes } from 'date-fns'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { interpolate } from './interpolate'
-import { zapiSendText } from '@/lib/zapi/client'
+import { sendText } from '@/lib/whatsapp/sender'
+import { getWhatsAppInstance } from '@/lib/whatsapp/instance'
 import {
   getBrazilianPhoneLookupCandidates,
   normalizeBrazilianPhone,
@@ -1151,14 +1152,8 @@ export async function notifyWaitlistOnSlotFree(
   if (!target) return  // no waitlist patient matches this slot's time
 
   // Get WhatsApp instance for the clinic
-  const { data: instance } = await supabase
-    .from('whatsapp_instances')
-    .select('instance_id, token, client_token, status')
-    .eq('clinic_id', clinicId)
-    .eq('provider', 'zapi')
-    .single()
-
-  if (!instance?.instance_id || !instance?.token || instance.status !== 'connected') return
+  const whatsapp = await getWhatsAppInstance(clinicId)
+  if (!whatsapp || whatsapp.status !== 'connected') return
 
   const patientName = target.patient_name || 'Paciente'
   const slotLabel = startsAt
@@ -1168,15 +1163,7 @@ export async function notifyWaitlistOnSlotFree(
   const message = `Oi, ${patientName}! 👋\n\nUma vaga acabou de abrir na agenda:\n📅 *${slotLabel}*\n\nEsse horário está dentro da sua preferência! Quer agendar? Responda com *Agendar* para confirmar. 😊`
 
   try {
-    await zapiSendText(
-      {
-        instanceId: instance.instance_id,
-        token: instance.token,
-        clientToken: instance.client_token || undefined,
-      },
-      target.patient_phone,
-      message,
-    )
+    await sendText(whatsapp.credentials, target.patient_phone, message)
 
     await supabase
       .from('conversations')

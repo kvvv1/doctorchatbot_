@@ -2,26 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   parseConnectionStatusWebhook,
   parseWebhookPayload,
-} from '@/lib/zapi/webhookParser'
+} from '@/lib/evolution/webhookParser'
 import {
   handleConnectionStatusWebhook,
   handleMessageWebhook,
 } from '@/app/api/webhooks/_shared/webhookCore'
 
 /**
- * POST /api/webhooks/zapi
+ * POST /api/webhooks/evolution
  *
- * Receives incoming WhatsApp messages from Z-API webhook.
+ * Receives incoming WhatsApp messages from Evolution API webhook.
  *
  * Security:
- * - Validates instanceId + token from payload against database
+ * - Evolution sends `apikey` inside the JSON body; the parser extracts it as
+ *   `token` and the shared core validates it against `whatsapp_instances.client_token`.
  *
- * Flow:
- * 1. Parse and validate payload
- * 2. Find and authenticate instance by instanceId + token
- * 3. Process and persist message
- * 4. Trigger bot if enabled
- * 5. Return quick response
+ * Configure the webhook in Evolution:
+ *   POST https://api.codexy.com.br/webhook/set/{instance}
+ *   { "url": "https://app.doctorchatbot.com.br/api/webhooks/evolution", "enabled": true }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -29,22 +27,22 @@ export async function POST(request: NextRequest) {
     try {
       payload = await request.json()
     } catch (error) {
-      console.error('[Z-API Webhook] Invalid JSON payload:', error)
+      console.error('[Evolution Webhook] Invalid JSON payload:', error)
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
     }
 
-    // Connection status event
+    // Connection status event (connection.update)
     const parsedStatus = parseConnectionStatusWebhook(payload)
     if (parsedStatus) {
       return handleConnectionStatusWebhook(parsedStatus)
     }
 
-    // Message event
+    // Message event (messages.upsert)
     let parsed
     try {
       parsed = parseWebhookPayload(payload)
     } catch (error) {
-      console.error('[Z-API Webhook] Failed to parse payload:', error)
+      console.error('[Evolution Webhook] Failed to parse payload:', error)
       return NextResponse.json(
         {
           error: 'Invalid webhook payload',
@@ -56,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     return handleMessageWebhook(parsed, payload)
   } catch (error) {
-    console.error('[Z-API Webhook] Unexpected error:', error)
+    console.error('[Evolution Webhook] Unexpected error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

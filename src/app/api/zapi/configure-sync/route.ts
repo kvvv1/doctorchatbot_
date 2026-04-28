@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import {
-  getMissingCredentials,
-  validateCredentials,
-  zapiUpdateNotifySentByMe,
-  zapiUpdateWebhookReceived,
-} from '@/lib/zapi/client'
+import { getMissingCredentials, validateCredentials } from '@/lib/zapi/client'
+import { updateWebhookReceived } from '@/lib/whatsapp/sender'
+import { getWhatsAppInstance } from '@/lib/whatsapp/instance'
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,22 +26,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Clínica não encontrada' }, { status: 404 })
     }
 
-    const { data: instance, error: instanceError } = await supabase
-      .from('whatsapp_instances')
-      .select('instance_id, token, client_token')
-      .eq('clinic_id', profile.clinic_id)
-      .eq('provider', 'zapi')
-      .single()
+    const whatsapp = await getWhatsAppInstance(profile.clinic_id)
 
-    if (instanceError || !instance) {
+    if (!whatsapp) {
       return NextResponse.json({ ok: false, error: 'Instância WhatsApp não configurada' }, { status: 404 })
     }
 
-    const credentials = {
-      instanceId: instance.instance_id,
-      token: instance.token,
-      clientToken: instance.client_token || undefined,
-    }
+    const { credentials } = whatsapp
 
     if (!validateCredentials(credentials)) {
       return NextResponse.json(
@@ -56,16 +44,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const webhookUrl = new URL('/api/webhooks/zapi', request.nextUrl.origin).toString()
+    // Aponta para o webhook correto de acordo com o provider
+    const webhookPath = credentials.provider === 'evolution'
+      ? '/api/webhooks/evolution'
+      : '/api/webhooks/zapi'
+    const webhookUrl = new URL(webhookPath, request.nextUrl.origin).toString()
 
-    await zapiUpdateWebhookReceived(credentials, webhookUrl)
-    await zapiUpdateNotifySentByMe(credentials, true)
+    await updateWebhookReceived(credentials, webhookUrl)
 
     return NextResponse.json({
       ok: true,
       webhookUrl,
-      notifySentByMe: true,
-      autoReadMessage: false,
+      provider: credentials.provider,
     })
   } catch (error) {
     console.error('[Z-API Configure Sync] Failed:', error)

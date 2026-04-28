@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { validateCredentials, zapiGetChats } from '@/lib/zapi/client'
+import { validateCredentials } from '@/lib/zapi/client'
+import { getChats } from '@/lib/whatsapp/sender'
+import { getWhatsAppInstance } from '@/lib/whatsapp/instance'
 
 export async function GET() {
   try {
@@ -24,28 +26,19 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: 'Clínica não encontrada' }, { status: 404 })
     }
 
-    const { data: instance } = await supabase
-      .from('whatsapp_instances')
-      .select('instance_id, token, client_token')
-      .eq('clinic_id', profile.clinic_id)
-      .eq('provider', 'zapi')
-      .single()
+    const whatsapp = await getWhatsAppInstance(profile.clinic_id)
 
-    if (!instance) {
+    if (!whatsapp) {
       return NextResponse.json({ ok: false, error: 'Instância não configurada' }, { status: 404 })
     }
 
-    const credentials = {
-      instanceId: instance.instance_id,
-      token: instance.token,
-      clientToken: instance.client_token || undefined,
-    }
+    const { credentials } = whatsapp
 
     if (!validateCredentials(credentials)) {
       return NextResponse.json({ ok: false, error: 'Credenciais inválidas' }, { status: 400 })
     }
 
-    const chats = await zapiGetChats(credentials)
+    const chats = await getChats(credentials)
     return NextResponse.json({ ok: true, chats })
   } catch (error) {
     return NextResponse.json(

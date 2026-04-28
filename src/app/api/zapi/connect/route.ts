@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getMissingCredentials, zapiGetQr, validateCredentials } from '@/lib/zapi/client';
+import { getMissingCredentials, validateCredentials } from '@/lib/zapi/client';
+import { getQr } from '@/lib/whatsapp/sender';
+import { getWhatsAppInstance } from '@/lib/whatsapp/instance';
 import { assertSubscriptionActive } from '@/lib/services/subscriptionService';
 
 /**
@@ -54,16 +56,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Buscar instância WhatsApp da clínica (admin para bypassar RLS)
-    const { data: instance, error: instanceError } = await admin
-      .from('whatsapp_instances')
-      .select('id, instance_id, token, client_token, status')
-      .eq('clinic_id', clinicId)
-      .eq('provider', 'zapi')
-      .single();
+    // 3. Buscar instância WhatsApp da clínica
+    const whatsapp = await getWhatsAppInstance(clinicId);
 
-    if (instanceError || !instance) {
-      console.error('[Z-API Connect] Instance not found:', instanceError);
+    if (!whatsapp) {
       return NextResponse.json(
         {
           error: 'Instância não configurada',
@@ -73,13 +69,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Validar credenciais
-    const credentials = {
-      instanceId: instance.instance_id,
-      token: instance.token,
-      clientToken: instance.client_token || undefined,
-    };
+    const { credentials } = whatsapp;
+    const instance = { id: whatsapp.id };
 
+    // 4. Validar credenciais
     if (!validateCredentials(credentials)) {
       const missingCredentials = getMissingCredentials(credentials);
       return NextResponse.json(
@@ -92,10 +85,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Obter QR Code da Z-API
+    // 5. Obter QR Code
     let qrData;
     try {
-      qrData = await zapiGetQr(credentials);
+      qrData = await getQr(credentials);
     } catch (error) {
       console.error('[Z-API Connect] Failed to get QR:', error);
       return NextResponse.json(

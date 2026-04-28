@@ -10,7 +10,8 @@ import type { Conversation } from '@/lib/types/database'
 import { pickCanonicalConversation } from '@/lib/conversations/canonical'
 import { getBotSettings } from './botSettingsService'
 import { createNotification } from './notificationService'
-import { zapiGetProfilePicture } from '@/lib/zapi/client'
+import { getProfilePicture } from '@/lib/whatsapp/sender'
+import { getWhatsAppInstance } from '@/lib/whatsapp/instance'
 import { persistCanonicalMessage } from './messageReconciliationService'
 import {
   getBrazilianPhoneLookupCandidates,
@@ -332,22 +333,10 @@ async function fetchAndSaveProfilePicture(
   phone: string,
 ) {
   try {
-    const { data: instance } = await supabase
-      .from('whatsapp_instances')
-      .select('instance_id, token, client_token')
-      .eq('clinic_id', clinicId)
-      .eq('provider', 'zapi')
-      .single()
+    const whatsapp = await getWhatsAppInstance(clinicId)
+    if (!whatsapp) return
 
-    if (!instance?.instance_id || !instance?.token) return
-
-    const credentials = {
-      instanceId: instance.instance_id,
-      token: instance.token,
-      clientToken: instance.client_token || undefined,
-    }
-
-    const pictureUrl = await zapiGetProfilePicture(credentials, phone)
+    const pictureUrl = await getProfilePicture(whatsapp.credentials, phone)
     if (!pictureUrl) return
 
     await supabase

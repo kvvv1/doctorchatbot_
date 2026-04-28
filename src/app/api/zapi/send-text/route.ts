@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { zapiSendChoices, zapiSendText, validateCredentials } from '@/lib/zapi/client';
+import { validateCredentials } from '@/lib/zapi/client';
+import { sendText, sendChoices } from '@/lib/whatsapp/sender';
+import { getWhatsAppInstance } from '@/lib/whatsapp/instance';
 import { persistCanonicalMessage } from '@/lib/services/messageReconciliationService';
 import { assertSubscriptionActive } from '@/lib/services/subscriptionService';
 import { normalizePhoneForStorage } from '@/lib/utils/phone';
@@ -162,39 +164,27 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Buscar instância WhatsApp da clínica
-    const { data: instance, error: instanceError } = await supabase
-      .from('whatsapp_instances')
-      .select('id, instance_id, token, client_token, status')
-      .eq('clinic_id', clinicId)
-      .eq('provider', 'zapi')
-      .single();
+    const whatsapp = await getWhatsAppInstance(clinicId);
 
-    if (instanceError || !instance) {
-      console.error('[Send Text] Instance not found:', instanceError);
-      
+    if (!whatsapp) {
       supabase.from('logs').insert({
         clinic_id: clinicId,
         level: 'error',
-        action: 'zapi.send.failed',
+        action: 'whatsapp.send.failed',
         message: 'Instância WhatsApp não configurada',
         metadata: { conversationId },
       });
 
       return NextResponse.json(
-        { 
-          ok: false, 
-          error: 'WhatsApp não configurado. Configure a integração na página de Configurações.' 
+        {
+          ok: false,
+          error: 'WhatsApp não configurado. Configure a integração na página de Configurações.'
         },
         { status: 404 }
       );
     }
 
-    // 4. Validar credenciais
-    const credentials = {
-      instanceId: instance.instance_id,
-      token: instance.token,
-      clientToken: instance.client_token || undefined,
-    };
+    const { credentials } = whatsapp;
 
     if (!validateCredentials(credentials)) {
       supabase.from('logs').insert({
@@ -228,7 +218,7 @@ export async function POST(request: NextRequest) {
         externalStatus: 'pending',
         deliveryStatus: 'queued',
         metadata: {
-          provider: 'zapi',
+          provider: credentials.provider,
           choicesCount: Array.isArray(choices) ? choices.length : 0,
           outboxCreatedAt: new Date().toISOString(),
         },
@@ -263,7 +253,7 @@ export async function POST(request: NextRequest) {
         : [];
 
       if (normalizedChoices.length >= 1) {
-        zapiResult = await zapiSendChoices(
+        zapiResult = await sendChoices(
           credentials,
           normalizedPhone,
           text,
@@ -273,7 +263,7 @@ export async function POST(request: NextRequest) {
             : 'Opções disponíveis'
         );
       } else {
-        zapiResult = await zapiSendText(credentials, normalizedPhone, text);
+        zapiResult = await sendText(credentials, normalizedPhone, text);
       }
     } catch (error) {
       console.error('[Send Text] Z-API send failed:', error);
@@ -292,7 +282,7 @@ export async function POST(request: NextRequest) {
           deliveryStatus: 'failed',
           failedReason: error instanceof Error ? error.message : String(error),
           metadata: {
-            provider: 'zapi',
+            provider: credentials.provider,
             choicesCount: Array.isArray(choices) ? choices.length : 0,
           },
           conversationStatus: 'in_progress',
@@ -337,7 +327,7 @@ export async function POST(request: NextRequest) {
           externalStatus: 'sent',
           deliveryStatus: 'sent',
           metadata: {
-            provider: 'zapi',
+            provider: credentials.provider,
             choicesCount: Array.isArray(choices) ? choices.length : 0,
           },
           conversationStatus: 'in_progress',

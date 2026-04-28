@@ -4,7 +4,9 @@ import { getBrazilianPhoneLookupCandidates } from '@/lib/utils/phone'
 import {
   resolveReconciliationState,
 } from '@/lib/services/messageReconciliationService'
-import { zapiGetChats, validateCredentials } from '@/lib/zapi/client'
+import { validateCredentials } from '@/lib/zapi/client'
+import { getChats } from '@/lib/whatsapp/sender'
+import { getWhatsAppInstance } from '@/lib/whatsapp/instance'
 
 type PendingMessageRow = {
   id: string
@@ -19,7 +21,7 @@ type RelatedConversationRow = {
   last_message_at: string | null
 }
 
-function findChatForConversation(chats: Awaited<ReturnType<typeof zapiGetChats>>, phone: string) {
+function findChatForConversation(chats: Awaited<ReturnType<typeof getChats>>, phone: string) {
   const candidates = new Set(getBrazilianPhoneLookupCandidates(phone))
   return chats.find((chat) => chat.phone && candidates.has(chat.phone))
 }
@@ -88,25 +90,16 @@ export async function POST(
       .in('external_status', ['pending', 'unknown'])
       .lte('created_at', new Date(Date.now() - 600000).toISOString())
 
-    const { data: instance, error: instanceError } = await supabase
-      .from('whatsapp_instances')
-      .select('instance_id, token, client_token')
-      .eq('clinic_id', profile.clinic_id)
-      .eq('provider', 'zapi')
-      .single()
+    const whatsapp = await getWhatsAppInstance(profile.clinic_id)
 
-    if (instanceError || !instance) {
+    if (!whatsapp) {
       return NextResponse.json({ ok: false, error: 'Instância WhatsApp não configurada' }, { status: 404 })
     }
 
-    const credentials = {
-      instanceId: instance.instance_id,
-      token: instance.token,
-      clientToken: instance.client_token || undefined,
-    }
+    const { credentials } = whatsapp
 
     if (!validateCredentials(credentials)) {
-      return NextResponse.json({ ok: false, error: 'Credenciais Z-API inválidas' }, { status: 400 })
+      return NextResponse.json({ ok: false, error: 'Credenciais WhatsApp inválidas' }, { status: 400 })
     }
 
     const actionablePendingMessages =
@@ -116,7 +109,7 @@ export async function POST(
         return isOutbound && !seenByWebhook
       })
 
-    const chats = await zapiGetChats(credentials)
+    const chats = await getChats(credentials)
     const matchedChat = findChatForConversation(chats, conversation.patient_phone)
     const remoteLastMessageAt = matchedChat?.lastMessageTime ?? null
     const reconciliationState = resolveReconciliationState({

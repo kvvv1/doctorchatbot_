@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getMissingCredentials, zapiGetStatus, validateCredentials, ZapiStatus } from '@/lib/zapi/client';
+import { getMissingCredentials, validateCredentials, type ZapiStatus } from '@/lib/zapi/client';
+import { getStatus } from '@/lib/whatsapp/sender';
+import { getWhatsAppInstance } from '@/lib/whatsapp/instance';
 
 /**
  * GET /api/zapi/status
@@ -43,16 +45,10 @@ export async function GET() {
 
     const clinicId = profile.clinic_id;
 
-    // 3. Buscar instância WhatsApp da clínica (admin para bypassar RLS)
-    const { data: instance, error: instanceError } = await admin
-      .from('whatsapp_instances')
-      .select('id, instance_id, token, client_token, status')
-      .eq('clinic_id', clinicId)
-      .eq('provider', 'zapi')
-      .single();
+    // 3. Buscar instância WhatsApp da clínica
+    const whatsapp = await getWhatsAppInstance(clinicId);
 
-    if (instanceError || !instance) {
-      console.error('[Z-API Status] Instance not found:', instanceError);
+    if (!whatsapp) {
       return NextResponse.json(
         {
           error: 'Instância não configurada',
@@ -62,35 +58,27 @@ export async function GET() {
       );
     }
 
-    // 4. Validar credenciais
-    const credentials = {
-      instanceId: instance.instance_id,
-      token: instance.token,
-      clientToken: instance.client_token || undefined,
-    };
+    const { credentials } = whatsapp;
+    const instance = { id: whatsapp.id, instance_id: credentials.instanceId, status: whatsapp.status };
 
+    // 4. Validar credenciais
     if (!validateCredentials(credentials)) {
       const missingCredentials = getMissingCredentials(credentials);
-      // Instância existe mas credenciais ainda não foram configuradas
-      // Retornar status especial indicando "em preparação"
       return NextResponse.json({
         ok: true,
         status: 'disconnected',
         pending: true,
         missingCredentials,
-        message:
-          missingCredentials.includes('clientToken')
-            ? 'Falta o Client Token da Z-API para gerar QR. Preencha em Configurações > WhatsApp.'
-            : 'Instância em preparação. Aguarde até 2 horas para a liberação.',
+        message: 'Instância em preparação. Aguarde até 2 horas para a liberação.',
       });
     }
 
-    // 5. Consultar status na Z-API
+    // 5. Consultar status no provider
     let status: ZapiStatus;
     try {
-      console.log('[Z-API Status] Fetching status from Z-API for instance:', instance.instance_id);
-      status = await zapiGetStatus(credentials);
-      console.log('[Z-API Status] Status received from Z-API:', status);
+      console.log('[Status] Fetching status for instance:', instance.instance_id);
+      status = await getStatus(credentials) as ZapiStatus;
+      console.log('[Status] Status received:', status);
     } catch (error) {
       console.error('[Z-API Status] Failed to get status:', error);
       // Em caso de erro, usar status atual do banco

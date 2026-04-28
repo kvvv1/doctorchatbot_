@@ -3,7 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getAvailableSlots } from '@/lib/bot/availability'
 import { getWaitlistConversations } from '@/lib/bot/actions'
 import { getBotSettings } from '@/lib/services/botSettingsService'
-import { zapiSendText } from '@/lib/zapi/client'
+import { sendText } from '@/lib/whatsapp/sender'
+import { getWhatsAppInstance } from '@/lib/whatsapp/instance'
 import { templates } from '@/lib/bot/templates'
 
 export const runtime = 'nodejs'
@@ -71,17 +72,14 @@ export async function GET(request: NextRequest) {
         const waitlistConversations = await getWaitlistConversations(clinicId)
         if (!waitlistConversations.length) continue
 
-        const { data: instance, error: instanceError } = await supabase
-          .from('whatsapp_instances')
-          .select('instance_id, token, client_token, status')
-          .eq('clinic_id', clinicId)
-          .eq('provider', 'zapi')
-          .single()
+        const whatsapp = await getWhatsAppInstance(clinicId)
 
-        if (instanceError || !instance?.instance_id || !instance?.token || instance.status !== 'connected') {
+        if (!whatsapp || whatsapp.status !== 'connected') {
           errors.push(`Clinic ${clinicId}: WhatsApp instance unavailable`)
           continue
         }
+
+        const instance = whatsapp
 
         for (const target of waitlistConversations) {
           try {
@@ -102,15 +100,7 @@ export async function GET(request: NextRequest) {
 
             const message = templates.waitlistNotification(patientName, bestSlot.label)
 
-            await zapiSendText(
-              {
-                instanceId: instance.instance_id,
-                token: instance.token,
-                clientToken: instance.client_token || undefined,
-              },
-              target.patient_phone,
-              message
-            )
+            await sendText(instance.credentials, target.patient_phone, message)
 
             await supabase
               .from('conversations')

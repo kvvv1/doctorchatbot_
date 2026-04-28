@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { zapiSendText, validateCredentials } from '@/lib/zapi/client'
+import { validateCredentials } from '@/lib/zapi/client'
+import { sendText } from '@/lib/whatsapp/sender'
+import { getWhatsAppInstance } from '@/lib/whatsapp/instance'
 import { assertSubscriptionActive } from '@/lib/services/subscriptionService'
 
 /**
@@ -63,25 +65,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data: instance, error: instanceError } = await admin
-      .from('whatsapp_instances')
-      .select('instance_id, token, client_token, status')
-      .eq('clinic_id', clinicId)
-      .eq('provider', 'zapi')
-      .single()
+    const whatsapp = await getWhatsAppInstance(clinicId)
 
-    if (instanceError || !instance) {
+    if (!whatsapp) {
       return NextResponse.json(
         { ok: false, error: 'WhatsApp não configurado para esta clínica.' },
         { status: 404 }
       )
     }
 
-    const credentials = {
-      instanceId: instance.instance_id,
-      token: instance.token,
-      clientToken: instance.client_token || undefined,
-    }
+    const { credentials } = whatsapp
 
     if (!validateCredentials(credentials)) {
       return NextResponse.json(
@@ -90,7 +83,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await zapiSendText(credentials, phone, text)
+    const result = await sendText(credentials, phone, text)
 
     if (!result.success) {
       return NextResponse.json(

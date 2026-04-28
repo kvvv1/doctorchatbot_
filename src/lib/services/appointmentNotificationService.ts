@@ -1,10 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import {
-  zapiSendChoices,
-  zapiSendText,
-  type ZapiChoiceOption,
-  type ZapiCredentials,
-} from '@/lib/zapi/client'
+import { type ZapiChoiceOption } from '@/lib/zapi/client'
+import { sendText, sendChoices } from '@/lib/whatsapp/sender'
+import { getWhatsAppInstance } from '@/lib/whatsapp/instance'
 import { persistCanonicalMessage } from './messageReconciliationService'
 import {
   getBrazilianPhoneLookupCandidates,
@@ -119,31 +116,18 @@ export function formatNotificationTemplate(
     .replace(/\{day\}/g, parts.day)
 }
 
-async function getWhatsappCredentials(
-  clinicId: string
-): Promise<ZapiCredentials> {
-  const supabase = createAdminClient()
+async function getWhatsappCredentials(clinicId: string) {
+  const whatsapp = await getWhatsAppInstance(clinicId)
 
-  const { data: instance, error } = await supabase
-    .from('whatsapp_instances')
-    .select('instance_id, token, client_token, status')
-    .eq('clinic_id', clinicId)
-    .eq('provider', 'zapi')
-    .single()
-
-  if (error || !instance?.instance_id || !instance?.token) {
+  if (!whatsapp?.credentials.instanceId || !whatsapp?.credentials.token) {
     throw new Error('WhatsApp instance not configured for this clinic')
   }
 
-  if (instance.status !== 'connected') {
+  if (whatsapp.status !== 'connected') {
     throw new Error('WhatsApp instance is disconnected')
   }
 
-  return {
-    instanceId: instance.instance_id,
-    token: instance.token,
-    clientToken: instance.client_token || undefined,
-  }
+  return whatsapp.credentials
 }
 
 async function persistOutgoingConversationMessage(params: {
@@ -188,14 +172,14 @@ export async function sendClinicNotificationMessage(params: {
 
     const result =
       params.choices && params.choices.length > 0
-        ? await zapiSendChoices(
+        ? await sendChoices(
             credentials,
             normalizePhoneForStorage(params.phone) || params.phone,
             params.text,
             params.choices,
             params.choicesTitle || 'Opcoes disponiveis'
           )
-        : await zapiSendText(credentials, normalizePhoneForStorage(params.phone) || params.phone, params.text)
+        : await sendText(credentials, normalizePhoneForStorage(params.phone) || params.phone, params.text)
 
     if (params.conversationId) {
       await persistOutgoingConversationMessage({
