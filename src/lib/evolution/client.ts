@@ -27,7 +27,7 @@ import type {
 } from '@/lib/zapi/client'
 
 const EVOLUTION_BASE_URL =
-  (process.env.EVOLUTION_API_URL || 'https://api.codexy.com.br').replace(/\/$/, '')
+  (process.env.EVOLUTION_API_URL?.trim() || 'https://api.codexy.com.br').replace(/\/$/, '')
 
 // ---------------------------------------------------------------------------
 // Internal HTTP helper
