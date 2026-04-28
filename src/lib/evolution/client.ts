@@ -42,6 +42,7 @@ async function evolutionRequest<T>(
   try {
     const response = await fetch(url, {
       ...options,
+      signal: AbortSignal.timeout(15000),
       headers: {
         'Content-Type': 'application/json',
         apikey: apiKey,
