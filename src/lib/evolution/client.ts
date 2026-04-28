@@ -245,7 +245,7 @@ export async function zapiSendText(
 
 // ---------------------------------------------------------------------------
 // Send interactive choices
-// Evolution API supports buttons (≤3) and list messages (>3)
+// Evolution API supports buttons (≤3) and polls (>3 — sendList broken in Baileys v2.3.7)
 // ---------------------------------------------------------------------------
 
 export async function zapiSendChoices(
@@ -278,7 +278,7 @@ export async function zapiSendChoices(
           description: '',
           footer: '',
           buttons: cleaned.map(o => ({
-            title: 'reply',
+            type: 'reply',
             displayText: o.label,
             id: o.id,
           })),
@@ -294,27 +294,16 @@ export async function zapiSendChoices(
     }
   }
 
-  // List message for > 3 options
+  // Poll for > 3 options (sendList is broken in Evolution API v2.3.7 / Baileys)
   const data = await evolutionRequest<Record<string, unknown>>(
-    `/message/sendList/${encodeURIComponent(instanceId)}`,
+    `/message/sendPoll/${encodeURIComponent(instanceId)}`,
     {
       method: 'POST',
       body: JSON.stringify({
         number,
-        title,
-        description: message,
-        buttonText: 'Ver opções',
-        footerText: '',
-        sections: [
-          {
-            title,
-            rows: cleaned.map(o => ({
-              rowId: o.id,
-              title: o.label,
-              description: o.label,
-            })),
-          },
-        ],
+        name: message,
+        selectableCount: 1,
+        values: cleaned.map(o => o.label),
       }),
     },
     apiKey,
