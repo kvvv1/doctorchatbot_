@@ -119,8 +119,11 @@ function extractQr(data: unknown): ZapiQrResponse | null {
     toString(data.image)
 
   if (base64) {
-    const value = base64.startsWith('data:image/') ? base64 : `data:image/png;base64,${base64}`
-    return { type: 'base64', value }
+    // Strip data URI prefix — components add it themselves
+    const raw = base64.startsWith('data:image/')
+      ? base64.replace(/^data:image\/[^;]+;base64,/, '')
+      : base64
+    return { type: 'base64', value: raw }
   }
 
   const text =
