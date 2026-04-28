@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { validateCredentials } from '@/lib/zapi/client';
 import { sendText, sendChoices } from '@/lib/whatsapp/sender';
 import { getWhatsAppInstance } from '@/lib/whatsapp/instance';
@@ -35,7 +36,9 @@ export async function POST(request: NextRequest) {
     const normalizedPhone = normalizePhoneForStorage(typeof phone === 'string' ? phone : null);
 
     let clinicId: string;
-    let supabase;
+    let supabase: Awaited<ReturnType<typeof createClient>>;
+    // Admin client used for message/conversation writes to bypass RLS on INSERT+SELECT
+    let writeClient: ReturnType<typeof createAdminClient>;
 
     // Handle internal calls from bot (with service key)
     if (internalCall) {
@@ -50,8 +53,8 @@ export async function POST(request: NextRequest) {
       }
 
       // For internal calls, clinicId should be passed or retrieved from conversation
-      const { createAdminClient } = await import('@/lib/supabase/admin');
-      supabase = createAdminClient();
+      supabase = createAdminClient() as unknown as Awaited<ReturnType<typeof createClient>>;
+      writeClient = createAdminClient();
 
       // Get clinicId from conversation
       const { data: conversation } = await supabase
@@ -108,6 +111,7 @@ export async function POST(request: NextRequest) {
       }
 
       clinicId = profile.clinic_id;
+      writeClient = createAdminClient();
     }
 
     // 1.5 Check subscription status
@@ -207,7 +211,7 @@ export async function POST(request: NextRequest) {
     // 5. Persistir outbox canônico antes do envio real
     if (!internalCall) {
       await persistCanonicalMessage({
-        supabase,
+        supabase: writeClient,
         clinicId,
         conversationId,
         sender: 'human',
