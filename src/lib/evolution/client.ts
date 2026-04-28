@@ -262,87 +262,62 @@ export async function zapiSendChoices(
     throw new Error('Nenhuma opção válida para envio interativo.')
   }
 
-  // Try interactive message first; fall back to plain numbered text if API rejects it
   if (cleaned.length <= 3) {
-    try {
-      const data = await evolutionRequest<Record<string, unknown>>(
-        `/message/sendButtons/${encodeURIComponent(instanceId)}`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            number,
-            title: message,
-            description: '',
-            footer: '',
-            buttons: cleaned.map(o => ({
-              buttonId: o.id,
-              buttonText: { displayText: o.label },
-              type: 1,
-            })),
-          }),
-        },
-        apiKey,
-        45000,
-      )
-      return {
-        success: true,
-        messageId: toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined,
-        mode: 'buttons',
-      }
-    } catch (err) {
-      console.warn('[Evolution] sendButtons failed, falling back to text:', err)
-    }
-  } else {
-    try {
-      const data = await evolutionRequest<Record<string, unknown>>(
-        `/message/sendList/${encodeURIComponent(instanceId)}`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            number,
-            title,
-            description: message,
-            buttonText: 'Ver opções',
-            footerText: '',
-            sections: [
-              {
-                title,
-                rows: cleaned.map(o => ({
-                  rowId: o.id,
-                  title: o.label,
-                  description: '',
-                })),
-              },
-            ],
-          }),
-        },
-        apiKey,
-        45000,
-      )
-      return {
-        success: true,
-        messageId: toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined,
-        mode: 'list',
-      }
-    } catch (err) {
-      console.warn('[Evolution] sendList failed, falling back to text:', err)
+    const data = await evolutionRequest<Record<string, unknown>>(
+      `/message/sendButtons/${encodeURIComponent(instanceId)}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          number,
+          title: message,
+          description: '',
+          footer: '',
+          buttons: cleaned.map(o => ({
+            title: 'reply',
+            displayText: o.label,
+            id: o.id,
+          })),
+        }),
+      },
+      apiKey,
+      45000,
+    )
+    return {
+      success: true,
+      messageId: toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined,
+      mode: 'buttons',
     }
   }
 
-  // Fallback: send as plain numbered text
-  const numberedText = `${message}\n\n${cleaned.map((o, i) => `${i + 1}. ${o.label}`).join('\n')}`
-  const fallback = await evolutionRequest<Record<string, unknown>>(
-    `/message/sendText/${encodeURIComponent(instanceId)}`,
+  // List message for > 3 options
+  const data = await evolutionRequest<Record<string, unknown>>(
+    `/message/sendList/${encodeURIComponent(instanceId)}`,
     {
       method: 'POST',
-      body: JSON.stringify({ number, text: numberedText, options: { delay: 0 } }),
+      body: JSON.stringify({
+        number,
+        title,
+        description: message,
+        buttonText: 'Ver opções',
+        footerText: '',
+        values: [
+          {
+            title,
+            rows: cleaned.map(o => ({
+              rowId: o.id,
+              title: o.label,
+              description: '',
+            })),
+          },
+        ],
+      }),
     },
     apiKey,
     45000,
   )
   return {
     success: true,
-    messageId: toString((fallback.key as Record<string, unknown>)?.id) || toString(fallback.id) || undefined,
+    messageId: toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined,
     mode: 'list',
   }
 }
