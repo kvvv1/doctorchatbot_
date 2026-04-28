@@ -334,15 +334,17 @@ export async function zapiUpdateWebhookReceived(
     {
       method: 'POST',
       body: JSON.stringify({
-        url: webhookUrl,
-        enabled: true,
-        webhookByEvents: false,
-        webhookBase64: false,
-        events: [
-          'MESSAGES_UPSERT',
-          'CONNECTION_UPDATE',
-          'MESSAGES_UPDATE',
-        ],
+        webhook: {
+          enabled: true,
+          url: webhookUrl,
+          webhookByEvents: false,
+          webhookBase64: false,
+          events: [
+            'MESSAGES_UPSERT',
+            'CONNECTION_UPDATE',
+            'MESSAGES_UPDATE',
+          ],
+        },
       }),
     },
     apiKey,
