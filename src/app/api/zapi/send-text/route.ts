@@ -274,7 +274,7 @@ export async function POST(request: NextRequest) {
 
       if (!internalCall) {
         await persistCanonicalMessage({
-          supabase,
+          supabase: writeClient,
           clinicId,
           conversationId,
           sender: 'human',
@@ -319,7 +319,7 @@ export async function POST(request: NextRequest) {
     if (!internalCall) {
       try {
         await persistCanonicalMessage({
-          supabase,
+          supabase: writeClient,
           clinicId,
           conversationId,
           sender: 'human',
