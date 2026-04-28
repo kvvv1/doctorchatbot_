@@ -212,15 +212,16 @@ export async function zapiSendText(
 ): Promise<{ success: boolean; messageId?: string }> {
   const { instanceId, token } = credentials
   const apiKey = resolveApiKey(token)
-  const number = phone.replace(/[^0-9]/g, '')
+  const digits = phone.replace(/[^0-9]/g, '')
+  const number = `${digits}@s.whatsapp.net`
 
-  console.log('[Evolution] Sending text:', { instanceId, number, textLength: text.length, url: `${EVOLUTION_BASE_URL}/message/sendText/${encodeURIComponent(instanceId)}` })
+  console.log('[Evolution] Sending text:', { instanceId, number, textLength: text.length })
 
   const data = await evolutionRequest<Record<string, unknown>>(
     `/message/sendText/${encodeURIComponent(instanceId)}`,
     {
       method: 'POST',
-      body: JSON.stringify({ number, text }),
+      body: JSON.stringify({ number, text, options: { delay: 0 } }),
     },
     apiKey,
     45000,
@@ -251,7 +252,7 @@ export async function zapiSendChoices(
 ): Promise<{ success: boolean; messageId?: string; mode: 'buttons' | 'list' }> {
   const { instanceId, token } = credentials
   const apiKey = resolveApiKey(token)
-  const number = phone.replace(/[^0-9]/g, '')
+  const number = `${phone.replace(/[^0-9]/g, '')}@s.whatsapp.net`
 
   const cleaned = options
     .map((o, i) => ({ id: String(o.id || i + 1), label: String(o.label || '').trim() }))
