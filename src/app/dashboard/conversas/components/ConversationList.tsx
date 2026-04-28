@@ -246,7 +246,9 @@ export default function ConversationList({
 
 											<div className="mt-1.5 flex items-center justify-between gap-2">
 												<p className={`truncate text-xs ${hasUnread ? 'font-medium text-neutral-900' : 'text-neutral-500'}`}>
-													{conversation.last_message_preview || 'Sem mensagens ainda'}
+													{(conversation.last_message_preview && conversation.last_message_preview !== '[Mensagem sem texto]')
+														? conversation.last_message_preview
+														: 'Sem mensagens ainda'}
 												</p>
 												<div className="shrink-0 flex items-center gap-1">
 													{conversationMode !== 'bot' ? (

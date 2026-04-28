@@ -84,7 +84,7 @@ export async function handleIncomingMessage(
       sender: 'patient',
       direction: 'inbound',
       origin: 'webhook_reconciled',
-      content: data.text || '[Mensagem sem texto]',
+      content: data.text || '',
       zapiMessageId: data.zapiMessageId || null,
       externalStatus: 'received',
       deliveryStatus: 'received',
@@ -129,7 +129,7 @@ export async function handleIncomingMessage(
       data.clinicId,
       created ? 'new_conversation' : 'conversation_waiting',
       created ? `Nova conversa de ${patientLabel}` : `Nova mensagem de ${patientLabel}`,
-      truncateText(data.text || '[Mensagem sem texto]', 140),
+      truncateText(data.text || '', 140),
       {
         link: `/dashboard/conversas?id=${conversation.id}`,
         conversationId: conversation.id,

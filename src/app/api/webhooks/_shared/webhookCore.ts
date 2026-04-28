@@ -160,8 +160,13 @@ export async function handleMessageWebhook(
 
   const clinicId = instance.clinic_id
 
-  if (parsed.messageText === '[Mensagem sem texto]') {
-    console.log('[Webhook] DEBUG raw payload (no text):', JSON.stringify(rawPayload, null, 2).substring(0, 2000))
+  if (!parsed.messageText || parsed.messageText === '[Mensagem sem texto]') {
+    console.log('[Webhook] Skipping message with no extractable text:', {
+      instanceId: parsed.instanceId,
+      phone: parsed.phone,
+      rawPayloadPreview: JSON.stringify(rawPayload).substring(0, 300),
+    })
+    return NextResponse.json({ ok: true, skipped: true, reason: 'no_text' })
   }
 
   console.log('[Webhook] Processing message:', {

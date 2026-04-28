@@ -98,9 +98,11 @@ export default function NotificationBell() {
 													<h4 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
 														{notification.title}
 													</h4>
-													<p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-														{notification.message}
-													</p>
+													{notification.message && notification.message !== '[Mensagem sem texto]' && (
+														<p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+															{notification.message}
+														</p>
+													)}
 													<div className="flex items-center justify-between">
 														<span className="text-xs text-gray-500 dark:text-gray-500">
 															{formatDistanceToNow(new Date(notification.created_at), {
