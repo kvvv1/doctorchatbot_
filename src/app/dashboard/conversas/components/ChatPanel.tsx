@@ -347,7 +347,7 @@ export default function ChatPanel({
 							<p className="text-xs text-neutral-400">{conversation.patient_phone}</p>
 							{botIsActive && (
 								<>
-									<span className="text-neutral-300">Â·</span>
+									<span className="text-neutral-300">·</span>
 									<span className="flex items-center gap-1 text-[10px] font-medium text-indigo-600">
 										<Bot className="size-3" />
 										{botStateLabel}
