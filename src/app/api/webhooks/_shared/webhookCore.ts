@@ -991,6 +991,8 @@ async function triggerBotResponse(
         })
       }
       await new Promise(r => setTimeout(r, 1500 + Math.random() * 1500))
+    }
+
     // This covers: menu intent for cancel/reschedule/view, and the ver_agendamentos state.
     // We do it ONCE here so the engine always receives real data without extra round-trips.
     if (!currentContext.appointments) {
