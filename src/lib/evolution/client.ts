@@ -311,7 +311,7 @@ export async function zapiSendChoices(
             rows: cleaned.map(o => ({
               rowId: o.id,
               title: o.label,
-              description: '',
+              description: ' ',
             })),
           },
         ],
