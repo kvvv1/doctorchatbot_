@@ -267,25 +267,18 @@ export async function zapiSendChoices(
     throw new Error('Nenhuma opção válida para envio interativo.')
   }
 
-  // WhatsApp buttons support max 3 per message — split into chunks of 3
-  const chunks: typeof cleaned[] = []
-  for (let i = 0; i < cleaned.length; i += 3) chunks.push(cleaned.slice(i, i + 3))
-
-  let lastMessageId: string | undefined
-  for (let idx = 0; idx < chunks.length; idx++) {
-    const chunk = chunks[idx]
-    const chunkTitle = idx === 0 ? message : ''
+  if (cleaned.length <= 3) {
     const data = await evolutionRequest<Record<string, unknown>>(
       `/message/sendButtons/${encodeURIComponent(instanceId)}`,
       {
         method: 'POST',
         body: JSON.stringify({
           number,
-          title: chunkTitle,
+          title: message,
           description: '',
           footer: '',
-          buttons: chunk.map(o => ({
-            title: 'reply',
+          buttons: cleaned.map(o => ({
+            type: 'reply',
             displayText: o.label,
             id: o.id,
           })),
@@ -294,9 +287,44 @@ export async function zapiSendChoices(
       apiKey,
       45000,
     )
-    lastMessageId = toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || lastMessageId
+    return {
+      success: true,
+      messageId: toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined,
+      mode: 'buttons',
+    }
   }
-  return { success: true, messageId: lastMessageId, mode: 'buttons' }
+
+  // List message for > 3 options
+  const data = await evolutionRequest<Record<string, unknown>>(
+    `/message/sendList/${encodeURIComponent(instanceId)}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        number,
+        title,
+        description: message,
+        buttonText: 'Ver opções',
+        footerText: '',
+        values: [
+          {
+            title,
+            rows: cleaned.map(o => ({
+              rowId: o.id,
+              title: o.label,
+              description: o.label,
+            })),
+          },
+        ],
+      }),
+    },
+    apiKey,
+    45000,
+  )
+  return {
+    success: true,
+    messageId: toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined,
+    mode: 'list',
+  }
 }
 
 // ---------------------------------------------------------------------------
