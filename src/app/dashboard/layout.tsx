@@ -18,8 +18,10 @@ async function getSystemStatus(clinicId: string) {
 		.from('whatsapp_instances')
 		.select('status')
 		.eq('clinic_id', clinicId)
-		.eq('provider', 'zapi')
-		.single()
+		.in('provider', ['zapi', 'evolution'])
+		.order('updated_at', { ascending: false })
+		.limit(1)
+		.maybeSingle()
 
 	// Buscar configurações do bot
 	const { data: botSettings } = await supabase

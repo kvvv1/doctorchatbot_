@@ -245,7 +245,8 @@ export async function zapiSendText(
 
 // ---------------------------------------------------------------------------
 // Send interactive choices
-// Evolution API supports buttons (≤3) and polls (>3 — sendList broken in Baileys v2.3.7)
+// Evolution list messages are unstable across Baileys builds, so larger menus
+// are sent as multiple button messages with up to 3 buttons each.
 // ---------------------------------------------------------------------------
 
 export async function zapiSendChoices(
@@ -267,6 +268,52 @@ export async function zapiSendChoices(
     throw new Error('Nenhuma opção válida para envio interativo.')
   }
 
+  if (cleaned.length > 3) {
+    let firstMessageId: string | undefined
+    const chunks: typeof cleaned[] = []
+    for (let i = 0; i < cleaned.length; i += 3) {
+      chunks.push(cleaned.slice(i, i + 3))
+    }
+
+    for (let index = 0; index < chunks.length; index += 1) {
+      const chunk = chunks[index]
+      const isFirstChunk = index === 0
+      const data = await evolutionRequest<Record<string, unknown>>(
+        `/message/sendButtons/${encodeURIComponent(instanceId)}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            number,
+            title: isFirstChunk ? message : 'Mais opções',
+            description: '',
+            footer: chunks.length > 1 ? title : '',
+            buttons: chunk.map(o => ({
+              type: 'reply',
+              title: o.label,
+              displayText: o.label,
+              id: o.id,
+            })),
+          }),
+        },
+        apiKey,
+        45000,
+      )
+
+      const messageId = toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined
+      firstMessageId ||= messageId
+
+      if (index < chunks.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 700))
+      }
+    }
+
+    return {
+      success: true,
+      messageId: firstMessageId,
+      mode: 'buttons',
+    }
+  }
+
   if (cleaned.length <= 3) {
     const data = await evolutionRequest<Record<string, unknown>>(
       `/message/sendButtons/${encodeURIComponent(instanceId)}`,
@@ -279,6 +326,7 @@ export async function zapiSendChoices(
           footer: '',
           buttons: cleaned.map(o => ({
             type: 'reply',
+            title: o.label,
             displayText: o.label,
             id: o.id,
           })),
@@ -294,37 +342,7 @@ export async function zapiSendChoices(
     }
   }
 
-  // List message for > 3 options
-  const data = await evolutionRequest<Record<string, unknown>>(
-    `/message/sendList/${encodeURIComponent(instanceId)}`,
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        number,
-        title,
-        description: message,
-        buttonText: 'Ver opções',
-        footerText: '',
-        sections: [
-          {
-            title,
-            rows: cleaned.map(o => ({
-              rowId: o.id,
-              title: o.label,
-              description: o.label,
-            })),
-          },
-        ],
-      }),
-    },
-    apiKey,
-    45000,
-  )
-  return {
-    success: true,
-    messageId: toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined,
-    mode: 'list',
-  }
+  throw new Error('Nenhuma opção válida para envio interativo.')
 }
 
 // ---------------------------------------------------------------------------
