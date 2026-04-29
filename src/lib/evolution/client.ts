@@ -305,7 +305,7 @@ export async function zapiSendChoices(
         description: message,
         buttonText: 'Ver opções',
         footerText: '',
-        values: [
+        sections: [
           {
             title,
             rows: cleaned.map(o => ({
