@@ -244,7 +244,8 @@ export async function zapiSendText(
 }
 
 // ---------------------------------------------------------------------------
-// Send interactive choices — sendButtons in chunks of 3 (max per message).
+// Send interactive choices via sendList (listMessage — not blocked by WhatsApp).
+// sendButtons uses buttonsMessage which WhatsApp blocks on non-Business accounts.
 // ---------------------------------------------------------------------------
 
 export async function zapiSendChoices(
@@ -266,45 +267,36 @@ export async function zapiSendChoices(
     throw new Error('Nenhuma opção válida para envio interativo.')
   }
 
-  const chunks: typeof cleaned[] = []
-  for (let i = 0; i < cleaned.length; i += 3) {
-    chunks.push(cleaned.slice(i, i + 3))
-  }
-
-  let firstMessageId: string | undefined
-  for (let index = 0; index < chunks.length; index++) {
-    const chunk = chunks[index]
-    const isFirst = index === 0
-    const data = await evolutionRequest<Record<string, unknown>>(
-      `/message/sendButtons/${encodeURIComponent(instanceId)}`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          number,
-          title: isFirst ? message : 'Mais opções',
-          description: '',
-          footer: chunks.length > 1 ? title : '',
-          buttons: chunk.map(o => ({
-            type: 'reply',
-            displayText: o.label,
-            id: o.id,
-          })),
-        }),
-      },
-      apiKey,
-      45000,
-    )
-    const msgId = toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined
-    firstMessageId ||= msgId
-    if (index < chunks.length - 1) {
-      await new Promise(r => setTimeout(r, 700))
-    }
-  }
+  const data = await evolutionRequest<Record<string, unknown>>(
+    `/message/sendList/${encodeURIComponent(instanceId)}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        number,
+        title,
+        description: message,
+        buttonText: 'Ver opções',
+        footerText: '',
+        sections: [
+          {
+            title,
+            rows: cleaned.map(o => ({
+              rowId: o.id,
+              title: o.label,
+              description: o.label,
+            })),
+          },
+        ],
+      }),
+    },
+    apiKey,
+    45000,
+  )
 
   return {
     success: true,
-    messageId: firstMessageId,
-    mode: 'buttons',
+    messageId: toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined,
+    mode: 'list',
   }
 }
 
