@@ -268,54 +268,35 @@ export async function zapiSendChoices(
     throw new Error('Nenhuma opção válida para envio interativo.')
   }
 
-  try {
-    const data = await evolutionRequest<Record<string, unknown>>(
-      `/message/sendList/${encodeURIComponent(instanceId)}`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          number,
-          title: message,
-          description: '',
-          buttonText: 'Ver opções',
-          footerText: '',
-          sections: [
-            {
-              title,
-              rows: cleaned.map(o => ({
-                rowId: o.id,
-                title: o.label,
-                description: '',
-              })),
-            },
-          ],
-        }),
-      },
-      apiKey,
-      45000,
-    )
-    return {
-      success: true,
-      messageId: toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined,
-      mode: 'list',
-    }
-  } catch {
-    // Fallback: send plain numbered text so the user always gets a response
-    const textBody = [message, '', ...cleaned.map(o => `${o.id}. ${o.label}`)].join('\n')
-    const data = await evolutionRequest<Record<string, unknown>>(
-      `/message/sendText/${encodeURIComponent(instanceId)}`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ number, text: textBody }),
-      },
-      apiKey,
-      45000,
-    )
-    return {
-      success: true,
-      messageId: toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined,
-      mode: 'buttons',
-    }
+  const data = await evolutionRequest<Record<string, unknown>>(
+    `/message/sendList/${encodeURIComponent(instanceId)}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        number,
+        title,
+        description: message,
+        buttonText: 'Ver opções',
+        footerText: '',
+        sections: [
+          {
+            title,
+            rows: cleaned.map(o => ({
+              rowId: o.id,
+              title: o.label,
+              description: o.label,
+            })),
+          },
+        ],
+      }),
+    },
+    apiKey,
+    45000,
+  )
+  return {
+    success: true,
+    messageId: toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined,
+    mode: 'list',
   }
 }
 
