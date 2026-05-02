@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import type { WorkSchedule } from '@/lib/utils/dateHelpers'
@@ -29,6 +30,8 @@ export default function DashboardLayoutClient({
 	isSubscriptionActive,
 	children,
 }: DashboardLayoutClientProps) {
+	const pathname = usePathname()
+	const hideTopbar = pathname.startsWith('/dashboard/conversas')
 	const [isMobileOpen, setIsMobileOpen] = useState(false)
 	const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 	const [whatsappStatus, setWhatsappStatus] = useState<WhatsAppStatus>(initialWhatsappStatus)
@@ -132,15 +135,17 @@ export default function DashboardLayoutClient({
 				onClose={() => setIsMobileOpen(false)}
 			/>
 			<div className="flex flex-1 flex-col overflow-hidden">
-				<Topbar
-					clinicName={clinicName}
-					workSchedule={workSchedule}
-					whatsappStatus={whatsappStatus}
-					botStatus={botStatus}
-					isSidebarCollapsed={isSidebarCollapsed}
-					onMenuClick={() => setIsMobileOpen(true)}
-					onToggleSidebar={toggleSidebar}
-				/>
+				{!hideTopbar && (
+					<Topbar
+						clinicName={clinicName}
+						workSchedule={workSchedule}
+						whatsappStatus={whatsappStatus}
+						botStatus={botStatus}
+						isSidebarCollapsed={isSidebarCollapsed}
+						onMenuClick={() => setIsMobileOpen(true)}
+						onToggleSidebar={toggleSidebar}
+					/>
+				)}
 
 				{/* Subscription Banner */}
 				{!isSubscriptionActive && (
