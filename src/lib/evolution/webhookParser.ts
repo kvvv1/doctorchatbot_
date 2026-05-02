@@ -170,7 +170,20 @@ function extractText(data: Record<string, unknown>): {
     return { messageText: t, normalizedText: t }
   }
 
-  // 3. Media fallbacks
+  // 3. Poll vote response (pollUpdateMessage)
+  const pollUpdate = msg?.pollUpdateMessage as Record<string, unknown> | undefined
+  if (pollUpdate || data.messageType === 'pollUpdateMessage') {
+    const vote = pollUpdate?.vote as Record<string, unknown> | undefined
+    const selectedOptions = vote?.selectedOptions as Array<Record<string, unknown>> | undefined
+    const selected = selectedOptions?.[0]
+    const optionName = str(selected?.name) || str(selected?.optionName)
+    if (optionName) {
+      const t = dedup(optionName)
+      return { messageText: t, normalizedText: t }
+    }
+  }
+
+  // 4. Media fallbacks
   if (msg?.imageMessage || data.messageType === 'imageMessage')
     return { messageText: '[Imagem]', normalizedText: '[Imagem]' }
   if (msg?.audioMessage || data.messageType === 'audioMessage')
