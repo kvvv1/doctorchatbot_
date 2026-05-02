@@ -133,6 +133,7 @@ export default function DashboardLayoutClient({
 				isMobileOpen={isMobileOpen}
 				isCollapsed={isSidebarCollapsed}
 				onClose={() => setIsMobileOpen(false)}
+				onToggle={hideTopbar ? toggleSidebar : undefined}
 			/>
 			<div className="flex flex-1 flex-col overflow-hidden">
 				{!hideTopbar && (

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { MessageSquare, Calendar, Settings, LayoutDashboard, X, ClipboardList } from 'lucide-react'
+import { MessageSquare, Calendar, Settings, LayoutDashboard, X, ClipboardList, PanelLeft } from 'lucide-react'
 import BrandMark from '@/components/BrandMark'
 import Tooltip from './Tooltip'
 
@@ -10,6 +10,7 @@ interface SidebarProps {
 	isMobileOpen: boolean
 	isCollapsed: boolean
 	onClose: () => void
+	onToggle?: () => void
 }
 
 const menuItems = [
@@ -40,7 +41,7 @@ const menuItems = [
 	},
 ]
 
-export default function Sidebar({ isMobileOpen, isCollapsed, onClose }: SidebarProps) {
+export default function Sidebar({ isMobileOpen, isCollapsed, onClose, onToggle }: SidebarProps) {
 	const pathname = usePathname()
 
 	return (
@@ -77,6 +78,14 @@ export default function Sidebar({ isMobileOpen, isCollapsed, onClose }: SidebarP
 						>
 							<X className="size-5" />
 						</button>
+						{onToggle && (
+							<button
+								onClick={onToggle}
+								className="hidden lg:flex text-neutral-500 hover:text-neutral-900"
+							>
+								<PanelLeft className="size-5" />
+							</button>
+						)}
 					</div>
 
 					{/* Navigation */}
