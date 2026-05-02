@@ -101,8 +101,10 @@ export function parseWebhookPayload(payload: unknown): ParsedWebhookMessage {
 
   const data = p.data || {}
 
-  // Phone comes from key.remoteJid → strip @s.whatsapp.net / @g.us
-  const rawJid = str(data.key?.remoteJid) || str(data.remoteJid)
+  // Newer Baileys/Evolution builds can emit a privacy LID as remoteJid
+  // (for example 123456789@lid). Prefer the alternate PN fields when present,
+  // otherwise we may create a conversation for a non-messageable technical id.
+  const rawJid = resolvePhoneJid(data, p)
   const phone = normalizePhone(rawJid)
   if (!phone) throw new Error('Missing or invalid phone (remoteJid)')
 
@@ -240,9 +242,56 @@ function extractInteractiveId(data: Record<string, unknown>): string | null {
 
 function normalizePhone(jid: string | null): string | null {
   if (!jid) return null
+  if (isLidJid(jid)) return null
   // Strip @s.whatsapp.net, @g.us, etc.
   const bare = jid.replace(/@.*$/, '')
-  return normalizePhoneForStorage(bare)
+  const normalized = normalizePhoneForStorage(bare)
+  if (!normalized) return null
+
+  // Avoid treating Baileys LID/random ids as WhatsApp phone numbers.
+  // Brazilian patient numbers in this app are stored as 55 + DDD + number.
+  if (normalized.startsWith('55') && (normalized.length === 12 || normalized.length === 13)) {
+    return normalized
+  }
+
+  if (bare.length === 10 || bare.length === 11) {
+    return normalized
+  }
+
+  return null
+}
+
+function resolvePhoneJid(
+  data: Record<string, unknown>,
+  payload: EvolutionWebhookPayload,
+): string | null {
+  const key = data.key as Record<string, unknown> | undefined
+  const candidates = [
+    key?.remoteJidAlt,
+    data.remoteJidAlt,
+    data.senderPn,
+    key?.participantAlt,
+    data.participantAlt,
+    data.senderPnJid,
+    data.remoteJidPn,
+    key?.remoteJid,
+    data.remoteJid,
+    key?.participant,
+    data.participant,
+    data.sender,
+    payload.sender,
+  ]
+
+  for (const candidate of candidates) {
+    const jid = str(candidate)
+    if (jid && normalizePhone(jid)) return jid
+  }
+
+  return null
+}
+
+function isLidJid(value: string): boolean {
+  return /@lid(?:\b|$)/i.test(value)
 }
 
 function extractTimestamp(data: Record<string, unknown>): Date {

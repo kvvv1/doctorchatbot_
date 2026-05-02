@@ -5,7 +5,17 @@
       "Bash(grep -rn \"styled\\\\|css\\\\`\\\\|@emotion\\\\|@stitches\" \"/c/Users/KV/Documents/doctor-chat-bot/doctor-chat-bot/src\")",
       "Bash(xargs wc:*)",
       "Bash(npm run:*)",
-      "Bash(python -c ':*)"
+      "Bash(python -c ':*)",
+      "Bash(git pull *)",
+      "Bash(git push *)",
+      "Bash(git stash *)",
+      "WebFetch(domain:apidev.gestaods.com.br)",
+      "Bash(npx tsc *)",
+      "mcp__supabase__execute_sql",
+      "Bash(node -e ' *)",
+      "Bash(curl -s http://80.241.218.217:9000/api/status)",
+      "Bash(curl -s -X POST http://80.241.218.217:9000/api/auth -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"Hachi131\"}')",
+      "Bash(curl -s -X POST http://80.241.218.217:9000/api/auth -H 'Content-Type: application/json' -d '{\"username\":\"__TRACKED_VAR__\",\"password\":\"Hachi131\"}')"
     ]
   }
 }
