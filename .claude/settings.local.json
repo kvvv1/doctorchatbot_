@@ -15,7 +15,14 @@
       "Bash(node -e ' *)",
       "Bash(curl -s http://80.241.218.217:9000/api/status)",
       "Bash(curl -s -X POST http://80.241.218.217:9000/api/auth -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"Hachi131\"}')",
-      "Bash(curl -s -X POST http://80.241.218.217:9000/api/auth -H 'Content-Type: application/json' -d '{\"username\":\"__TRACKED_VAR__\",\"password\":\"Hachi131\"}')"
+      "Bash(curl -s -X POST http://80.241.218.217:9000/api/auth -H 'Content-Type: application/json' -d '{\"username\":\"__TRACKED_VAR__\",\"password\":\"Hachi131\"}')",
+      "Bash(python3 -c \"import paramiko; print\\('paramiko ok'\\)\")",
+      "PowerShell(Get-Command plink, psftp 2>$null)",
+      "PowerShell(Get-Command ssh 2>$null)",
+      "Bash(wsl --list --quiet)",
+      "Bash(pacman -S --noconfirm sshpass)",
+      "Bash(npm install *)",
+      "Bash(git add *)"
     ]
   }
 }

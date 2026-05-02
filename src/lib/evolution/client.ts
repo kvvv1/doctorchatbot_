@@ -244,8 +244,7 @@ export async function zapiSendText(
 }
 
 // ---------------------------------------------------------------------------
-// Send interactive choices
-// sendList is broken in current Baileys build — use sendButtons in chunks of 3.
+// Send interactive choices — sendButtons in chunks of 3 (max per message).
 // ---------------------------------------------------------------------------
 
 export async function zapiSendChoices(
