@@ -16,7 +16,6 @@ import ViewSwitcher from './components/ViewSwitcher'
 import AppointmentDetailsModal from './components/AppointmentDetailsModal'
 import CreateAppointmentModal from './components/CreateAppointmentModal'
 import { ExportMenu } from './components/ExportMenu'
-import CompactIconNav from '../components/CompactIconNav'
 
 interface Appointment {
   id: string
@@ -289,8 +288,6 @@ export default function AgendaPageClient({ initialAppointments, activeProvider }
 
   return (
     <div className="flex h-full min-h-0 w-full">
-      <CompactIconNav activeTab="agenda" />
-
       {/* Main content area */}
       <main className="h-full min-h-0 flex-1">
         <div className="h-full min-w-0 overflow-x-hidden overflow-y-auto">

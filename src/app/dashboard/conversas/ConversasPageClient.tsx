@@ -3,7 +3,6 @@
 import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import CompactIconNav from '../components/CompactIconNav'
 import { useConversations } from '@/lib/hooks/useConversations'
 import { useMessages } from '@/lib/hooks/useMessages'
 import { createClient } from '@/lib/supabase/client'
@@ -532,8 +531,6 @@ export default function ConversasPageClient({ clinicId, defaultTakeoverMessage, 
 
 	return (
 		<div className="flex h-full min-h-0 w-full">
-			<CompactIconNav activeTab="conversas" />
-
 			{/* Lista de conversas */}
 			<aside className="hidden h-full w-full border-r border-neutral-200 md:flex md:w-[440px] shrink-0">
 				<ConversationList
