@@ -13,23 +13,23 @@ export async function GET() {
 		}
 
 		const supabase = await createClient()
-		
-		// TODO: Quando a tabela bot_config existir, buscar de lá
-		// const { data, error } = await supabase
-		// 	.from('bot_config')
-		// 	.select('is_active')
-		// 	.eq('clinic_id', session.clinic.id)
-		// 	.single()
-		//
-		// if (error && error.code !== 'PGRST116') { // PGRST116 = not found
-		// 	console.error('Error fetching bot status:', error)
-		// 	return NextResponse.json({ error: 'Failed to fetch bot status' }, { status: 500 })
-		// }
-		
-		// Por enquanto, retorna do localStorage do servidor (mock)
-		// Na produção, isso virá do banco de dados
+
+		const { data, error } = await supabase
+			.from('bot_settings')
+			.select('bot_globally_enabled')
+			.eq('clinic_id', session.clinic.id)
+			.single()
+
+		if (error && error.code !== 'PGRST116') {
+			console.error('Error fetching bot status:', error)
+			return NextResponse.json({ error: 'Failed to fetch bot status' }, { status: 500 })
+		}
+
+		// Default to active if no settings row yet
+		const isActive = data?.bot_globally_enabled !== false
+
 		return NextResponse.json({
-			status: 'active', // TODO: Retornar do banco
+			status: isActive ? 'active' : 'paused',
 			clinic_id: session.clinic.id,
 		})
 	} catch (error) {
@@ -54,22 +54,22 @@ export async function POST(request: Request) {
 		}
 
 		const supabase = await createClient()
-		
-		// TODO: Quando a tabela bot_config existir, salvar lá
-		// const { error } = await supabase
-		// 	.from('bot_config')
-		// 	.upsert({
-		// 		clinic_id: session.clinic.id,
-		// 		is_active,
-		// 		updated_at: new Date().toISOString(),
-		// 	}, {
-		// 		onConflict: 'clinic_id'
-		// 	})
-		//
-		// if (error) {
-		// 	console.error('Error updating bot status:', error)
-		// 	return NextResponse.json({ error: 'Failed to update bot status' }, { status: 500 })
-		// }
+
+		const { error } = await supabase
+			.from('bot_settings')
+			.upsert(
+				{
+					clinic_id: session.clinic.id,
+					bot_globally_enabled: is_active,
+					updated_at: new Date().toISOString(),
+				},
+				{ onConflict: 'clinic_id' }
+			)
+
+		if (error) {
+			console.error('Error updating bot status:', error)
+			return NextResponse.json({ error: 'Failed to update bot status' }, { status: 500 })
+		}
 
 		return NextResponse.json({
 			success: true,
