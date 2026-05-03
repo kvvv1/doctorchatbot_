@@ -266,27 +266,30 @@ export async function zapiSendChoices(
     throw new Error('Nenhuma opção válida para envio interativo.')
   }
 
+  const body = {
+    number,
+    title: message,
+    description: 'Selecione uma opção',
+    buttonText: 'Ver opções',
+    footerText: '',
+    sections: [
+      {
+        title,
+        rows: cleaned.map(o => ({ title: o.label, rowId: o.id })),
+      },
+    ],
+  }
+
+  console.log('[Evolution] Sending list:', { instanceId, number, optionsCount: cleaned.length, body: JSON.stringify(body) })
+
   const data = await evolutionRequest<Record<string, unknown>>(
     `/message/sendList/${encodeURIComponent(instanceId)}`,
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        number,
-        title: message,
-        description: 'Selecione uma opção',
-        buttonText: 'Ver opções',
-        footerText: '',
-        sections: [
-          {
-            title,
-            rows: cleaned.map(o => ({ title: o.label, rowId: o.id })),
-          },
-        ],
-      }),
-    },
+    { method: 'POST', body: JSON.stringify(body) },
     apiKey,
     45000,
   )
+
+  console.log('[Evolution] List sent:', JSON.stringify(data))
 
   return {
     success: true,
