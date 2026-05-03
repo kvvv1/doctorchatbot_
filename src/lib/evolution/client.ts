@@ -244,9 +244,7 @@ export async function zapiSendText(
 }
 
 // ---------------------------------------------------------------------------
-// Send interactive choices via sendPoll (native WhatsApp poll, single choice).
-// Works on all WhatsApp clients — user taps an option to select.
-// sendButtons wraps in viewOnceMessage (broken); sendList fails silently.
+// Send interactive choices via sendList (native WhatsApp list message).
 // ---------------------------------------------------------------------------
 
 export async function zapiSendChoices(
@@ -254,7 +252,7 @@ export async function zapiSendChoices(
   phone: string,
   message: string,
   options: ZapiChoiceOption[],
-  _title = 'Opções disponíveis',
+  title = 'Opções disponíveis',
 ): Promise<{ success: boolean; messageId?: string; mode: 'buttons' | 'list' }> {
   const { instanceId, token } = credentials
   const apiKey = resolveApiKey(token)
@@ -269,14 +267,21 @@ export async function zapiSendChoices(
   }
 
   const data = await evolutionRequest<Record<string, unknown>>(
-    `/message/sendPoll/${encodeURIComponent(instanceId)}`,
+    `/message/sendList/${encodeURIComponent(instanceId)}`,
     {
       method: 'POST',
       body: JSON.stringify({
         number,
-        name: message,
-        selectableCount: 1,
-        values: cleaned.map(o => o.label),
+        title: message,
+        description: 'Selecione uma opção',
+        buttonText: 'Ver opções',
+        footerText: '',
+        sections: [
+          {
+            title,
+            rows: cleaned.map(o => ({ title: o.label, rowId: o.id })),
+          },
+        ],
       }),
     },
     apiKey,
@@ -286,7 +291,7 @@ export async function zapiSendChoices(
   return {
     success: true,
     messageId: toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined,
-    mode: 'buttons',
+    mode: 'list',
   }
 }
 
