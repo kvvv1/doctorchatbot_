@@ -91,13 +91,23 @@ export function parseWebhookPayload(payload: unknown): ParsedWebhookMessage {
   const token = candidate.token || candidate.clientToken || null
 
   // Extract phone (required)
-  const phone = normalizePhone(candidate.phone)
+  const phone = normalizePhone(
+    candidate.phone ||
+      candidate.data?.phone ||
+      candidate.data?.key?.remoteJid ||
+      candidate.data?.key?.participant ||
+      candidate.key?.remoteJid ||
+      candidate.key?.participant,
+  )
   if (!phone) {
     throw new Error('Missing or invalid phone number')
   }
 
   // Check if message is from us (ignore these)
-  const isFromMe = candidate.fromMe === true
+  const isFromMe =
+    candidate.fromMe === true ||
+    candidate.data?.key?.fromMe === true ||
+    candidate.key?.fromMe === true
 
   // Extract message text and normalized bot input
   const { messageText, normalizedText } = extractMessageText(candidate)
@@ -112,7 +122,11 @@ export function parseWebhookPayload(payload: unknown): ParsedWebhookMessage {
   // For interactive replies (button/list clicks) Z-API often omits messageId.
   // Generate a synthetic dedup key so duplicate webhook deliveries are ignored.
   const interactiveReplyId = extractInteractiveReplyId(candidate)
-  let messageId: string | null = getString(candidate.messageId) || null
+  let messageId: string | null =
+    getString(candidate.messageId) ||
+    getString(candidate.data?.key?.id) ||
+    getString(candidate.key?.id) ||
+    null
   if (!messageId) {
     if (interactiveReplyId && phone) {
       // Round to 10-second buckets so late duplicate deliveries still match.
@@ -159,6 +173,8 @@ function extractMessageText(payload: ZapiWebhookPayload): {
     return interactiveReply
   }
 
+  const nestedMessage = getNestedMessage(payload)
+
   // Try different possible locations for message text
   if (payload.text && typeof payload.text === 'object' && payload.text.message) {
     const text = dedupeRepeatedLines(String(payload.text.message))
@@ -173,6 +189,27 @@ function extractMessageText(payload: ZapiWebhookPayload): {
   if (payload.message && typeof payload.message === 'string') {
     const text = dedupeRepeatedLines(payload.message)
     return { messageText: text, normalizedText: text }
+  }
+
+  const nestedExtendedText = getRecord(nestedMessage?.extendedTextMessage)
+  const nestedTextMessage = getRecord(nestedMessage?.text)
+  const dataText = getRecord(payload.data?.text)
+
+  const nestedText =
+    getString(nestedMessage?.conversation) ||
+    getString(nestedExtendedText?.text) ||
+    getString(nestedTextMessage?.message) ||
+    getString(dataText?.message) ||
+    getString(payload.data?.body)
+
+  if (nestedText) {
+    const text = dedupeRepeatedLines(nestedText)
+    return { messageText: text, normalizedText: text }
+  }
+
+  const pollReply = extractPollReply(payload)
+  if (pollReply) {
+    return pollReply
   }
 
   // If no text found, check if it's a media message
@@ -281,7 +318,10 @@ function extractInteractiveReply(payload: ZapiWebhookPayload): {
 }
 
 function extractInteractiveReplyId(payload: ZapiWebhookPayload): string | null {
+  const pollOption = extractPollOptionText(payload)
+
   return (
+    pollOption ||
     getString(payload.selectedId) ||
     getString(payload.selectedRowId) ||
     getString(payload.selectedButtonId) ||
@@ -308,6 +348,93 @@ function extractInteractiveReplyId(payload: ZapiWebhookPayload): string | null {
     getString(payload.data?.buttonId) ||
     null
   )
+}
+
+function extractPollReply(payload: ZapiWebhookPayload): {
+  messageText: string
+  normalizedText: string
+} | null {
+  const optionText = extractPollOptionText(payload)
+  if (!optionText) return null
+
+  const text = dedupeRepeatedLines(optionText)
+  return { messageText: text, normalizedText: text }
+}
+
+function extractPollOptionText(payload: ZapiWebhookPayload): string | null {
+  const nestedMessage = getNestedMessage(payload)
+  const pollUpdate = getRecord(
+    payload.pollUpdateMessage ||
+      payload.pollResponseMessage ||
+      payload.data?.pollUpdateMessage ||
+      payload.data?.pollResponseMessage ||
+      payload.message?.pollUpdateMessage ||
+      payload.message?.pollResponseMessage ||
+      payload.data?.message?.pollUpdateMessage ||
+      payload.data?.message?.pollResponseMessage ||
+      nestedMessage?.pollUpdateMessage ||
+      nestedMessage?.pollResponseMessage,
+  )
+
+  if (!pollUpdate) {
+    return null
+  }
+
+  const directSelected =
+    getString(pollUpdate.selectedOption) ||
+    getString(pollUpdate.selectedOptionName) ||
+    getString(pollUpdate.optionName) ||
+    getString(pollUpdate.name) ||
+    getString(pollUpdate.text)
+
+  if (directSelected) return directSelected
+
+  const vote = getRecord(pollUpdate.vote)
+  const votes = getRecord(pollUpdate.votes)
+  const metadata = getRecord(pollUpdate.metadata)
+
+  const selectedOptions = normalizePollSelectedOptions(
+    pollUpdate.selectedOptions ||
+      pollUpdate.options ||
+      vote?.selectedOptions ||
+      votes?.selectedOptions ||
+      metadata?.selectedOptions,
+  )
+
+  return selectedOptions[0] || null
+}
+
+function normalizePollSelectedOptions(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .map(option => {
+      if (typeof option === 'string') return option.trim()
+      if (!option || typeof option !== 'object') return ''
+
+      const candidate = option as Record<string, unknown>
+      return (
+        getString(candidate.name) ||
+        getString(candidate.optionName) ||
+        getString(candidate.title) ||
+        getString(candidate.text) ||
+        getString(candidate.label) ||
+        ''
+      )
+    })
+    .filter(Boolean)
+}
+
+function getNestedMessage(payload: ZapiWebhookPayload): Record<string, unknown> | null {
+  return getRecord(payload.message) || getRecord(payload.data?.message)
+}
+
+function getRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null
+  }
+
+  return value as Record<string, unknown>
 }
 
 function dedupeRepeatedLines(value: string): string {
@@ -347,11 +474,15 @@ function extractSenderName(payload: ZapiWebhookPayload): string | null {
  */
 function extractTimestamp(payload: ZapiWebhookPayload): Date {
   // Try to get timestamp from payload
-  const moment = payload.moment || payload.momment // handle typo in Z-API
+  const moment =
+    payload.moment ||
+    payload.momment || // handle typo in Z-API
+    payload.messageTimestamp ||
+    payload.data?.messageTimestamp
 
   if (typeof moment === 'number' && moment > 0) {
-    // Z-API typically sends timestamps in milliseconds
-    return new Date(moment)
+    const ms = moment > 9_999_999_999 ? moment : moment * 1000
+    return new Date(ms)
   }
 
   // Fallback to current time

@@ -109,6 +109,49 @@ describe('parseWebhookPayload', () => {
     expect(parsed.messageId).toBe('3EB0376AE8089A9D60B983')
   })
 
+  it('parses pollUpdateMessage selected option from nested webhook payloads', () => {
+    const parsed = parseWebhookPayload({
+      instance: 'TESTE',
+      data: {
+        key: {
+          remoteJid: '5511998877665@s.whatsapp.net',
+          fromMe: false,
+          id: 'POLL_RESPONSE_1',
+        },
+        pushName: 'Bruno Teste',
+        messageTimestamp: 1776188045,
+        message: {
+          pollUpdateMessage: {
+            vote: {
+              selectedOptions: [{ name: 'Sim, confirmar consulta' }],
+            },
+          },
+        },
+      },
+    })
+
+    expect(parsed.phone).toBe('5511998877665')
+    expect(parsed.messageText).toBe('Sim, confirmar consulta')
+    expect(parsed.normalizedText).toBe('Sim, confirmar consulta')
+    expect(parsed.messageId).toBe('POLL_RESPONSE_1')
+  })
+
+  it('uses poll selected option as synthetic dedup id when message id is missing', () => {
+    const parsed = parseWebhookPayload({
+      instanceId: 'instance-1',
+      phone: '5511999999999',
+      message: {
+        pollUpdateMessage: {
+          selectedOptions: ['Falar com atendente'],
+        },
+      },
+    })
+
+    expect(parsed.messageText).toBe('Falar com atendente')
+    expect(parsed.normalizedText).toBe('Falar com atendente')
+    expect(parsed.messageId).toContain('interactive_5511999999999_Falar com atendente_')
+  })
+
   it('normalizes incoming brazilian phones to the canonical storage format', () => {
     const parsed = parseWebhookPayload({
       instanceId: 'instance-1',
