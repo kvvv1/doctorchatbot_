@@ -719,14 +719,14 @@ async function triggerBotResponseSafe(
   const acquiredLock = await acquireBotProcessingLock(conversationId)
 
   if (!acquiredLock) {
+    console.warn('[Bot] Processing lock already held, proceeding without lock:', conversationId)
     await logWebhookActivity({
       level: 'warn',
-      action: 'bot.lock.skipped',
+      action: 'bot.lock.bypassed',
       phone,
       conversationId,
       details: { clinic_id: clinicId },
     })
-    return
   }
 
   try {
@@ -736,7 +736,10 @@ async function triggerBotResponseSafe(
       .eq('id', conversationId)
       .maybeSingle()
 
-    if (!conversation) return
+    if (!conversation) {
+      console.warn('[Bot] Conversation not found before safe trigger:', conversationId)
+      return
+    }
 
     const conversationMode = getConversationMode({
       bot_enabled: conversation.bot_enabled,
@@ -744,6 +747,11 @@ async function triggerBotResponseSafe(
     })
 
     if (conversationMode === 'human') {
+      console.log('[Bot] Conversation in human mode, bot silenced:', {
+        conversationId,
+        status: conversation.status,
+        botEnabled: conversation.bot_enabled,
+      })
       const patientLabel = conversation.patient_name || phone
       sendPushToClinicUsers({
         clinicId,
@@ -867,7 +875,9 @@ async function triggerBotResponseSafe(
       triggerMessageId,
     )
   } finally {
-    await releaseBotProcessingLock(conversationId)
+    if (acquiredLock) {
+      await releaseBotProcessingLock(conversationId)
+    }
   }
 }
 
