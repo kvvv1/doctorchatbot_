@@ -746,7 +746,36 @@ async function triggerBotResponseSafe(
       status: conversation.status,
     })
 
-    if (conversationMode === 'human') {
+    const reactivatedFromHuman = conversationMode === 'human' && isGreetingLikeMessage(messageText)
+
+    if (reactivatedFromHuman) {
+      await supabase
+        .from('conversations')
+        .update({
+          bot_enabled: true,
+          bot_state: 'menu',
+          bot_context: {
+            ...(conversation.bot_context || {}),
+            patientPhone: phone,
+          },
+          status: 'in_progress',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', conversationId)
+
+      console.log('[Bot] Reactivated from human mode by patient message:', {
+        conversationId,
+        inputPreview: messageText.substring(0, 50),
+      })
+
+      await logWebhookActivity({
+        level: 'info',
+        action: 'bot.reactivated_from_human_mode',
+        phone,
+        conversationId,
+        details: { clinic_id: clinicId, previous_status: conversation.status },
+      })
+    } else if (conversationMode === 'human') {
       console.log('[Bot] Conversation in human mode, bot silenced:', {
         conversationId,
         status: conversation.status,
@@ -773,7 +802,7 @@ async function triggerBotResponseSafe(
       return
     }
 
-    const currentState = (conversation.bot_state || 'menu') as BotState
+    const currentState = (reactivatedFromHuman ? 'menu' : (conversation.bot_state || 'menu')) as BotState
     const currentContext = (conversation.bot_context || {}) as BotContext
 
     if (conversationMode === 'bot' && currentState === 'menu') {
