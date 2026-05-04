@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSessionProfile } from '@/lib/auth/getSessionProfile'
-import { mpClient } from '@/lib/mercadopago/client'
+import { getMpClient } from '@/lib/mercadopago/client'
 import { PreApproval } from 'mercadopago'
 
 export const dynamic = 'force-dynamic'
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const preApproval = new PreApproval(mpClient)
+    const preApproval = new PreApproval(getMpClient())
 
     if (action === 'cancel') {
       await preApproval.update({

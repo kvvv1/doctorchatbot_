@@ -5,11 +5,15 @@
 
 import { MercadoPagoConfig } from 'mercadopago'
 
-if (!process.env.MP_ACCESS_TOKEN) {
-  throw new Error('MP_ACCESS_TOKEN is not set in environment variables')
-}
+export function getMpClient(): MercadoPagoConfig {
+  const accessToken = process.env.MP_ACCESS_TOKEN
 
-export const mpClient = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN,
-  options: { timeout: 5000 },
-})
+  if (!accessToken) {
+    throw new Error('MP_ACCESS_TOKEN is not set in environment variables')
+  }
+
+  return new MercadoPagoConfig({
+    accessToken,
+    options: { timeout: 5000 },
+  })
+}

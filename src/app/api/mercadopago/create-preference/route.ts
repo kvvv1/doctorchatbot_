@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSessionProfile } from '@/lib/auth/getSessionProfile'
-import { mpClient } from '@/lib/mercadopago/client'
+import { getMpClient } from '@/lib/mercadopago/client'
 import { PreApproval } from 'mercadopago'
 import { isValidPlanKey, getMpPlanId, getPlan, type PlanKey } from '@/config/plans'
 
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const appUrl = process.env.APP_URL || 'http://localhost:3000'
 
     // Criar preapproval (assinatura recorrente) no Mercado Pago
-    const preApproval = new PreApproval(mpClient)
+    const preApproval = new PreApproval(getMpClient())
     const subscription = await preApproval.create({
       body: {
         preapproval_plan_id: mpPlanId,

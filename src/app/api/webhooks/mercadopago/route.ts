@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { mpClient } from '@/lib/mercadopago/client'
+import { getMpClient } from '@/lib/mercadopago/client'
 import { PreApproval, Payment } from 'mercadopago'
 import crypto from 'crypto'
 
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
 async function handleSubscriptionEvent(subscriptionId: string) {
   if (!subscriptionId) return
 
-  const preApproval = new PreApproval(mpClient)
+  const preApproval = new PreApproval(getMpClient())
   const subscription = await preApproval.get({ id: subscriptionId })
 
   const supabase = createAdminClient()
@@ -127,7 +127,7 @@ async function handleSubscriptionEvent(subscriptionId: string) {
 async function handlePaymentEvent(paymentId: string) {
   if (!paymentId) return
 
-  const payment = new Payment(mpClient)
+  const payment = new Payment(getMpClient())
   const paymentData = await payment.get({ id: paymentId })
 
   // Pagamentos de assinatura têm preapproval_id
