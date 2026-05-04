@@ -208,6 +208,29 @@ function extractInteractiveReply(data: Record<string, unknown>): {
 
   const msg = data.message as Record<string, unknown> | undefined
 
+  // nativeFlowMessage quick_reply response (interactiveResponseMessage)
+  const interactiveResp = msg?.interactiveResponseMessage as Record<string, unknown> | undefined
+  if (interactiveResp) {
+    const nativeFlowResp = interactiveResp.nativeFlowResponseMessage as Record<string, unknown> | undefined
+    const bodyText = str((interactiveResp.body as Record<string, unknown>)?.text)
+    let nativeId: string | null = null
+    let nativeLabel: string | null = null
+    if (nativeFlowResp?.paramsJson) {
+      try {
+        const params = JSON.parse(str(nativeFlowResp.paramsJson) || '{}') as Record<string, unknown>
+        nativeId = str(params.id) || str(params.rowId)
+        nativeLabel = str(params.display_text) || str(params.title)
+      } catch { /* ignore */ }
+    }
+    const label = nativeLabel || bodyText
+    const resolvedId = nativeId || id
+    if (label || resolvedId) {
+      const messageText = dedup(label || resolvedId || '[Botão]')
+      const normalizedText = label ? dedup(label) : (resolvedId?.trim() ?? messageText)
+      return { messageText, normalizedText }
+    }
+  }
+
   const label =
     str((msg?.buttonsResponseMessage as Record<string, unknown>)?.selectedDisplayText) ||
     str((msg?.listResponseMessage as Record<string, unknown>)?.title) ||
@@ -235,6 +258,19 @@ function extractInteractiveReply(data: Record<string, unknown>): {
 
 function extractInteractiveId(data: Record<string, unknown>): string | null {
   const msg = data.message as Record<string, unknown> | undefined
+
+  // nativeFlowMessage quick_reply response
+  const interactiveResp = msg?.interactiveResponseMessage as Record<string, unknown> | undefined
+  if (interactiveResp) {
+    const nativeFlowResp = interactiveResp.nativeFlowResponseMessage as Record<string, unknown> | undefined
+    if (nativeFlowResp?.paramsJson) {
+      try {
+        const params = JSON.parse(str(nativeFlowResp.paramsJson) || '{}') as Record<string, unknown>
+        const nativeId = str(params.id) || str(params.rowId)
+        if (nativeId) return nativeId
+      } catch { /* ignore */ }
+    }
+  }
 
   return (
     str((msg?.buttonsResponseMessage as Record<string, unknown>)?.selectedButtonId) ||

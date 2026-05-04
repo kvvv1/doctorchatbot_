@@ -252,7 +252,7 @@ export async function zapiSendChoices(
   phone: string,
   message: string,
   options: ZapiChoiceOption[],
-  title = 'Opções disponíveis',
+  _title = 'Opções disponíveis',
 ): Promise<{ success: boolean; messageId?: string; mode: 'buttons' | 'list' }> {
   const { instanceId, token } = credentials
   const apiKey = resolveApiKey(token)
@@ -266,35 +266,38 @@ export async function zapiSendChoices(
     throw new Error('Nenhuma opção válida para envio interativo.')
   }
 
-  const body = {
-    number,
-    title: message,
-    description: 'Selecione uma opção',
-    buttonText: 'Ver opções',
-    footerText: '',
-    sections: [
-      {
-        title,
-        rows: cleaned.map(o => ({ title: o.label, rowId: o.id })),
-      },
-    ],
+  // sendButtons uses interactiveMessage.nativeFlowMessage which is delivered by WhatsApp servers.
+  // Max 3 reply buttons per message; send multiple messages if more options are needed.
+  const CHUNK_SIZE = 3
+  let lastData: Record<string, unknown> = {}
+
+  for (let i = 0; i < cleaned.length; i += CHUNK_SIZE) {
+    const chunk = cleaned.slice(i, i + CHUNK_SIZE)
+    const isFirst = i === 0
+    const body = {
+      number,
+      title: isFirst ? message : '(continuação)',
+      description: 'Selecione uma opção',
+      footer: '',
+      buttons: chunk.map(o => ({ type: 'reply', displayText: o.label, id: o.id })),
+    }
+
+    console.log('[Evolution] Sending buttons:', { instanceId, number, chunk: i / CHUNK_SIZE + 1, count: chunk.length })
+
+    lastData = await evolutionRequest<Record<string, unknown>>(
+      `/message/sendButtons/${encodeURIComponent(instanceId)}`,
+      { method: 'POST', body: JSON.stringify(body) },
+      apiKey,
+      45000,
+    )
+
+    console.log('[Evolution] Buttons sent:', JSON.stringify(lastData))
   }
-
-  console.log('[Evolution] Sending list:', { instanceId, number, optionsCount: cleaned.length, body: JSON.stringify(body) })
-
-  const data = await evolutionRequest<Record<string, unknown>>(
-    `/message/sendList/${encodeURIComponent(instanceId)}`,
-    { method: 'POST', body: JSON.stringify(body) },
-    apiKey,
-    45000,
-  )
-
-  console.log('[Evolution] List sent:', JSON.stringify(data))
 
   return {
     success: true,
-    messageId: toString((data.key as Record<string, unknown>)?.id) || toString(data.id) || undefined,
-    mode: 'list',
+    messageId: toString((lastData.key as Record<string, unknown>)?.id) || toString(lastData.id) || undefined,
+    mode: 'buttons',
   }
 }
 
