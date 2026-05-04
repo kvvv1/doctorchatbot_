@@ -8,7 +8,7 @@
  * bot, reminder, and appointment flows stay in sync between providers.
  */
 
-import { after, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { ParsedWebhookMessage, ParsedConnectionStatusWebhook } from '@/lib/zapi/webhookParser'
 import {
@@ -236,7 +236,7 @@ export async function handleMessageWebhook(
     })
   }
 
-  // 6. Trigger bot asynchronously (after response lifecycle)
+  // 6. Trigger bot response
   const conversationId = result.conversationId
   const botInput = parsed.normalizedText || parsed.messageText
   const shouldTriggerBot =
@@ -248,22 +248,20 @@ export async function handleMessageWebhook(
   if (shouldTriggerBot) {
     const triggerMessageId = result.messageId
 
-    after(async () => {
-      console.log('[Webhook] Running deferred bot response:', {
-        conversationId,
-        phone: parsed.phone,
-        inputPreview: botInput.substring(0, 80),
-      })
-
-      await triggerBotResponseSafe(
-        conversationId!,
-        parsed.phone,
-        botInput,
-        clinicId,
-        result.createdConversation ?? false,
-        triggerMessageId,
-      )
+    console.log('[Webhook] Running bot response:', {
+      conversationId,
+      phone: parsed.phone,
+      inputPreview: botInput.substring(0, 80),
     })
+
+    await triggerBotResponseSafe(
+      conversationId!,
+      parsed.phone,
+      botInput,
+      clinicId,
+      result.createdConversation ?? false,
+      triggerMessageId,
+    )
   }
 
   return NextResponse.json({
